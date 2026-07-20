@@ -5,7 +5,6 @@ import { defaultFeatureFlags, type FeatureFlagKey, type FeatureFlags } from '$li
 import { updateFeatureFlag } from '$lib/remote/feature-flags.remote';
 import {
 	deleteUserWithVerification,
-	getOrganizationResources,
 	getUserResources,
 	listAdminUsers,
 	setUserAdmin,
@@ -15,7 +14,6 @@ import {
 	type AdminUser,
 	type UserAccount,
 	type UserApiToken,
-	type UserOrganization,
 	type UserSession,
 	type UserSshKey
 } from '$lib/remote/admin-users.remote';
@@ -28,12 +26,10 @@ export type AdminPageData = {
 type UserResources = {
 	sessions: UserSession[];
 	accounts: UserAccount[];
-	members: UserOrganization[];
+
 	sshKeys: UserSshKey[];
 	apiTokens: UserApiToken[];
 };
-
-type OrganizationResources = Awaited<ReturnType<typeof getOrganizationResources>>;
 
 export class AdminState {
 	adminUsers = $state<AdminUser[]>([]);
@@ -47,9 +43,6 @@ export class AdminState {
 	userResources = $state<UserResources | null>(null);
 	userResourcesLoading = $state(false);
 	userResourcesError = $state('');
-	organizationResources = $state<Record<string, OrganizationResources>>({});
-	organizationResourcesLoading = $state<Record<string, boolean>>({});
-	organizationResourcesError = $state<Record<string, string>>({});
 
 	constructor(data?: AdminPageData) {
 		if (data) this.sync(data);
@@ -82,24 +75,6 @@ export class AdminState {
 			this.userResourcesError = getErrorMessage(err, 'Failed to load user resources');
 		} finally {
 			this.userResourcesLoading = false;
-		}
-	}
-
-	async loadOrganizationResources(orgId: string) {
-		this.organizationResourcesLoading = { ...this.organizationResourcesLoading, [orgId]: true };
-		this.organizationResourcesError = { ...this.organizationResourcesError, [orgId]: '' };
-		try {
-			this.organizationResources = {
-				...this.organizationResources,
-				[orgId]: await runQuery(getOrganizationResources({ orgId }))
-			};
-		} catch (err) {
-			this.organizationResourcesError = {
-				...this.organizationResourcesError,
-				[orgId]: getErrorMessage(err, 'Failed to load workspace resources')
-			};
-		} finally {
-			this.organizationResourcesLoading = { ...this.organizationResourcesLoading, [orgId]: false };
 		}
 	}
 

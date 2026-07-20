@@ -1,11 +1,11 @@
 {
-  "id": "b80ead47-3e06-4a3f-8a1d-0cfa2e0f6350",
+  "id": "abc5d5de-465e-4246-8007-5d5d3acfa4ab",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.base_images": {
-      "name": "base_images",
+    "public.api_tokens": {
+      "name": "api_tokens",
       "schema": "",
       "columns": {
         "id": {
@@ -14,8 +14,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "file_path": {
-          "name": "file_path",
+        "user_id": {
+          "name": "user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -26,220 +26,23 @@
           "primaryKey": false,
           "notNull": true
         },
-        "version": {
-          "name": "version",
+        "token_hash": {
+          "name": "token_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "isa": {
-          "name": "isa",
-          "type": "vm_isa",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.ip_assignments": {
-      "name": "ip_assignments",
-      "schema": "",
-      "columns": {
-        "ip": {
-          "name": "ip",
-          "type": "inet",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ip_block_id": {
-          "name": "ip_block_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "associated_vm_id": {
-          "name": "associated_vm_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "ip_assignments_ip_block_id_ip_blocks_id_fk": {
-          "name": "ip_assignments_ip_block_id_ip_blocks_id_fk",
-          "tableFrom": "ip_assignments",
-          "tableTo": "ip_blocks",
-          "columnsFrom": [
-            "ip_block_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "ip_assignments_associated_vm_id_vms_id_fk": {
-          "name": "ip_assignments_associated_vm_id_vms_id_fk",
-          "tableFrom": "ip_assignments",
-          "tableTo": "vms",
-          "columnsFrom": [
-            "associated_vm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.ip_blocks": {
-      "name": "ip_blocks",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "ip_block": {
-          "name": "ip_block",
-          "type": "cidr",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.payment_periods": {
-      "name": "payment_periods",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "vm_id": {
-          "name": "vm_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "start_date": {
-          "name": "start_date",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "end_date": {
-          "name": "end_date",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rate": {
-          "name": "rate",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cap": {
-          "name": "cap",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "payment_periods_vm_id_vms_id_fk": {
-          "name": "payment_periods_vm_id_vms_id_fk",
-          "tableFrom": "payment_periods",
-          "tableTo": "vms",
-          "columnsFrom": [
-            "vm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.project_permissions": {
-      "name": "project_permissions",
-      "schema": "",
-      "columns": {
-        "project_id": {
-          "name": "project_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "permissions": {
-          "name": "permissions",
-          "type": "project_permissions_enum",
-          "typeSchema": "public",
+        "created_at": {
+          "name": "created_at",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "project_user_permissions_index": {
-          "name": "project_user_permissions_index",
+        "api_tokens_user_id_index": {
+          "name": "api_tokens_user_id_index",
           "columns": [
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "user_id",
               "isExpression": false,
@@ -253,29 +56,15 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "project_permissions_project_id_projects_id_fk": {
-          "name": "project_permissions_project_id_projects_id_fk",
-          "tableFrom": "project_permissions",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.projects": {
-      "name": "projects",
+    "public.managed_hosts": {
+      "name": "managed_hosts",
       "schema": "",
       "columns": {
         "id": {
@@ -284,26 +73,106 @@
           "primaryKey": true,
           "notNull": true
         },
-        "project_name": {
-          "name": "project_name",
+        "display_name": {
+          "name": "display_name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "owner_user_id": {
-          "name": "owner_user_id",
+        "connection_state": {
+          "name": "connection_state",
+          "type": "managed_host_connection_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "agent_url": {
+          "name": "agent_url",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "creation_date": {
-          "name": "creation_date",
+        "bearer_token": {
+          "name": "bearer_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
           "type": "bigint",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "agent_version": {
+          "name": "agent_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hostname": {
+          "name": "hostname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "os": {
+          "name": "os",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "arch": {
+          "name": "arch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "capabilities": {
+          "name": "capabilities",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "(extract(epoch from now()) * 1000)::bigint"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "(extract(epoch from now()) * 1000)::bigint"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "managed_hosts_connection_state_index": {
+          "name": "managed_hosts_connection_state_index",
+          "columns": [
+            {
+              "expression": "connection_state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -352,218 +221,24 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "ssh_keys_user_id_index": {
+          "name": "ssh_keys_user_id_index",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.vm_types": {
-      "name": "vm_types",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "isa": {
-          "name": "isa",
-          "type": "vm_isa",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cores": {
-          "name": "cores",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ram_capacity": {
-          "name": "ram_capacity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "storage_amount": {
-          "name": "storage_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rate": {
-          "name": "rate",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cap": {
-          "name": "cap",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.vms": {
-      "name": "vms",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "owner_project_id": {
-          "name": "owner_project_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "vm_type_id": {
-          "name": "vm_type_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "creation_date": {
-          "name": "creation_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "backend": {
-          "name": "backend",
-          "type": "vm_backend",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "vms_owner_project_id_projects_id_fk": {
-          "name": "vms_owner_project_id_projects_id_fk",
-          "tableFrom": "vms",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "owner_project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "vms_vm_type_id_vm_types_id_fk": {
-          "name": "vms_vm_type_id_vm_types_id_fk",
-          "tableFrom": "vms",
-          "tableTo": "vm_types",
-          "columnsFrom": [
-            "vm_type_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.volumes": {
-      "name": "volumes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "size": {
-          "name": "size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "owner_project_id": {
-          "name": "owner_project_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "associated_vm_id": {
-          "name": "associated_vm_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "volumes_owner_project_id_projects_id_fk": {
-          "name": "volumes_owner_project_id_projects_id_fk",
-          "tableFrom": "volumes",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "owner_project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "volumes_associated_vm_id_vms_id_fk": {
-          "name": "volumes_associated_vm_id_vms_id_fk",
-          "tableFrom": "volumes",
-          "tableTo": "vms",
-          "columnsFrom": [
-            "associated_vm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -655,8 +330,8 @@
         }
       },
       "indexes": {
-        "account_userId_idx": {
-          "name": "account_userId_idx",
+        "account_user_id_idx": {
+          "name": "account_user_id_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -764,8 +439,8 @@
         }
       },
       "indexes": {
-        "passkey_userId_idx": {
-          "name": "passkey_userId_idx",
+        "passkey_user_id_idx": {
+          "name": "passkey_user_id_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -779,8 +454,8 @@
           "method": "btree",
           "with": {}
         },
-        "passkey_credentialID_idx": {
-          "name": "passkey_credentialID_idx",
+        "passkey_credential_id_idx": {
+          "name": "passkey_credential_id_idx",
           "columns": [
             {
               "expression": "credential_id",
@@ -868,11 +543,17 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "impersonated_by": {
+          "name": "impersonated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "session_userId_idx": {
-          "name": "session_userId_idx",
+        "session_user_id_idx": {
+          "name": "session_user_id_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -943,11 +624,31 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "verified": {
+          "name": "verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "failed_verification_count": {
+          "name": "failed_verification_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
-        "twoFactor_secret_idx": {
-          "name": "twoFactor_secret_idx",
+        "two_factor_secret_idx": {
+          "name": "two_factor_secret_idx",
           "columns": [
             {
               "expression": "secret",
@@ -961,8 +662,8 @@
           "method": "btree",
           "with": {}
         },
-        "twoFactor_userId_idx": {
-          "name": "twoFactor_userId_idx",
+        "two_factor_user_id_idx": {
+          "name": "two_factor_user_id_idx",
           "columns": [
             {
               "expression": "user_id",
@@ -1047,11 +748,43 @@
           "notNull": true,
           "default": "now()"
         },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "banned": {
+          "name": "banned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "ban_reason": {
+          "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ban_expires": {
+          "name": "ban_expires",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "two_factor_enabled": {
           "name": "two_factor_enabled",
           "type": "boolean",
           "primaryKey": false,
           "notNull": false,
+          "default": false
+        },
+        "is_admin": {
+          "name": "is_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
           "default": false
         }
       },
@@ -1140,29 +873,13 @@
     }
   },
   "enums": {
-    "public.project_permissions_enum": {
-      "name": "project_permissions_enum",
+    "public.managed_host_connection_state": {
+      "name": "managed_host_connection_state",
       "schema": "public",
       "values": [
-        "admin",
-        "read_write",
-        "read"
-      ]
-    },
-    "public.vm_backend": {
-      "name": "vm_backend",
-      "schema": "public",
-      "values": [
-        "proxmox"
-      ]
-    },
-    "public.vm_isa": {
-      "name": "vm_isa",
-      "schema": "public",
-      "values": [
-        "x86",
-        "arm",
-        "risc-v"
+        "online",
+        "offline",
+        "unknown"
       ]
     }
   },

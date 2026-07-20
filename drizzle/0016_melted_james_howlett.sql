@@ -1,1 +1,0 @@
-ALTER TABLE "project_billing_customers" ADD COLUMN "past_due_since" bigint;

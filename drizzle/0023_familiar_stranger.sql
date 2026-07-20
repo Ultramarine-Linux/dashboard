@@ -1,1 +1,0 @@
-ALTER TABLE "base_images" ADD COLUMN "secure_boot" boolean DEFAULT true NOT NULL;

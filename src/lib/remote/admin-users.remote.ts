@@ -27,12 +27,6 @@ export type UserAccount = {
 	createdAt: Date;
 };
 
-export type UserOrganization = {
-	id: string;
-	name: string;
-	role: string;
-};
-
 export type UserSshKey = {
 	id: string;
 	name: string;
@@ -296,11 +290,5 @@ export const getUserResources = query(getUserResourcesParams, async (params) => 
 			.where(eq(apiTokens.userId, params.userId))
 	]);
 
-	return { sessions, accounts, members: [], sshKeys: sshKeysList, apiTokens: apiTokenList };
-});
-
-const getOrgResourcesParams = type({ orgId: 'string' });
-export const getOrganizationResources = query(getOrgResourcesParams, async () => {
-	await requireCurrentAdmin();
-	return { vms: [], volumes: [] };
+	return { sessions, accounts, sshKeys: sshKeysList, apiTokens: apiTokenList };
 });

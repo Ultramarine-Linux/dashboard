@@ -40,7 +40,7 @@
 			</p>
 
 			<div class="mt-5 divide-y divide-border border border-border">
-				{#each [['Kind', host.hostKind], ['Mode', host.connectionMode], ['Last seen', formatDate(host.lastSeenAt)], ['OS', formatOs(host.os)], ['Arch', host.arch ?? 'Unknown'], ['Agent', host.agentVersion ?? 'Unknown']] as [label, value] (label)}
+				{#each [['Mode', 'direct_http'], ['Last seen', formatDate(host.lastSeenAt)], ['OS', formatOs(host.os)], ['Arch', host.arch ?? 'Unknown'], ['Agent', host.agentVersion ?? 'Unknown']] as [label, value] (label)}
 					<div class="flex items-center justify-between gap-4 px-4 py-3">
 						<span class="text-xs text-muted-foreground">{label}</span>
 						<span class="truncate text-right text-xs font-medium text-foreground">{value}</span>

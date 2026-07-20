@@ -12,7 +12,7 @@ import { getRequestEvent } from '$app/server';
 import ResetPasswordEmail from '$lib/emails/reset-password.svelte';
 import VerifyEmail from '$lib/emails/verify-email.svelte';
 import { initDrizzle, type Database } from '$lib/server/db';
-import { member, user as userTable, verification } from '$lib/server/db/schema';
+import { user as userTable, verification } from '$lib/server/db/schema';
 import { sendRenderedEmail } from '$lib/server/email';
 import { sendSecurityAlertEmail } from '$lib/server/email-notifications';
 
@@ -119,12 +119,6 @@ function buildAuth() {
 			},
 			additionalFields: {
 				isAdmin: {
-					type: 'boolean',
-					input: false,
-					required: true,
-					defaultValue: false
-				},
-				billingExempt: {
 					type: 'boolean',
 					input: false,
 					required: true,

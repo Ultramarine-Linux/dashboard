@@ -1,10 +1,10 @@
 import { command, getRequestEvent, query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
-import { and, desc, eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { initDrizzle } from '$lib/server/db';
 import { managedHosts } from '$lib/server/db/schema';
-import { ensureLocalWorkspace } from '$lib/server/local-workspace';
+
 import { createTetraClient, type AgentResponse } from '$lib/server/tetra/client';
 import {
 	accessibilityFixtureEnabled,
@@ -14,9 +14,6 @@ import {
 export type ManagedHost = {
 	id: string;
 	displayName: string;
-	ownerProjectId: string;
-	hostKind: 'local';
-	linkedVmId: string | null;
 	connectionMode: 'direct_http';
 	connectionState: 'online' | 'offline' | 'unknown';
 	agentUrl: string | null;
@@ -126,9 +123,6 @@ function mapHost(row: typeof managedHosts.$inferSelect): ManagedHost {
 	return {
 		id: row.id,
 		displayName: row.displayName,
-		ownerProjectId: row.ownerProjectId,
-		hostKind: 'local',
-		linkedVmId: null,
 		connectionMode: 'direct_http',
 		connectionState: row.connectionState,
 		agentUrl: row.agentUrl,
@@ -145,21 +139,20 @@ function mapHost(row: typeof managedHosts.$inferSelect): ManagedHost {
 }
 
 async function loadManagedHost(hostId: string) {
-	const user = requireUser();
+	requireUser();
 	const db = initDrizzle();
-	const workspaceId = await ensureLocalWorkspace(db, user.id);
 	const host = await db.query.managedHosts.findFirst({
 		where: eq(managedHosts.id, hostId)
 	});
 
-	if (!host || host.ownerProjectId !== workspaceId) error(404, 'Managed host not found');
+	if (!host) error(404, 'Managed host not found');
 
 	return { db, host };
 }
 
 async function refreshHostCapabilities(host: typeof managedHosts.$inferSelect) {
 	const client = createTetraClient({
-		connectionMode: host.connectionMode,
+		connectionMode: 'direct_http',
 		agentUrl: host.agentUrl,
 		bearerToken: host.bearerToken
 	});
@@ -477,7 +470,7 @@ async function dispatchHostCommand(
 	command: { module: string; action: string; payload: Record<string, unknown> }
 ) {
 	const client = createTetraClient({
-		connectionMode: host.connectionMode,
+		connectionMode: 'direct_http',
 		agentUrl: host.agentUrl,
 		bearerToken: host.bearerToken
 	});
@@ -498,18 +491,15 @@ async function markHostDispatchResult(
 			lastError: response.ok ? null : response.error || null,
 			updatedAt: now
 		})
-		.where(and(eq(managedHosts.id, host.id), eq(managedHosts.ownerProjectId, host.ownerProjectId)));
+		.where(eq(managedHosts.id, host.id));
 }
 
 export const listManagedHosts = query(async (): Promise<ManagedHost[]> => {
-	const user = requireUser();
+	requireUser();
 	if (accessibilityFixtureEnabled) return accessibilityFixtureManagedHosts;
 
 	const db = initDrizzle();
-	const workspaceId = await ensureLocalWorkspace(db, user.id);
-
 	const rows = await db.query.managedHosts.findMany({
-		where: eq(managedHosts.ownerProjectId, workspaceId),
 		orderBy: [desc(managedHosts.createdAt)]
 	});
 
@@ -534,9 +524,8 @@ const createParams = type({
 	bearerToken: 'string?'
 });
 export const createManagedHost = command(createParams, async (params): Promise<ManagedHost> => {
-	const user = requireUser();
+	requireUser();
 	const db = initDrizzle();
-	const workspaceId = await ensureLocalWorkspace(db, user.id);
 
 	const displayName = params.displayName.trim();
 	if (!displayName) error(400, 'Display name is required');
@@ -552,10 +541,6 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 		.insert(managedHosts)
 		.values({
 			displayName,
-			ownerProjectId: workspaceId,
-			hostKind: 'local',
-			linkedVmId: null,
-			connectionMode: 'direct_http',
 			connectionState: 'unknown',
 			agentUrl,
 			bearerToken: params.bearerToken?.trim() || null
