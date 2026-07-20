@@ -49,16 +49,15 @@ From the repo root:
 ```sh
 CI=true \
 ACCESSIBILITY_FIXTURES=1 \
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://fixture:fixture@127.0.0.1:5432/fixture \
-pnpm --filter stack-dashboard run dev --host 127.0.0.1 --port 5173
+DATABASE_URL=postgres://fixture:fixture@127.0.0.1:5432/fixture \
+pnpm --filter ultramarine-dashboard-app run dev --host 127.0.0.1 --port 5173
 ```
 
-The Hyperdrive connection string only satisfies Cloudflare adapter local
-emulation. Fixture-backed routes do not connect to that database.
+The fixture database URL satisfies server startup. Fixture-backed routes do not connect to that database.
 
 Useful fixture URLs:
 
-- Stack brand managed host:
+- Managed host:
   `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host`
 - Managed host Podman tab:
   `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/podman`
@@ -74,17 +73,6 @@ Useful fixture URLs:
   `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/dispatch`
 - Fixture VM:
   `http://127.0.0.1:5173/projects/accessibility-project/servers/accessibility-server`
-
-To test Ultramarine branding, add `PUBLIC_DASHBOARD_BRAND=ultramarine` before
-the command:
-
-```sh
-CI=true \
-ACCESSIBILITY_FIXTURES=1 \
-PUBLIC_DASHBOARD_BRAND=ultramarine \
-CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://fixture:fixture@127.0.0.1:5432/fixture \
-pnpm --filter stack-dashboard run dev --host 127.0.0.1 --port 5173
-```
 
 Fixture data lives in
 `apps/dashboard/src/lib/server/accessibility-fixtures.ts`. If a UI needs more
