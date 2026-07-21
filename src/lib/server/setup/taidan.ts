@@ -1,3 +1,5 @@
+// Mirrors the headless planning contract in taidan::backend::server_setup.
+// Keep this adapter narrow so it can later call a Taidan service/CLI directly.
 export type SetupDomainMode = 'fyra_subdomain' | 'custom_domain';
 export type SetupAccessMode = 'direct' | 'cloudflare_tunnel' | 'manual_tunnel';
 
@@ -89,7 +91,9 @@ export async function planDomainSetup(input: SetupDomainInput): Promise<SetupPla
 			`Use ${dashboardDomain} for the dashboard.`,
 			input.accessMode === 'direct'
 				? 'Forward ports 80 and 443 to this server so Caddy can issue certificates.'
-				: 'Create a tunnel connector before publishing records that point at the tunnel.',
+				: input.accessMode === 'cloudflare_tunnel'
+					? 'Create a Cloudflare Tunnel connector before publishing tunnel CNAME records.'
+					: 'Configure your tunnel or VPN provider to route HTTP(S) traffic to this server.',
 			'The dashboard can use subdomains under this root for apps by default.'
 		]
 	};
