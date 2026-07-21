@@ -1,5 +1,11 @@
 <script lang="ts">
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import type { ManagedHost } from '$lib/remote/managed-hosts.remote';
+	import Check from '~icons/lucide/check';
+	import ChevronDown from '~icons/lucide/chevron-down';
+	import Minus from '~icons/lucide/minus';
+	import { parseHostCapabilities, type ModuleStatus } from './lib/capabilities';
 
 	type PageData = {
 		host: ManagedHost;
@@ -7,6 +13,8 @@
 
 	let { data }: { data: PageData } = $props();
 	const host = $derived(data.host);
+	const parsed = $derived(parseHostCapabilities(host.capabilities));
+	let showRawCapabilities = $state(false);
 
 	function formatDate(value: number | null) {
 		return value ? new Date(value).toLocaleString() : 'Never';
@@ -22,6 +30,10 @@
 		if (normalized.includes('ultramarine')) return 'Ultramarine';
 		if (normalized === 'linux') return 'Linux';
 		return value;
+	}
+
+	function statusVariant(status: ModuleStatus) {
+		return status === 'available' ? 'default' : 'secondary';
 	}
 </script>
 
@@ -62,18 +74,80 @@
 				<div>
 					<h2 class="text-sm font-semibold text-foreground">Capabilities</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Last successful `agent.capabilities` response.
+						Modules exposed by this Tetra agent via `agent.capabilities`.
 					</p>
 				</div>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="h-7 gap-1.5 px-2.5 text-xs"
+					onclick={() => (showRawCapabilities = !showRawCapabilities)}
+					aria-expanded={showRawCapabilities}
+				>
+					<ChevronDown
+						class="size-3 transition-transform {showRawCapabilities ? 'rotate-180' : ''}"
+					/>
+					Raw JSON
+				</Button>
 			</div>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
-			<pre
-				role="region"
-				aria-label="Host capabilities JSON"
-				tabindex="0"
-				class="mt-4 max-h-[34rem] overflow-auto border border-border bg-muted/30 p-4 text-xs leading-relaxed text-foreground">{formatJson(
-					host.capabilities
-				)}</pre>
+
+			{#if parsed.modules.length > 0}
+				<ul class="mt-4 divide-y divide-border border border-border">
+					{#each parsed.modules as module (module.name)}
+						<li class="p-4">
+							<div class="flex flex-wrap items-center gap-2">
+								<span class="font-mono text-sm font-semibold text-foreground">{module.name}</span>
+								<Badge variant={statusVariant(module.status)} class="gap-1 text-[10px]">
+									{#if module.status === 'available'}
+										<Check class="size-3" />
+									{:else}
+										<Minus class="size-3" />
+									{/if}
+									{module.status}
+								</Badge>
+								{#if module.feature}
+									<span
+										class="border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+										>{module.feature}</span
+									>
+								{/if}
+							</div>
+							{#if module.description}
+								<p class="mt-1.5 text-xs text-muted-foreground">{module.description}</p>
+							{/if}
+							{#if module.actions.length > 0}
+								<div class="mt-3 flex flex-wrap gap-1.5">
+									{#each module.actions as action (action)}
+										<span
+											class="border border-border bg-muted/30 px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+											>{action}</span
+										>
+									{/each}
+								</div>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<div class="mt-4 border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+					{#if parsed.raw}
+						No structured module list available. Showing the raw payload below.
+					{:else}
+						This agent reported no enabled modules.
+					{/if}
+				</div>
+			{/if}
+
+			{#if showRawCapabilities || parsed.raw}
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
+				<pre
+					role="region"
+					aria-label="Host capabilities JSON"
+					tabindex="0"
+					class="mt-4 max-h-136 overflow-auto border border-border bg-muted/30 p-4 text-xs leading-relaxed text-foreground">{formatJson(
+						host.capabilities
+					)}</pre>
+			{/if}
 		</section>
 	</div>
 </div>
