@@ -1,1 +1,0 @@
-ALTER TABLE "organization" ADD COLUMN "billing_exempt" boolean DEFAULT false NOT NULL;

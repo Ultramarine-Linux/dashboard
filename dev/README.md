@@ -29,6 +29,55 @@ this is needed cause the 3 proxmox nodes will make a lot of inotify instances.
   `sudo wg-quick up dev/fyra-wg.conf` / `sudo wg-quick down dev/fyra-wg.conf`
 - PVE web UIs: `https://127.0.0.1:8006`-`8008` (root / fyradev)
 
+## Fixture UI mode (non-Linux)
+
+Use fixture mode when you only need to test Svelte UI changes and do not want
+to run Postgres, Proxmox, VyOS, or a Tetra/Podman host. This is the easiest path
+on macOS.
+
+Fixture mode is enabled by `ACCESSIBILITY_FIXTURES=1`. It installs a fake
+authenticated admin session, a fake project, one fake VM, one fake managed host,
+managed-host Podman fixture data, and a Quadlet bundle with nginx companion
+files.
+
+The Quadlet fixture mirrors the production storage split: unit files live in
+the Podman Quadlet directory, while companion files live in a mutable data root
+such as `/var/lib/tetra/quadlets/<bundle>` for system-scope Quadlets.
+
+From the repo root:
+
+```sh
+CI=true \
+ACCESSIBILITY_FIXTURES=1 \
+DATABASE_URL=postgres://fixture:fixture@127.0.0.1:5432/fixture \
+pnpm --filter ultramarine-dashboard-app run dev --host 127.0.0.1 --port 5173
+```
+
+The fixture database URL satisfies server startup. Fixture-backed routes do not connect to that database.
+
+Useful fixture URLs:
+
+- Managed host:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host`
+- Managed host Podman tab:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/podman`
+- Managed host Podman container detail:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/podman/demo-web`
+- Managed host Quadlets tab:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/quadlets`
+- Managed host Quadlet detail:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/quadlets/demo-web.container`
+- Managed host Quadlet create from recipe:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/quadlets/create`
+- Managed host raw dispatch tab:
+  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/dispatch`
+- Fixture VM:
+  `http://127.0.0.1:5173/projects/accessibility-project/servers/accessibility-server`
+
+Fixture data lives in
+`apps/dashboard/src/lib/server/accessibility-fixtures.ts`. If a UI needs more
+states for local testing, add them there and keep them deterministic.
+
 ## After a reboot or stack restart
 
 ```sh

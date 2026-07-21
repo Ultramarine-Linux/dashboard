@@ -1,1 +1,0 @@
-ALTER TABLE "organization" ADD COLUMN "disabled" boolean DEFAULT false NOT NULL;

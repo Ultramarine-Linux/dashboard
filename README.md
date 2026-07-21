@@ -1,34 +1,47 @@
-# Stack Dashboard
+# Ultramarine Dashboard
+
+Dashboard for Ultramarine Server management. This app is intended to run self-hosted on an Ultramarine Server host.
 
 ## Usage (dev)
 
 1. `pnpm install`
-2. `cd dev`
-2. `vyos/build-image.sh`
-3. `podman compose up -d`
-4. `pve/init-cluster.sh`
-5. Copy `apps/dashboard/.env.example` to `apps/dashboard/.env`
-6. Add secrets to `apps/dashboard/.env`
-  - Update `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` and set all `VPC` stuff to false
-  - set `BETTER_AUTH_SECRET` to any value
-7. Set up the database: `pnpm --filter stack-dashboard db:migrate`
-8. Seed test IPs: `podman exec -i fyra-postgres psql -U postgres < dev/seed-ipam.sql`
-9. `pnpm --filter stack-dashboard dev`
+2. Start the development services from `dev/` if you need a local database or network services.
+3. Create `apps/dashboard/.env` with the required values below.
+4. Set up the database: `pnpm --filter ultramarine-dashboard-app db:migrate`
+5. Seed test IPs if needed: `podman exec -i fyra-postgres psql -U postgres < dev/seed-ipam.sql`
+6. `pnpm --filter ultramarine-dashboard-app dev`
 
 Details, one-time machine setup, and caveats: [dev/README.md](dev/README.md)
 
-### secrets
+For UI-only work on macOS or without the local database/backend stack, use the
+fixture mode documented in [dev/README.md](dev/README.md#fixture-ui-mode).
 
-- Required:
-  - Generate Better Auth
-  - Autumn
-  - Postgres connection URL
-    - with the dev compose stack: `postgres://postgres:mysecretpassword@127.0.0.1:5432/postgres`
-- Highly recommended:
-  - Proxmox (printed by `dev/pve/init-cluster.sh`)
-- Optional:
-  - VyOS (values in [dev/README.md](dev/README.md))
-  - GitHub
-  - Google
-  - Internal cron secret
-  - Cloudflare email key
+## Build and run
+
+```sh
+pnpm --filter ultramarine-dashboard-app build
+ORIGIN=http://localhost:3000 \
+BETTER_AUTH_SECRET=replace-me \
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres \
+EMAIL_FROM_ADDRESS=no-reply@localhost \
+EMAIL_FROM_NAME="Ultramarine Server" \
+EMAIL_REPLY_TO=support@localhost \
+node apps/dashboard/build
+```
+
+### Environment
+
+Required:
+
+- `ORIGIN` — public dashboard origin.
+- `BETTER_AUTH_SECRET` — Better Auth signing secret.
+- `DATABASE_URL` — PostgreSQL connection URL.
+- `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO` — email identity values.
+
+Email verification is disabled by default. Set `EMAIL_VERIFICATION_REQUIRED=true` once setup includes a configured mail provider.
+
+Optional:
+
+- `VYOS_API_URL`, `VYOS_API_KEY`, `VYOS_VERIFY_SSL`
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+- `INTERNAL_CRON_SECRET`

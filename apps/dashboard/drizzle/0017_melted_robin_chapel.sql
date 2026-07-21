@@ -1,1 +1,0 @@
-ALTER TABLE "project_billing_customers" ADD COLUMN "suspended_at" bigint;
