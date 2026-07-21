@@ -11,6 +11,7 @@ import {
 
 const publicRoutes = ['/health', '/login', '/register', '/signup', '/sso/consent', '/api/'];
 const authPages = ['/login', '/register', '/signup'];
+const setupRoutes = ['/setup'];
 
 const moduleLoadedAt = performance.now();
 let isFirstRequestOnIsolate = true;
@@ -46,6 +47,13 @@ async function runFullAuth(
 
 	if (session && authPages.some((route) => event.url.pathname.startsWith(route))) {
 		throw redirect(303, '/');
+	}
+
+	if (session && !setupRoutes.some((route) => event.url.pathname.startsWith(route))) {
+		const { isServerSetupComplete } = await import('$lib/server/setup/state');
+		if (!(await isServerSetupComplete())) {
+			throw redirect(303, '/setup');
+		}
 	}
 
 	return await instrument(
@@ -109,6 +117,13 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 
 				if (authPages.some((route) => event.url.pathname.startsWith(route))) {
 					throw redirect(303, '/');
+				}
+
+				if (!setupRoutes.some((route) => event.url.pathname.startsWith(route))) {
+					const { isServerSetupComplete } = await import('$lib/server/setup/state');
+					if (!(await isServerSetupComplete())) {
+						throw redirect(303, '/setup');
+					}
 				}
 
 				return await instrument('sveltekit.resolve', () => resolve(event), requestAttrs);

@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, bigint, integer, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, text, bigint, integer, jsonb, index, boolean } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { ulid } from '$lib/server/id';
 
@@ -63,3 +63,20 @@ export const apiTokens = pgTable(
 	},
 	(table) => [index('api_tokens_user_id_index').on(table.userId)]
 );
+
+export const serverSetup = pgTable('server_setup', {
+	id: text('id').primaryKey().default('default'),
+	completed: boolean('completed').notNull().default(false),
+	domainMode: text('domain_mode'),
+	rootDomain: text('root_domain'),
+	dashboardDomain: text('dashboard_domain'),
+	accessMode: text('access_mode'),
+	dnsProvider: text('dns_provider'),
+	taidanPlan: jsonb('taidan_plan').$type<Record<string, unknown> | null>(),
+	createdAt: bigint('created_at', { mode: 'number' })
+		.notNull()
+		.default(sql`(extract(epoch from now()) * 1000)::bigint`),
+	updatedAt: bigint('updated_at', { mode: 'number' })
+		.notNull()
+		.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+});
