@@ -65,10 +65,7 @@
 				</div>
 			{/if}
 
-			<Button
-				class="mt-6 gap-2"
-				onclick={() => goto(`/hosts/create`)}
-			>
+			<Button class="mt-6 gap-2" onclick={() => goto(`/hosts/create`)}>
 				<Plus class="size-4" />
 				Register Host
 			</Button>

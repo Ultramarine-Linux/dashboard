@@ -9,7 +9,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { admin, organization, twoFactor } from 'better-auth/plugins';
+import { admin, jwt, oidcProvider, organization, twoFactor } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 
 import { ac, organizationRoles } from './src/lib/auth/organization-permissions';
@@ -38,6 +38,13 @@ export default betterAuth({
 	},
 	emailAndPassword: { enabled: true },
 	plugins: [
+		jwt({ disableSettingJwtHeader: true }),
+		oidcProvider({
+			__skipDeprecationWarning: true,
+			loginPage: '/login',
+			consentPage: '/sso/consent',
+			useJWTPlugin: true
+		}),
 		admin({ defaultRole: 'user' }),
 		twoFactor(),
 		passkey(),

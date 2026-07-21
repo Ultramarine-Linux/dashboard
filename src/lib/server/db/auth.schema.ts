@@ -99,6 +99,78 @@ export const twoFactor = pgTable(
 	]
 );
 
+export const jwks = pgTable('jwks', {
+	id: text('id').primaryKey(),
+	publicKey: text('public_key').notNull(),
+	privateKey: text('private_key').notNull(),
+	createdAt: timestamp('created_at').notNull(),
+	expiresAt: timestamp('expires_at'),
+	alg: text('alg'),
+	crv: text('crv')
+});
+
+export const oauthApplication = pgTable(
+	'oauth_application',
+	{
+		id: text('id').primaryKey(),
+		clientId: text('client_id').notNull().unique(),
+		clientSecret: text('client_secret'),
+		type: text('type').notNull(),
+		name: text('name').notNull(),
+		icon: text('icon'),
+		metadata: text('metadata'),
+		disabled: boolean('disabled').default(false),
+		redirectUrls: text('redirect_urls').notNull(),
+		userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at').notNull(),
+		updatedAt: timestamp('updated_at').notNull()
+	},
+	(table) => [index('oauth_application_user_id_idx').on(table.userId)]
+);
+
+export const oauthAccessToken = pgTable(
+	'oauth_access_token',
+	{
+		id: text('id').primaryKey(),
+		accessToken: text('access_token').notNull().unique(),
+		refreshToken: text('refresh_token').notNull().unique(),
+		accessTokenExpiresAt: timestamp('access_token_expires_at').notNull(),
+		refreshTokenExpiresAt: timestamp('refresh_token_expires_at').notNull(),
+		clientId: text('client_id')
+			.notNull()
+			.references(() => oauthApplication.clientId, { onDelete: 'cascade' }),
+		userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+		scopes: text('scopes').notNull(),
+		createdAt: timestamp('created_at').notNull(),
+		updatedAt: timestamp('updated_at').notNull()
+	},
+	(table) => [
+		index('oauth_access_token_client_id_idx').on(table.clientId),
+		index('oauth_access_token_user_id_idx').on(table.userId)
+	]
+);
+
+export const oauthConsent = pgTable(
+	'oauth_consent',
+	{
+		id: text('id').primaryKey(),
+		clientId: text('client_id')
+			.notNull()
+			.references(() => oauthApplication.clientId, { onDelete: 'cascade' }),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		scopes: text('scopes').notNull(),
+		createdAt: timestamp('created_at').notNull(),
+		updatedAt: timestamp('updated_at').notNull(),
+		consentGiven: boolean('consent_given').notNull()
+	},
+	(table) => [
+		index('oauth_consent_client_id_idx').on(table.clientId),
+		index('oauth_consent_user_id_idx').on(table.userId)
+	]
+);
+
 export const passkey = pgTable(
 	'passkey',
 	{
@@ -126,7 +198,10 @@ export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account),
 	twoFactors: many(twoFactor),
-	passkeys: many(passkey)
+	passkeys: many(passkey),
+	oauthApplications: many(oauthApplication),
+	oauthAccessTokens: many(oauthAccessToken),
+	oauthConsents: many(oauthConsent)
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -143,4 +218,26 @@ export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
 
 export const passkeyRelations = relations(passkey, ({ one }) => ({
 	user: one(user, { fields: [passkey.userId], references: [user.id] })
+}));
+
+export const oauthApplicationRelations = relations(oauthApplication, ({ one, many }) => ({
+	user: one(user, { fields: [oauthApplication.userId], references: [user.id] }),
+	accessTokens: many(oauthAccessToken),
+	consents: many(oauthConsent)
+}));
+
+export const oauthAccessTokenRelations = relations(oauthAccessToken, ({ one }) => ({
+	application: one(oauthApplication, {
+		fields: [oauthAccessToken.clientId],
+		references: [oauthApplication.clientId]
+	}),
+	user: one(user, { fields: [oauthAccessToken.userId], references: [user.id] })
+}));
+
+export const oauthConsentRelations = relations(oauthConsent, ({ one }) => ({
+	application: one(oauthApplication, {
+		fields: [oauthConsent.clientId],
+		references: [oauthApplication.clientId]
+	}),
+	user: one(user, { fields: [oauthConsent.userId], references: [user.id] })
 }));

@@ -162,7 +162,9 @@
 			Loading container
 		</div>
 	{:else if container}
-		<div class="mt-5 grid gap-px overflow-hidden border border-border bg-border lg:grid-cols-[20rem_1fr]">
+		<div
+			class="mt-5 grid gap-px overflow-hidden border border-border bg-border lg:grid-cols-[20rem_1fr]"
+		>
 			<section class="bg-background p-4">
 				<h2 class="text-sm font-semibold text-foreground">Runtime</h2>
 				<div class="mt-4 divide-y divide-border border border-border">
@@ -199,7 +201,12 @@
 					<div class="space-y-3">
 						<div class="flex items-center justify-between gap-2">
 							<Label>Environment</Label>
-							<Button variant="outline" size="sm" class="h-7 gap-1 px-2 text-xs" onclick={() => addListItem('env')}>
+							<Button
+								variant="outline"
+								size="sm"
+								class="h-7 gap-1 px-2 text-xs"
+								onclick={() => addListItem('env')}
+							>
 								<Plus class="size-3" />
 								Add
 							</Button>
@@ -209,7 +216,7 @@
 								<Input
 									aria-label={`Environment variable ${index + 1}`}
 									class="font-mono text-xs"
-									value={value}
+									{value}
 									oninput={(event) => (env = updateList(env, index, event.currentTarget.value))}
 								/>
 								<Button
@@ -228,7 +235,12 @@
 					<div class="space-y-3">
 						<div class="flex items-center justify-between gap-2">
 							<Label>Volume Binds</Label>
-							<Button variant="outline" size="sm" class="h-7 gap-1 px-2 text-xs" onclick={() => addListItem('bind')}>
+							<Button
+								variant="outline"
+								size="sm"
+								class="h-7 gap-1 px-2 text-xs"
+								onclick={() => addListItem('bind')}
+							>
 								<Plus class="size-3" />
 								Add
 							</Button>
@@ -238,7 +250,7 @@
 								<Input
 									aria-label={`Volume bind ${index + 1}`}
 									class="font-mono text-xs"
-									value={value}
+									{value}
 									oninput={(event) => (binds = updateList(binds, index, event.currentTarget.value))}
 								/>
 								<Button
@@ -257,7 +269,12 @@
 					<div class="space-y-3">
 						<div class="flex items-center justify-between gap-2">
 							<Label>Ports</Label>
-							<Button variant="outline" size="sm" class="h-7 gap-1 px-2 text-xs" onclick={() => addListItem('port')}>
+							<Button
+								variant="outline"
+								size="sm"
+								class="h-7 gap-1 px-2 text-xs"
+								onclick={() => addListItem('port')}
+							>
 								<Plus class="size-3" />
 								Add
 							</Button>
@@ -267,7 +284,7 @@
 								<Input
 									aria-label={`Port mapping ${index + 1}`}
 									class="font-mono text-xs"
-									value={value}
+									{value}
 									oninput={(event) => (ports = updateList(ports, index, event.currentTarget.value))}
 								/>
 								<Button

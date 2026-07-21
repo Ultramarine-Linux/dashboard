@@ -15,6 +15,8 @@
 	type SignInDataWithTwoFactor = {
 		twoFactorRedirect?: boolean;
 		twoFactorMethods?: string[] | null;
+		redirect?: boolean;
+		url?: string;
 	};
 
 	let { data }: { data: PageData } = $props();
@@ -67,6 +69,11 @@
 		}
 
 		const loginData = res.data as SignInDataWithTwoFactor | null | undefined;
+
+		if (loginData?.redirect && loginData.url) {
+			goto(loginData.url);
+			return;
+		}
 
 		if (loginData?.twoFactorRedirect) {
 			const methods = loginData.twoFactorMethods;

@@ -9,7 +9,7 @@ import {
 	accessibilityFixtureUser
 } from '$lib/server/accessibility-fixtures';
 
-const publicRoutes = ['/health', '/login', '/register', '/signup', '/api/'];
+const publicRoutes = ['/health', '/login', '/register', '/signup', '/sso/consent', '/api/'];
 const authPages = ['/login', '/register', '/signup'];
 
 const moduleLoadedAt = performance.now();

@@ -35,7 +35,8 @@
 					{#if userName}Hi {userName},{:else}Hi there,{/if}
 				</Text>
 				<Text class="mt-2 text-sm leading-5 text-gray-400">
-					Use the button below to reset your Ultramarine Server password and get back into your account.
+					Use the button below to reset your Ultramarine Server password and get back into your
+					account.
 				</Text>
 				<Section class="mt-6">
 					<Button

@@ -97,9 +97,7 @@
 				filesJson: JSON.stringify(recipeDetail.files),
 				resourcesJson: JSON.stringify(recipeDetail.resources)
 			});
-			await goto(
-				`/hosts/${host.id}/quadlets/${encodeURIComponent(recipeDetail.filename)}`
-			);
+			await goto(`/hosts/${host.id}/quadlets/${encodeURIComponent(recipeDetail.filename)}`);
 		} catch (err) {
 			actionError = getErrorMessage(err, 'Failed to create app.');
 		} finally {
@@ -121,12 +119,12 @@
 		<div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 			<Button
 				variant={selectedRecipe === 'blank' ? 'default' : 'outline'}
-				class="h-auto min-w-0 justify-start whitespace-normal p-3 text-left"
+				class="h-auto min-w-0 justify-start p-3 text-left whitespace-normal"
 				onclick={() => selectRecipe('blank')}
 			>
 				<span class="min-w-0">
 					<span class="block text-xs font-semibold">Blank Quadlet</span>
-					<span class="mt-1 block break-words text-xs leading-snug">
+					<span class="mt-1 block text-xs leading-snug break-words">
 						Paste or write a unit from scratch.
 					</span>
 				</span>
@@ -134,12 +132,12 @@
 			{#each quadletRecipeOptions as recipe (recipe.id)}
 				<Button
 					variant={selectedRecipe === recipe.id ? 'default' : 'outline'}
-					class="h-auto min-w-0 justify-start whitespace-normal p-3 text-left"
+					class="h-auto min-w-0 justify-start p-3 text-left whitespace-normal"
 					onclick={() => selectRecipe(recipe.id)}
 				>
 					<span class="min-w-0">
 						<span class="block text-xs font-semibold">{recipe.name}</span>
-						<span class="mt-1 block break-words text-xs leading-snug">{recipe.description}</span>
+						<span class="mt-1 block text-xs leading-snug break-words">{recipe.description}</span>
 					</span>
 				</Button>
 			{/each}
@@ -240,14 +238,18 @@
 									<div class="grid grid-cols-2 gap-2">
 										<Button
 											type="button"
-											variant={nextcloudOptions.overwriteProtocol === 'https' ? 'default' : 'outline'}
+											variant={nextcloudOptions.overwriteProtocol === 'https'
+												? 'default'
+												: 'outline'}
 											onclick={() => updateNextcloudOption('overwriteProtocol', 'https')}
 										>
 											HTTPS
 										</Button>
 										<Button
 											type="button"
-											variant={nextcloudOptions.overwriteProtocol === 'http' ? 'default' : 'outline'}
+											variant={nextcloudOptions.overwriteProtocol === 'http'
+												? 'default'
+												: 'outline'}
 											onclick={() => updateNextcloudOption('overwriteProtocol', 'http')}
 										>
 											HTTP
@@ -353,8 +355,10 @@
 									</p>
 								</div>
 								<Switch
-									bind:checked={() => nextcloudOptions.enableRedis, (checked) =>
-										updateNextcloudOption('enableRedis', checked)}
+									bind:checked={
+										() => nextcloudOptions.enableRedis,
+										(checked) => updateNextcloudOption('enableRedis', checked)
+									}
 								/>
 							</div>
 						{:else if selectedRecipe === 'compose'}
@@ -373,13 +377,14 @@
 									id="compose-yaml"
 									class="min-h-96 font-mono text-xs leading-relaxed"
 									value={composeOptions.composeYaml}
-									oninput={(event) =>
-										updateComposeOption('composeYaml', event.currentTarget.value)}
+									oninput={(event) => updateComposeOption('composeYaml', event.currentTarget.value)}
 								/>
 							</div>
 
 							{#if composeError}
-								<div class="border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+								<div
+									class="border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
+								>
 									{composeError}
 								</div>
 							{:else}
@@ -395,7 +400,7 @@
 
 						<div class="border border-border bg-muted/20 p-3">
 							<p class="text-xs font-medium text-foreground">Generated paths</p>
-							<p class="mt-2 break-all font-mono text-xs text-muted-foreground">
+							<p class="mt-2 font-mono text-xs break-all text-muted-foreground">
 								{recipeDetail.filename}
 							</p>
 							{#if recipeDetail.resources.length > 1}
@@ -404,13 +409,17 @@
 								</p>
 							{/if}
 							{#if recipeDetail.filesBaseDir}
-								<p class="mt-1 break-all font-mono text-xs text-muted-foreground">
+								<p class="mt-1 font-mono text-xs break-all text-muted-foreground">
 									{recipeDetail.filesBaseDir}
 								</p>
 							{/if}
 						</div>
 
-						<Button class="w-full gap-2" onclick={saveRecipeApp} disabled={saving || !!composeError}>
+						<Button
+							class="w-full gap-2"
+							onclick={saveRecipeApp}
+							disabled={saving || !!composeError}
+						>
 							{#if saving}
 								<Loader2 class="size-3.5 animate-spin" />
 							{/if}

@@ -54,9 +54,7 @@
 	}
 
 	function editQuadlet(filename: string) {
-		goto(
-			`/hosts/${host.id}/quadlets/${encodeURIComponent(filename)}?scope=${scope}`
-		);
+		goto(`/hosts/${host.id}/quadlets/${encodeURIComponent(filename)}?scope=${scope}`);
 	}
 </script>
 
@@ -94,8 +92,7 @@
 			<Button
 				size="sm"
 				class="gap-2"
-				onclick={() =>
-					goto(`/hosts/${host.id}/quadlets/create?scope=${scope}`)}
+				onclick={() => goto(`/hosts/${host.id}/quadlets/create?scope=${scope}`)}
 			>
 				<Plus class="size-3.5" />
 				New

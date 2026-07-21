@@ -135,9 +135,7 @@
 				)
 			});
 			saved = true;
-			await goto(
-				`/hosts/${host.id}/quadlets/${encodeURIComponent(filename)}`
-			);
+			await goto(`/hosts/${host.id}/quadlets/${encodeURIComponent(filename)}`);
 		} catch (err) {
 			actionError = getErrorMessage(err, 'Failed to save Quadlet bundle.');
 		} finally {

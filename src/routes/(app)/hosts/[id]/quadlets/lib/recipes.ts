@@ -172,22 +172,17 @@ WantedBy=default.target
 		files: [
 			{
 				filename: 'index.html',
-				contents:
-					`<!doctype html>\n<title>${escapeHtml(siteTitle)}</title>\n<h1>${escapeHtml(siteTitle)}</h1>\n<p>This page is served from a Tetra-managed Quadlet companion file.</p>\n`
+				contents: `<!doctype html>\n<title>${escapeHtml(siteTitle)}</title>\n<h1>${escapeHtml(siteTitle)}</h1>\n<p>This page is served from a Tetra-managed Quadlet companion file.</p>\n`
 			},
 			{
 				filename: 'default.conf',
-				contents:
-					`server {\n  listen 80;\n  server_name ${serverName};\n  root /usr/share/nginx/html;\n  index index.html;\n}\n`
+				contents: `server {\n  listen 80;\n  server_name ${serverName};\n  root /usr/share/nginx/html;\n  index index.html;\n}\n`
 			}
 		]
 	};
 }
 
-function buildComposeRecipe(
-	scope: ManagedHostQuadletScope,
-	options: ComposeOptions
-): RecipeDetail {
+function buildComposeRecipe(scope: ManagedHostQuadletScope, options: ComposeOptions): RecipeDetail {
 	const appId = normalizeAppId(options.appId, 'compose-app');
 	const filesBaseDir = bundleDir(scope, appId);
 	const parsed = parseCompose(options.composeYaml);
@@ -267,11 +262,15 @@ Driver=bridge
 			...arrayLines('PublishPort', service.ports?.map(formatPort).filter(Boolean) ?? []),
 			...arrayLines(
 				'Volume',
-				(service.volumes ?? []).map((volume) => formatVolume(volume, appId, filesBaseDir)).filter(Boolean)
+				(service.volumes ?? [])
+					.map((volume) => formatVolume(volume, appId, filesBaseDir))
+					.filter(Boolean)
 			),
 			...arrayLines(
 				'Environment',
-				environmentLines(service.environment).concat(service.env_file?.map((file) => `env_file=${file}`) ?? [])
+				environmentLines(service.environment).concat(
+					service.env_file?.map((file) => `env_file=${file}`) ?? []
+				)
 			),
 			...arrayLines(
 				'Network',
@@ -299,8 +298,9 @@ WantedBy=default.target
 		resources.push({ filename: `${appId}-${serviceId}.container`, contents });
 	}
 
-	const filename = resources.find((resource) => resource.filename.endsWith('.container'))?.filename
-		?? `${appId}.container`;
+	const filename =
+		resources.find((resource) => resource.filename.endsWith('.container'))?.filename ??
+		`${appId}.container`;
 	const contents = resources.find((resource) => resource.filename === filename)?.contents ?? '';
 
 	return {

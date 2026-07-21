@@ -21,6 +21,7 @@ export type RuntimeEnv = {
 	INTERNAL_CRON_SECRET?: string;
 	GITHUB_CLIENT_ID?: string;
 	GITHUB_CLIENT_SECRET?: string;
+	SSO_TRUSTED_CLIENTS?: string;
 };
 
 function required(name: keyof RuntimeEnv, value: string | undefined): string {
@@ -50,6 +51,7 @@ export function getRuntimeEnv(): RuntimeEnv {
 		AUTUMN_SERVER_ENTITY_FEATURE_ID: privateEnv.AUTUMN_SERVER_ENTITY_FEATURE_ID,
 		INTERNAL_CRON_SECRET: privateEnv.INTERNAL_CRON_SECRET,
 		GITHUB_CLIENT_ID: privateEnv.GITHUB_CLIENT_ID,
-		GITHUB_CLIENT_SECRET: privateEnv.GITHUB_CLIENT_SECRET
+		GITHUB_CLIENT_SECRET: privateEnv.GITHUB_CLIENT_SECRET,
+		SSO_TRUSTED_CLIENTS: privateEnv.SSO_TRUSTED_CLIENTS
 	};
 }

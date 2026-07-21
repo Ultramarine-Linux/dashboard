@@ -5,6 +5,7 @@
 	import { featureFlagKeys } from '$lib/feature-flags';
 	import { AdminState, type AdminPageData } from '$lib/state/admin.svelte';
 	import Flag from '~icons/nucleo/flag';
+	import Key from '~icons/nucleo/key';
 	import UserCog from '~icons/nucleo/user-cog';
 
 	let { data, children }: { data: AdminPageData; children: Snippet } = $props();
@@ -13,6 +14,7 @@
 
 	const tabs = $derived([
 		{ href: '/admin/users', label: 'Users', icon: UserCog, count: admin.adminUsers.length },
+		{ href: '/admin/sso', label: 'SSO', icon: Key, count: admin.ssoClients.length },
 		{
 			href: '/admin/features',
 			label: 'Feature Flags',

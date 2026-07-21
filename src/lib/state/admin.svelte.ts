@@ -17,10 +17,29 @@ import {
 	type UserSession,
 	type UserSshKey
 } from '$lib/remote/admin-users.remote';
+import {
+	createSsoClient,
+	deleteSsoClient,
+	listSsoClients,
+	rotateSsoClientSecret,
+	updateSsoClient,
+	type SsoClient
+} from '$lib/remote/sso-clients.remote';
 
 export type AdminPageData = {
 	featureFlags?: FeatureFlags;
 	adminUsers?: AdminUser[];
+	ssoClients?: SsoClient[];
+};
+
+export type SsoClientInput = {
+	name: string;
+	clientId?: string;
+	type: string;
+	redirectUrls: string;
+	icon?: string;
+	metadata?: string;
+	disabled: boolean;
 };
 
 type UserResources = {
@@ -43,6 +62,10 @@ export class AdminState {
 	userResources = $state<UserResources | null>(null);
 	userResourcesLoading = $state(false);
 	userResourcesError = $state('');
+	ssoClients = $state<SsoClient[]>([]);
+	ssoClientSaving = $state<Record<string, boolean>>({});
+	ssoClientError = $state('');
+	newSsoClientSecret = $state<string | null>(null);
 
 	constructor(data?: AdminPageData) {
 		if (data) this.sync(data);
@@ -51,6 +74,7 @@ export class AdminState {
 	sync(data: AdminPageData) {
 		this.adminUsers = data.adminUsers ?? [];
 		this.featureFlags = { ...defaultFeatureFlags, ...(data.featureFlags ?? {}) };
+		this.ssoClients = data.ssoClients ?? [];
 	}
 
 	openUserSheet(user: AdminUser) {
@@ -163,6 +187,80 @@ export class AdminState {
 			this.featureFlagError = getErrorMessage(err, 'Failed to update feature flag');
 		} finally {
 			this.featureFlagSaving = { ...this.featureFlagSaving, [flag]: false };
+		}
+	}
+
+	async refreshSsoClients() {
+		this.ssoClients = await runQuery(listSsoClients(), 'admin.sso-clients');
+		await invalidate('app:sso-clients');
+	}
+
+	async createSsoClient(input: SsoClientInput) {
+		this.ssoClientSaving = { ...this.ssoClientSaving, create: true };
+		this.ssoClientError = '';
+		this.newSsoClientSecret = null;
+		try {
+			const result = await createSsoClient(input);
+			this.newSsoClientSecret = result.clientSecret ?? null;
+			await this.refreshSsoClients();
+			toast.success('SSO client created');
+			return result.client;
+		} catch (err) {
+			this.ssoClientError = getErrorMessage(err, 'Failed to create SSO client');
+			throw err;
+		} finally {
+			this.ssoClientSaving = { ...this.ssoClientSaving, create: false };
+		}
+	}
+
+	async updateSsoClient(id: string, input: Omit<SsoClientInput, 'clientId'>) {
+		this.ssoClientSaving = { ...this.ssoClientSaving, [id]: true };
+		this.ssoClientError = '';
+		try {
+			const updated = await updateSsoClient({ id, ...input });
+			this.ssoClients = this.ssoClients.map((client) => (client.id === id ? updated : client));
+			await invalidate('app:sso-clients');
+			toast.success('SSO client updated');
+		} catch (err) {
+			this.ssoClientError = getErrorMessage(err, 'Failed to update SSO client');
+			throw err;
+		} finally {
+			this.ssoClientSaving = { ...this.ssoClientSaving, [id]: false };
+		}
+	}
+
+	async rotateSsoClientSecret(id: string) {
+		this.ssoClientSaving = { ...this.ssoClientSaving, [`rotate:${id}`]: true };
+		this.ssoClientError = '';
+		this.newSsoClientSecret = null;
+		try {
+			const result = await rotateSsoClientSecret({ id });
+			this.newSsoClientSecret = result.clientSecret ?? null;
+			this.ssoClients = this.ssoClients.map((client) =>
+				client.id === id ? result.client : client
+			);
+			toast.success('Client secret rotated');
+		} catch (err) {
+			this.ssoClientError = getErrorMessage(err, 'Failed to rotate client secret');
+			throw err;
+		} finally {
+			this.ssoClientSaving = { ...this.ssoClientSaving, [`rotate:${id}`]: false };
+		}
+	}
+
+	async deleteSsoClient(id: string) {
+		this.ssoClientSaving = { ...this.ssoClientSaving, [`delete:${id}`]: true };
+		this.ssoClientError = '';
+		try {
+			await deleteSsoClient({ id });
+			this.ssoClients = this.ssoClients.filter((client) => client.id !== id);
+			await invalidate('app:sso-clients');
+			toast.success('SSO client deleted');
+		} catch (err) {
+			this.ssoClientError = getErrorMessage(err, 'Failed to delete SSO client');
+			throw err;
+		} finally {
+			this.ssoClientSaving = { ...this.ssoClientSaving, [`delete:${id}`]: false };
 		}
 	}
 }

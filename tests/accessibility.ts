@@ -26,7 +26,10 @@ export const pages = [
 		label: 'host podman container',
 		path: '/projects/accessibility-project/hosts/accessibility-host/podman/demo-web'
 	},
-	{ label: 'host quadlets', path: '/projects/accessibility-project/hosts/accessibility-host/quadlets' },
+	{
+		label: 'host quadlets',
+		path: '/projects/accessibility-project/hosts/accessibility-host/quadlets'
+	},
 	{
 		label: 'host quadlet detail',
 		path: '/projects/accessibility-project/hosts/accessibility-host/quadlets/demo-web.container'
