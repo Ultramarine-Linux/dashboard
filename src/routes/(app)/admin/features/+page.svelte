@@ -28,7 +28,7 @@
 	import Shield from '~icons/nucleo/shield';
 	import Terminal from '~icons/nucleo/terminal';
 	import Upload from '~icons/nucleo/upload';
-	import { AdminState, type AdminPageData } from '$lib/state/admin.svelte';
+	import { AdminFeaturesState, type AdminFeaturesPageData } from '$lib/state/admin-features.svelte';
 	import type { IconComponent } from '$lib';
 
 	const featureFlagIcons: Record<FeatureFlagKey, IconComponent> = {
@@ -39,8 +39,8 @@
 		host: Server
 	};
 
-	let { data }: { data: AdminPageData } = $props();
-	const admin = new AdminState(untrack(() => data));
+	let { data }: { data: AdminFeaturesPageData } = $props();
+	const admin = new AdminFeaturesState(untrack(() => data));
 	$effect(() => {
 		admin.sync(data);
 	});

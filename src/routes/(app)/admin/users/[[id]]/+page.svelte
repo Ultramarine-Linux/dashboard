@@ -2,14 +2,14 @@
 	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Switch } from '$lib/components/ui/switch';
-	import { AdminState, type AdminPageData } from '$lib/state/admin.svelte';
+	import { AdminUsersState, type AdminUsersPageData } from '$lib/state/admin-users.svelte';
 	import Crown from '~icons/nucleo/crown';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Shield from '~icons/nucleo/shield';
 	import User from '~icons/nucleo/user';
 
-	let { data }: { data: AdminPageData } = $props();
-	const admin = new AdminState(untrack(() => data));
+	let { data }: { data: AdminUsersPageData } = $props();
+	const admin = new AdminUsersState(untrack(() => data));
 	$effect(() => admin.sync(data));
 
 	const sortedUsers = $derived(

@@ -85,6 +85,19 @@ export type ManagedHostQuadletDetail = {
 	files: ManagedHostQuadletCompanionFile[];
 };
 
+export type ManagedHostReverseProxySite = {
+	filename: string;
+	path: string | null;
+	domain: string;
+	upstream: string;
+	tls: boolean;
+};
+
+export type ManagedHostReverseProxyList = {
+	configDir: string | null;
+	sites: ManagedHostReverseProxySite[];
+};
+
 function requireUser() {
 	const event = getRequestEvent();
 	if (!event?.locals.user) error(401, 'Authentication required');
@@ -288,6 +301,21 @@ function fixturePodmanContainerDetail(name: string): ManagedHostPodmanContainerD
 	};
 }
 
+function fixtureReverseProxyList(): ManagedHostReverseProxyList {
+	return {
+		configDir: '/etc/caddy/tetra-sites',
+		sites: [
+			{
+				filename: 'demo_example_com.caddy',
+				path: '/etc/caddy/tetra-sites/demo_example_com.caddy',
+				domain: 'demo.example.com',
+				upstream: '127.0.0.1:8080',
+				tls: true
+			}
+		]
+	};
+}
+
 function fixtureQuadletFiles(): ManagedHostQuadletFile[] {
 	return [
 		{
@@ -453,6 +481,38 @@ function mapQuadletRead(response: AgentResponse, filename: string) {
 		baseDir: typeof payload.base_dir === 'string' ? payload.base_dir : null,
 		filename: typeof payload.filename === 'string' ? payload.filename : filename,
 		contents: typeof payload.contents === 'string' ? payload.contents : ''
+	};
+}
+
+function mapReverseProxySite(value: unknown): ManagedHostReverseProxySite | null {
+	if (!isRecord(value)) return null;
+	const domain = typeof value.domain === 'string' ? value.domain : null;
+	const upstream = typeof value.upstream === 'string' ? value.upstream : null;
+	if (!domain || !upstream) return null;
+	return {
+		filename: typeof value.filename === 'string' ? value.filename : `${domain}.caddy`,
+		path: typeof value.path === 'string' ? value.path : null,
+		domain,
+		upstream,
+		tls: value.tls !== false
+	};
+}
+
+function mapReverseProxyList(response: AgentResponse): ManagedHostReverseProxyList {
+	if (!response.ok) {
+		throw new Error(response.error || 'Failed to list reverse proxy sites');
+	}
+
+	const payload = isRecord(response.payload) ? response.payload : {};
+	const sites = Array.isArray(payload.sites)
+		? payload.sites
+				.map(mapReverseProxySite)
+				.filter((site): site is ManagedHostReverseProxySite => !!site)
+		: [];
+
+	return {
+		configDir: typeof payload.config_dir === 'string' ? payload.config_dir : null,
+		sites: sites.sort((left, right) => left.domain.localeCompare(right.domain))
 	};
 }
 
@@ -743,6 +803,91 @@ export const runManagedHostPodmanContainerAction = command(podmanActionParams, a
 	await markHostDispatchResult(db, host, response);
 
 	if (!response.ok) throw new Error(response.error || 'Podman container action failed');
+	return response;
+});
+
+const reverseProxySiteParams = type({
+	hostId: 'string',
+	domain: 'string',
+	upstream: 'string',
+	tls: 'boolean'
+});
+
+export const listManagedHostReverseProxySites = command(
+	getParams,
+	async (params): Promise<ManagedHostReverseProxyList> => {
+		if (accessibilityFixtureEnabled) return fixtureReverseProxyList();
+
+		const { db, host } = await loadManagedHost(params.hostId);
+		const response = await dispatchHostCommand(host, {
+			module: 'reverse_proxy',
+			action: 'list',
+			payload: {}
+		});
+		await markHostDispatchResult(db, host, response);
+		return mapReverseProxyList(response);
+	}
+);
+
+export const writeManagedHostReverseProxySite = command(
+	reverseProxySiteParams,
+	async (params): Promise<ManagedHostReverseProxySite> => {
+		if (accessibilityFixtureEnabled) {
+			return { filename: `${params.domain}.caddy`, path: null, ...params };
+		}
+
+		const { db, host } = await loadManagedHost(params.hostId);
+		const response = await dispatchHostCommand(host, {
+			module: 'reverse_proxy',
+			action: 'write',
+			payload: {
+				domain: params.domain,
+				upstream: params.upstream,
+				tls: params.tls,
+				reload: true
+			}
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to save reverse proxy site');
+		const payload = isRecord(response.payload) ? response.payload : {};
+		const site = mapReverseProxySite(payload.site);
+		if (!site) throw new Error('Reverse proxy site response was invalid');
+		return {
+			...site,
+			filename: typeof payload.filename === 'string' ? payload.filename : site.filename,
+			path: typeof payload.path === 'string' ? payload.path : site.path
+		};
+	}
+);
+
+const reverseProxyDeleteParams = type({ hostId: 'string', domain: 'string' });
+export const deleteManagedHostReverseProxySite = command(
+	reverseProxyDeleteParams,
+	async (params) => {
+		if (accessibilityFixtureEnabled) return;
+
+		const { db, host } = await loadManagedHost(params.hostId);
+		const response = await dispatchHostCommand(host, {
+			module: 'reverse_proxy',
+			action: 'delete',
+			payload: { domain: params.domain, reload: true }
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to delete reverse proxy site');
+	}
+);
+
+export const reloadManagedHostReverseProxy = command(getParams, async (params) => {
+	if (accessibilityFixtureEnabled) return { ok: true };
+
+	const { db, host } = await loadManagedHost(params.hostId);
+	const response = await dispatchHostCommand(host, {
+		module: 'reverse_proxy',
+		action: 'reload',
+		payload: {}
+	});
+	await markHostDispatchResult(db, host, response);
+	if (!response.ok) throw new Error(response.error || 'Failed to reload Caddy');
 	return response;
 });
 

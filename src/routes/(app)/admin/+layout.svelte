@@ -3,18 +3,18 @@
 	import { page } from '$app/state';
 	import { Badge } from '$lib/components/ui/badge';
 	import { featureFlagKeys } from '$lib/feature-flags';
-	import { AdminState, type AdminPageData } from '$lib/state/admin.svelte';
+	import { AdminState, type AdminLayoutData } from '$lib/state/admin.svelte';
 	import Flag from '~icons/nucleo/flag';
 	import Key from '~icons/nucleo/key';
 	import UserCog from '~icons/nucleo/user-cog';
 
-	let { data, children }: { data: AdminPageData; children: Snippet } = $props();
+	let { data, children }: { data: AdminLayoutData; children: Snippet } = $props();
 	const admin = new AdminState(untrack(() => data));
 	$effect(() => admin.sync(data));
 
 	const tabs = $derived([
-		{ href: '/admin/users', label: 'Users', icon: UserCog, count: admin.adminUsers.length },
-		{ href: '/admin/sso', label: 'SSO', icon: Key, count: admin.ssoClients.length },
+		{ href: '/admin/users', label: 'Users', icon: UserCog, count: admin.adminCounts.users },
+		{ href: '/admin/sso', label: 'SSO', icon: Key, count: admin.adminCounts.ssoClients },
 		{
 			href: '/admin/features',
 			label: 'Feature Flags',

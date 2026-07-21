@@ -75,6 +75,24 @@ function assertClientType(value: string): SsoClientType {
 	return value as SsoClientType;
 }
 
+function normalizeMetadata(value: string | undefined): string | null {
+	const trimmed = value?.trim();
+	if (!trimmed) return null;
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(trimmed);
+	} catch {
+		error(400, 'Metadata must be valid JSON.');
+	}
+
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+		error(400, 'Metadata must be a JSON object.');
+	}
+
+	return JSON.stringify(parsed);
+}
+
 function generateClientSecret(): string {
 	const bytes = new Uint8Array(32);
 	crypto.getRandomValues(bytes);
@@ -172,6 +190,7 @@ export const createSsoClient = command(
 		if (existing) error(409, 'Client ID is already in use.');
 
 		const redirectUrls = validateRedirectUrls(params.redirectUrls);
+		const metadata = normalizeMetadata(params.metadata);
 		const clientSecret = generateClientSecret();
 		const now = new Date();
 
@@ -184,7 +203,7 @@ export const createSsoClient = command(
 				type: assertClientType(params.type),
 				name,
 				icon: params.icon?.trim() || null,
-				metadata: params.metadata?.trim() || null,
+				metadata,
 				disabled: params.disabled,
 				redirectUrls: redirectUrls.join(','),
 				createdAt: now,
@@ -217,13 +236,14 @@ export const updateSsoClient = command(updateParams, async (params): Promise<Sso
 	if (!name) error(400, 'Client name is required.');
 
 	const redirectUrls = validateRedirectUrls(params.redirectUrls);
+	const metadata = normalizeMetadata(params.metadata);
 	const [updated] = await db
 		.update(oauthApplication)
 		.set({
 			name,
 			type: assertClientType(params.type),
 			icon: params.icon?.trim() || null,
-			metadata: params.metadata?.trim() || null,
+			metadata,
 			disabled: params.disabled,
 			redirectUrls: redirectUrls.join(','),
 			updatedAt: new Date()

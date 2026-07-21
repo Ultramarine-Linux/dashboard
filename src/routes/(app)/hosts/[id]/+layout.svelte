@@ -21,6 +21,7 @@
 		| `/hosts/${string}`
 		| `/hosts/${string}/podman`
 		| `/hosts/${string}/quadlets`
+		| `/hosts/${string}/proxy`
 		| `/hosts/${string}/dispatch`;
 
 	type LayoutData = {

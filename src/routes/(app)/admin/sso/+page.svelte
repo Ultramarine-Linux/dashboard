@@ -3,7 +3,11 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
-	import { AdminState, type AdminPageData, type SsoClientInput } from '$lib/state/admin.svelte';
+	import {
+		AdminSsoState,
+		type AdminSsoPageData,
+		type SsoClientInput
+	} from '$lib/state/admin-sso.svelte';
 	import type { SsoClient } from '$lib/remote/sso-clients.remote';
 	import Check from '~icons/lucide/check';
 	import Copy from '~icons/lucide/copy';
@@ -14,8 +18,8 @@
 	import Trash from '~icons/lucide/trash';
 	import AlertTriangle from '~icons/nucleo/alert-triangle';
 
-	let { data }: { data: AdminPageData } = $props();
-	const admin = new AdminState(untrack(() => data));
+	let { data }: { data: AdminSsoPageData } = $props();
+	const admin = new AdminSsoState(untrack(() => data));
 	$effect(() => admin.sync(data));
 
 	const metadataPlaceholder = '{"service":"grafana"}';
