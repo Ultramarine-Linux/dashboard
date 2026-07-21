@@ -1,4 +1,6 @@
 import { env as privateEnv } from '$env/dynamic/private';
+import { dev } from '$app/environment';
+import { resolveBetterAuthSecret } from '$lib/server/runtime-secret';
 
 export type RuntimeEnv = {
 	ORIGIN: string;
@@ -22,6 +24,8 @@ export type RuntimeEnv = {
 	GITHUB_CLIENT_ID?: string;
 	GITHUB_CLIENT_SECRET?: string;
 	SSO_TRUSTED_CLIENTS?: string;
+	BETTER_AUTH_SECRET_FILE?: string;
+	UM_DASHBOARD_STATE_DIR?: string;
 };
 
 function required(name: keyof RuntimeEnv, value: string | undefined): string {
@@ -33,7 +37,12 @@ function required(name: keyof RuntimeEnv, value: string | undefined): string {
 export function getRuntimeEnv(): RuntimeEnv {
 	return {
 		ORIGIN: required('ORIGIN', privateEnv.ORIGIN),
-		BETTER_AUTH_SECRET: required('BETTER_AUTH_SECRET', privateEnv.BETTER_AUTH_SECRET),
+		BETTER_AUTH_SECRET: resolveBetterAuthSecret({
+			explicitSecret: privateEnv.BETTER_AUTH_SECRET,
+			secretFile: privateEnv.BETTER_AUTH_SECRET_FILE,
+			stateDir: privateEnv.UM_DASHBOARD_STATE_DIR,
+			development: dev
+		}),
 		DATABASE_URL: required('DATABASE_URL', privateEnv.DATABASE_URL),
 		EMAIL_FROM_ADDRESS: required('EMAIL_FROM_ADDRESS', privateEnv.EMAIL_FROM_ADDRESS),
 		EMAIL_FROM_NAME: required('EMAIL_FROM_NAME', privateEnv.EMAIL_FROM_NAME),
@@ -52,6 +61,8 @@ export function getRuntimeEnv(): RuntimeEnv {
 		INTERNAL_CRON_SECRET: privateEnv.INTERNAL_CRON_SECRET,
 		GITHUB_CLIENT_ID: privateEnv.GITHUB_CLIENT_ID,
 		GITHUB_CLIENT_SECRET: privateEnv.GITHUB_CLIENT_SECRET,
-		SSO_TRUSTED_CLIENTS: privateEnv.SSO_TRUSTED_CLIENTS
+		SSO_TRUSTED_CLIENTS: privateEnv.SSO_TRUSTED_CLIENTS,
+		BETTER_AUTH_SECRET_FILE: privateEnv.BETTER_AUTH_SECRET_FILE,
+		UM_DASHBOARD_STATE_DIR: privateEnv.UM_DASHBOARD_STATE_DIR
 	};
 }
