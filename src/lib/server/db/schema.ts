@@ -21,7 +21,12 @@ export const managedHosts = pgTable(
 			.notNull()
 			.default('unknown'),
 		agentUrl: text('agent_url'),
+		connectionMode: text('connection_mode').notNull().default('direct_http'),
 		bearerToken: text('bearer_token'),
+		controllerKeyId: text('controller_key_id'),
+		controllerPublicKey: text('controller_public_key'),
+		controllerPrivateKeyEncrypted: text('controller_private_key_encrypted'),
+		hostPublicKey: text('host_public_key'),
 		lastSeenAt: bigint('last_seen_at', { mode: 'number' }),
 		agentVersion: text('agent_version'),
 		hostname: text('hostname'),
@@ -37,6 +42,46 @@ export const managedHosts = pgTable(
 			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
 	},
 	(table) => [index('managed_hosts_connection_state_index').on(table.connectionState)]
+);
+
+export const dashboardInvitationStatusEnum = pgEnum('dashboard_invitation_status', [
+	'pending',
+	'accepting',
+	'revoked',
+	'accepted',
+	'expired'
+]);
+
+export const dashboardInvitations = pgTable(
+	'dashboard_invitations',
+	{
+		id: ulidPk(),
+		email: text('email').notNull(),
+		displayName: text('display_name').notNull(),
+		hostId: text('host_id').notNull(),
+		hostUsername: text('host_username').notNull(),
+		hostShell: text('host_shell'),
+		hostGroups: jsonb('host_groups').$type<string[] | null>(),
+		tokenDigest: text('token_digest').notNull().unique(),
+		status: dashboardInvitationStatusEnum('status').notNull().default('pending'),
+		expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+		createdByUserId: text('created_by_user_id').notNull(),
+		acceptedByUserId: text('accepted_by_user_id'),
+		acceptedAt: bigint('accepted_at', { mode: 'number' }),
+		revokedAt: bigint('revoked_at', { mode: 'number' }),
+		lastError: text('last_error'),
+		createdAt: bigint('created_at', { mode: 'number' })
+			.notNull()
+			.default(sql`(extract(epoch from now()) * 1000)::bigint`),
+		updatedAt: bigint('updated_at', { mode: 'number' })
+			.notNull()
+			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+	},
+	(table) => [
+		index('dashboard_invitations_host_id_index').on(table.hostId),
+		index('dashboard_invitations_email_index').on(table.email),
+		index('dashboard_invitations_status_expires_at_index').on(table.status, table.expiresAt)
+	]
 );
 
 export const sshKeys = pgTable(

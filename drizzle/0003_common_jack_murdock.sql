@@ -1,0 +1,1 @@
+ALTER TABLE "managed_hosts" ADD COLUMN "connection_mode" text DEFAULT 'direct_http' NOT NULL;

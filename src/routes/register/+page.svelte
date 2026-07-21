@@ -2,9 +2,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { authClient } from '$lib/auth-client';
+	import { goto } from '$app/navigation';
 	import Loader2 from '~icons/lucide/loader-2';
 	import AlertCircle from '~icons/nucleo/alert-circle';
-	import CheckCircle2 from '~icons/nucleo/check-circle';
 	import Eye from '~icons/nucleo/eye';
 	import EyeOff from '~icons/nucleo/eye-off';
 	import SiGithub from '@icons-pack/svelte-simple-icons/icons/SiGithub';
@@ -28,7 +28,6 @@
 	let confirmPassword = $state('');
 	let showPassword = $state(false);
 	let error = $state('');
-	let success = $state(false);
 	let loading = $state(false);
 	let socialLoading = $state<'github' | null>(null);
 
@@ -51,7 +50,6 @@
 	async function handleRegister() {
 		if (!name || !email || !password || !confirmPassword) return;
 		error = '';
-		success = false;
 
 		if (password !== confirmPassword) {
 			error = 'Passwords do not match';
@@ -74,7 +72,7 @@
 			return;
 		}
 
-		success = true;
+		await goto(loginHref);
 	}
 </script>
 
@@ -100,15 +98,6 @@
 				>
 					<AlertCircle class="size-4 shrink-0" />
 					{error}
-				</div>
-			{/if}
-
-			{#if success}
-				<div
-					class="flex items-center gap-2 border border-border bg-background px-3 py-2 text-sm text-muted-foreground"
-				>
-					<CheckCircle2 class="size-4 shrink-0 text-primary" />
-					Check your email to verify your account.
 				</div>
 			{/if}
 
@@ -149,7 +138,7 @@
 					required
 				/>
 
-				<Button type="submit" class="w-full" disabled={loading || success}>
+				<Button type="submit" class="w-full" disabled={loading}>
 					{#if loading}
 						<Loader2 class="h-3.5 w-3.5 animate-spin" />
 					{:else}

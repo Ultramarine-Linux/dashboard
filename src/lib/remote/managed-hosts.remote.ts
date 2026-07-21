@@ -3,9 +3,23 @@ import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
 import { desc, eq } from 'drizzle-orm';
 import { initDrizzle } from '$lib/server/db';
+import { requireAdmin } from '$lib/server/auth-context';
+import {
+	createInvitation,
+	invitationUrl,
+	normalizeInvitationEmail,
+	revokeActiveInvitations
+} from '$lib/server/invitations';
+import { getRuntimeEnv } from '$lib/server/env';
+import { ulid } from '$lib/server/id';
 import { managedHosts } from '$lib/server/db/schema';
 
-import { createTetraClient, type AgentResponse } from '$lib/server/tetra/client';
+import {
+	createTetraClient,
+	DirectWebSocketTetraClient,
+	type AgentResponse
+} from '$lib/server/tetra/client';
+import { generateControllerKeypair } from '$lib/server/tetra/controller-keys';
 import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureManagedHosts
@@ -14,7 +28,7 @@ import {
 export type ManagedHost = {
 	id: string;
 	displayName: string;
-	connectionMode: 'direct_http';
+	connectionMode: 'direct_http' | 'direct_wss';
 	connectionState: 'online' | 'offline' | 'unknown';
 	agentUrl: string | null;
 	lastSeenAt: number | null;
@@ -26,6 +40,15 @@ export type ManagedHost = {
 	lastError: string | null;
 	createdAt: number;
 	updatedAt: number;
+};
+
+export type ManagedHostUser = {
+	name: string;
+	uid: string;
+	gid: string;
+	gecos: string;
+	home: string;
+	shell: string;
 };
 
 export type ManagedHostPodmanResource = 'containers' | 'images' | 'volumes' | 'networks';
@@ -104,6 +127,12 @@ function requireUser() {
 	return event.locals.user;
 }
 
+async function requireHostAdmin() {
+	const currentUser = requireUser();
+	await requireAdmin(initDrizzle(), currentUser.id);
+	return currentUser;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -136,7 +165,7 @@ function mapHost(row: typeof managedHosts.$inferSelect): ManagedHost {
 	return {
 		id: row.id,
 		displayName: row.displayName,
-		connectionMode: 'direct_http',
+		connectionMode: row.connectionMode === 'direct_wss' ? 'direct_wss' : 'direct_http',
 		connectionState: row.connectionState,
 		agentUrl: row.agentUrl,
 		lastSeenAt: row.lastSeenAt,
@@ -165,9 +194,12 @@ async function loadManagedHost(hostId: string) {
 
 async function refreshHostCapabilities(host: typeof managedHosts.$inferSelect) {
 	const client = createTetraClient({
-		connectionMode: 'direct_http',
+		connectionMode: host.connectionMode,
 		agentUrl: host.agentUrl,
-		bearerToken: host.bearerToken
+		bearerToken: host.bearerToken,
+		controllerPublicKey: host.controllerPublicKey,
+		controllerPrivateKeyEncrypted: host.controllerPrivateKeyEncrypted,
+		hostPublicKey: host.hostPublicKey
 	});
 
 	await client.health();
@@ -530,9 +562,12 @@ async function dispatchHostCommand(
 	command: { module: string; action: string; payload: Record<string, unknown> }
 ) {
 	const client = createTetraClient({
-		connectionMode: 'direct_http',
+		connectionMode: host.connectionMode,
 		agentUrl: host.agentUrl,
-		bearerToken: host.bearerToken
+		bearerToken: host.bearerToken,
+		controllerPublicKey: host.controllerPublicKey,
+		controllerPrivateKeyEncrypted: host.controllerPrivateKeyEncrypted,
+		hostPublicKey: host.hostPublicKey
 	});
 	return client.dispatch(command);
 }
@@ -566,6 +601,24 @@ export const listManagedHosts = query(async (): Promise<ManagedHost[]> => {
 	return rows.map(mapHost);
 });
 
+function mapManagedHostUsers(response: AgentResponse): ManagedHostUser[] {
+	if (!response.ok) throw new Error(response.error || 'Failed to list host users');
+	const payload = isRecord(response.payload) ? response.payload : {};
+	if (!Array.isArray(payload.users)) return [];
+	return payload.users
+		.filter(isRecord)
+		.map((item) => ({
+			name: typeof item.name === 'string' ? item.name : '',
+			uid: typeof item.uid === 'string' ? item.uid : '',
+			gid: typeof item.gid === 'string' ? item.gid : '',
+			gecos: typeof item.gecos === 'string' ? item.gecos : '',
+			home: typeof item.home === 'string' ? item.home : '',
+			shell: typeof item.shell === 'string' ? item.shell : ''
+		}))
+		.filter((item) => item.name)
+		.sort((left, right) => left.name.localeCompare(right.name));
+}
+
 const getParams = type({ hostId: 'string' });
 export const getManagedHost = query(getParams, async (params): Promise<ManagedHost> => {
 	if (accessibilityFixtureEnabled) {
@@ -590,6 +643,8 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 	const displayName = params.displayName.trim();
 	if (!displayName) error(400, 'Display name is required');
 
+	const controllerKey = generateControllerKeypair();
+
 	let agentUrl: string;
 	try {
 		agentUrl = new URL(params.agentUrl).toString().replace(/\/+$/, '');
@@ -603,12 +658,163 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 			displayName,
 			connectionState: 'unknown',
 			agentUrl,
-			bearerToken: params.bearerToken?.trim() || null
+			bearerToken: params.bearerToken?.trim() || null,
+			controllerKeyId: `controller-${ulid()}`,
+			controllerPublicKey: controllerKey.publicKey,
+			controllerPrivateKeyEncrypted: controllerKey.privateKeyEncrypted
 		})
 		.returning();
 
 	return mapHost(host);
 });
+
+const enrollParams = type({ hostId: 'string', enrollmentToken: 'string' });
+export const enrollManagedHost = command(enrollParams, async (params): Promise<ManagedHost> => {
+	const { db, host } = await loadManagedHost(params.hostId);
+	if (!host.agentUrl) error(400, 'Tetra WebSocket URL is required');
+	if (!host.controllerPublicKey || !host.controllerPrivateKeyEncrypted) {
+		error(400, 'Managed host does not have controller key material');
+	}
+
+	let hostPublicKey: string;
+	try {
+		const client = new DirectWebSocketTetraClient(
+			host.agentUrl,
+			host.controllerPrivateKeyEncrypted,
+			host.controllerPublicKey,
+			host.hostPublicKey
+		);
+		hostPublicKey = await client.enroll(params.enrollmentToken.trim());
+	} catch (err) {
+		const now = Date.now();
+		const [updated] = await db
+			.update(managedHosts)
+			.set({
+				connectionState: 'offline',
+				lastError: err instanceof Error ? err.message : 'Tetra enrollment failed',
+				updatedAt: now
+			})
+			.where(eq(managedHosts.id, host.id))
+			.returning();
+		return mapHost(updated);
+	}
+
+	const now = Date.now();
+	const [updated] = await db
+		.update(managedHosts)
+		.set({
+			connectionMode: 'direct_wss',
+			hostPublicKey,
+			connectionState: 'unknown',
+			lastError: null,
+			updatedAt: now
+		})
+		.where(eq(managedHosts.id, host.id))
+		.returning();
+	return mapHost(updated);
+});
+
+export const listManagedHostUsers = command(
+	getParams,
+	async (params): Promise<ManagedHostUser[]> => {
+		await requireHostAdmin();
+		const { db, host } = await loadManagedHost(params.hostId);
+		const response = await dispatchHostCommand(host, {
+			module: 'users',
+			action: 'list',
+			payload: {}
+		});
+		await markHostDispatchResult(db, host, response);
+		return mapManagedHostUsers(response);
+	}
+);
+
+const createHostUserParams = type({
+	hostId: 'string',
+	username: 'string',
+	shell: 'string?',
+	home: 'string?',
+	createDashboardUser: 'boolean',
+	email: 'string?'
+});
+
+export const createManagedHostUser = command(createHostUserParams, async (params) => {
+	const currentUser = await requireHostAdmin();
+	const { db, host } = await loadManagedHost(params.hostId);
+	const username = params.username.trim();
+	if (!/^[a-z_][a-z0-9_-]{0,30}$/.test(username)) {
+		error(
+			400,
+			'Host usernames must start with a lowercase letter or underscore and contain only lowercase letters, numbers, underscores, or hyphens.'
+		);
+	}
+	if (params.createDashboardUser && !params.email?.trim()) {
+		error(400, 'An email address is required when creating a dashboard user.');
+	}
+
+	const status = await dispatchHostCommand(host, {
+		module: 'users',
+		action: 'status',
+		payload: { name: username }
+	});
+	if (status.ok) error(409, 'A host user with that username already exists.');
+
+	const response = await dispatchHostCommand(host, {
+		module: 'users',
+		action: 'create',
+		payload: {
+			name: username,
+			shell: params.shell?.trim() || undefined,
+			home: params.home?.trim() || undefined
+		}
+	});
+	await markHostDispatchResult(db, host, response);
+	if (!response.ok) throw new Error(response.error || 'Failed to create host user');
+
+	if (!params.createDashboardUser) return { invitationUrl: null };
+
+	const email = normalizeInvitationEmail(params.email!);
+	await revokeActiveInvitations(host.id, username);
+	const invitation = await createInvitation({
+		email,
+		displayName: username,
+		hostId: host.id,
+		hostUsername: username,
+		hostShell: params.shell,
+		createdByUserId: currentUser.id
+	});
+	return {
+		invitationUrl: invitationUrl(getRuntimeEnv().ORIGIN, invitation.token),
+		expiresAt: invitation.expiresAt
+	};
+});
+
+const regenerateHostUserInvitationParams = type({
+	hostId: 'string',
+	username: 'string',
+	email: 'string'
+});
+export const regenerateManagedHostUserInvitation = command(
+	regenerateHostUserInvitationParams,
+	async (params) => {
+		const currentUser = await requireHostAdmin();
+		const { host } = await loadManagedHost(params.hostId);
+		const username = params.username.trim();
+		const email = normalizeInvitationEmail(params.email);
+		await revokeActiveInvitations(host.id, username);
+		const invitation = await createInvitation({
+			email,
+			displayName: username,
+			hostId: host.id,
+			hostUsername: username,
+			createdByUserId: currentUser.id
+		});
+		return {
+			invitationUrl: invitationUrl(getRuntimeEnv().ORIGIN, invitation.token),
+			expiresAt: invitation.expiresAt
+		};
+	}
+);
 
 export const deleteManagedHost = command(getParams, async (params) => {
 	if (accessibilityFixtureEnabled) return;

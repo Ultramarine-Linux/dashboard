@@ -1,0 +1,1 @@
+ALTER TYPE "public"."dashboard_invitation_status" ADD VALUE 'accepting' BEFORE 'revoked';

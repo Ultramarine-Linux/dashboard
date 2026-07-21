@@ -1,0 +1,1 @@
+ALTER TABLE "managed_hosts" ADD COLUMN "host_public_key" text;
