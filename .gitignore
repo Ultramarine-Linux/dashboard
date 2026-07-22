@@ -35,8 +35,8 @@ blob-report
 # traces for local dev
 Trace-*.json
 
-# cached VyOS ISOs
-dev/vyos/.cache
 
-# local wireguard config
-dev/fyra-wg.conf
+
+# local Dashboard/Tetra integration CA, enrollment token, and test state
+dev/.env
+dev/certs/

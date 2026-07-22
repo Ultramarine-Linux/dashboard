@@ -50,6 +50,13 @@
       "when": 1784670381257,
       "tag": "0006_rapid_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784673851416,
+      "tag": "0007_regular_triathlon",
+      "breakpoints": true
     }
   ]
 }

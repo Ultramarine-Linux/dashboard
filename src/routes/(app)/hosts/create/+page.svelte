@@ -15,6 +15,7 @@
 	let bearerToken = $state('');
 	let useWebSocket = $state(false);
 	let enrollmentToken = $state('');
+	let tlsCaCertificate = $state('');
 	let actionError = $state('');
 	let creating = $state(false);
 
@@ -30,11 +31,16 @@
 				bearerToken: useWebSocket ? undefined : bearerToken.trim() || undefined
 			});
 			if (useWebSocket) {
-				await enrollManagedHost({ hostId: host.id, enrollmentToken });
+				await enrollManagedHost({
+					hostId: host.id,
+					enrollmentToken,
+					tlsCaCertificate: tlsCaCertificate.trim() || undefined
+				});
 			}
 			displayName = '';
 			bearerToken = '';
 			enrollmentToken = '';
+			tlsCaCertificate = '';
 			await invalidate('hosts:managed-hosts');
 			await goto(`/hosts/${host.id}`);
 		} catch (err) {
@@ -101,6 +107,18 @@
 				<div class="space-y-2">
 					<Label for="enrollment-token">One-time enrollment token</Label>
 					<Input id="enrollment-token" type="password" bind:value={enrollmentToken} />
+				</div>
+				<div class="space-y-2">
+					<Label for="tls-ca-certificate">Private CA certificate (optional)</Label>
+					<textarea
+						id="tls-ca-certificate"
+						bind:value={tlsCaCertificate}
+						rows="5"
+						class="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm"
+						placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+					<p class="text-xs text-muted-foreground">
+						Provide the CA PEM only when the Tetra WSS certificate is signed by a private CA.
+					</p>
 				</div>
 			{:else}
 				<div class="space-y-2">

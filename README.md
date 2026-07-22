@@ -5,11 +5,9 @@ Dashboard for Ultramarine Server management. This app is intended to run self-ho
 ## Usage (dev)
 
 1. `pnpm install`
-2. Start the development services from `dev/` if you need a local database or network services.
-3. Create `apps/dashboard/.env` with the required values below.
-4. Set up the database: `pnpm --filter ultramarine-dashboard-app db:migrate`
-5. Seed test IPs if needed: `podman exec -i fyra-postgres psql -U postgres < dev/seed-ipam.sql`
-6. `pnpm --filter ultramarine-dashboard-app dev`
+   For a full Linux integration test, follow [`dev/README.md`](dev/README.md).
+2. For local application work, configure the environment values below and run `pnpm --filter ultramarine-dashboard-app db:migrate`.
+3. `pnpm --filter ultramarine-dashboard-app dev`
 
 Details, one-time machine setup, and caveats: [dev/README.md](dev/README.md)
 
@@ -43,6 +41,5 @@ Email verification is disabled by default. Set `EMAIL_VERIFICATION_REQUIRED=true
 
 Optional:
 
-- `VYOS_API_URL`, `VYOS_API_KEY`, `VYOS_VERIFY_SSL`
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
 - `INTERNAL_CRON_SECRET`

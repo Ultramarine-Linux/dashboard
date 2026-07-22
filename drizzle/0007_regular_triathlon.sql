@@ -1,0 +1,1 @@
+ALTER TABLE "managed_hosts" ADD COLUMN "tls_ca_certificate" text;

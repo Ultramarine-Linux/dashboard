@@ -199,7 +199,8 @@ async function refreshHostCapabilities(host: typeof managedHosts.$inferSelect) {
 		bearerToken: host.bearerToken,
 		controllerPublicKey: host.controllerPublicKey,
 		controllerPrivateKeyEncrypted: host.controllerPrivateKeyEncrypted,
-		hostPublicKey: host.hostPublicKey
+		hostPublicKey: host.hostPublicKey,
+		tlsCaCertificate: host.tlsCaCertificate
 	});
 
 	await client.health();
@@ -567,7 +568,8 @@ async function dispatchHostCommand(
 		bearerToken: host.bearerToken,
 		controllerPublicKey: host.controllerPublicKey,
 		controllerPrivateKeyEncrypted: host.controllerPrivateKeyEncrypted,
-		hostPublicKey: host.hostPublicKey
+		hostPublicKey: host.hostPublicKey,
+		tlsCaCertificate: host.tlsCaCertificate
 	});
 	return client.dispatch(command);
 }
@@ -668,7 +670,11 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 	return mapHost(host);
 });
 
-const enrollParams = type({ hostId: 'string', enrollmentToken: 'string' });
+const enrollParams = type({
+	hostId: 'string',
+	enrollmentToken: 'string',
+	tlsCaCertificate: 'string?'
+});
 export const enrollManagedHost = command(enrollParams, async (params): Promise<ManagedHost> => {
 	const { db, host } = await loadManagedHost(params.hostId);
 	if (!host.agentUrl) error(400, 'Tetra WebSocket URL is required');
@@ -678,11 +684,13 @@ export const enrollManagedHost = command(enrollParams, async (params): Promise<M
 
 	let hostPublicKey: string;
 	try {
+		const tlsCaCertificate = params.tlsCaCertificate?.trim() || host.tlsCaCertificate;
 		const client = new DirectWebSocketTetraClient(
 			host.agentUrl,
 			host.controllerPrivateKeyEncrypted,
 			host.controllerPublicKey,
-			host.hostPublicKey
+			host.hostPublicKey,
+			tlsCaCertificate
 		);
 		hostPublicKey = await client.enroll(params.enrollmentToken.trim());
 	} catch (err) {
@@ -705,6 +713,7 @@ export const enrollManagedHost = command(enrollParams, async (params): Promise<M
 		.set({
 			connectionMode: 'direct_wss',
 			hostPublicKey,
+			tlsCaCertificate: params.tlsCaCertificate?.trim() || host.tlsCaCertificate,
 			connectionState: 'unknown',
 			lastError: null,
 			updatedAt: now

@@ -5,14 +5,13 @@ import {
 	generateKeyPairSync,
 	randomBytes
 } from 'node:crypto';
-import { env } from '$env/dynamic/private';
+import { getBetterAuthSecret } from '$lib/server/env';
 
 const VERSION = 'v1';
 const ALGORITHM = 'aes-256-gcm';
 
 function encryptionKey() {
-	const secret = env.BETTER_AUTH_SECRET;
-	if (!secret) throw new Error('BETTER_AUTH_SECRET is required to encrypt controller keys');
+	const secret = getBetterAuthSecret();
 	return createHash('sha256').update(`tetra-controller-key:${secret}`).digest();
 }
 

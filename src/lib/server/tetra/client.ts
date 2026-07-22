@@ -1,4 +1,9 @@
 import { createPrivateKey, sign as signBytes } from 'node:crypto';
+import {
+	Agent,
+	WebSocket as UndiciWebSocket,
+	type MessageEvent as UndiciMessageEvent
+} from 'undici';
 import { ulid } from '$lib/server/id';
 import { decryptControllerPrivateKey } from './controller-keys';
 
@@ -111,19 +116,21 @@ type AuthFrame =
 	| { type: 'response'; response: AgentResponse }
 	| { type: 'error'; error: string };
 
-const PROTOCOL_VERSION = '2026-07-auth-v1';
+const COMMAND_SIGNING_VERSION = 'tetra-command-v1';
 
 export class DirectWebSocketTetraClient implements TetraClient {
 	readonly #url: string;
 	readonly #privateKey: ReturnType<typeof createPrivateKey>;
 	readonly #publicKey: string;
 	readonly #hostPublicKey: string | null;
+	readonly #tlsCaCertificate: string | null;
 
 	constructor(
 		url: string,
 		encryptedPrivateKey: string,
 		publicKey: string,
-		hostPublicKey?: string | null
+		hostPublicKey?: string | null,
+		tlsCaCertificate?: string | null
 	) {
 		this.#url = url;
 		this.#privateKey = createPrivateKey({
@@ -133,6 +140,7 @@ export class DirectWebSocketTetraClient implements TetraClient {
 		});
 		this.#publicKey = publicKey;
 		this.#hostPublicKey = hostPublicKey?.trim() || null;
+		this.#tlsCaCertificate = tlsCaCertificate?.trim() || null;
 	}
 
 	async health() {
@@ -216,7 +224,7 @@ export class DirectWebSocketTetraClient implements TetraClient {
 			const fullCommand: AgentCommand = { ...command, id, signature: null };
 			fullCommand.signature = this.#sign(
 				canonicalCommand({
-					version: PROTOCOL_VERSION,
+					version: COMMAND_SIGNING_VERSION,
 					session_id: challenge.session_id,
 					sequence,
 					timestamp,
@@ -246,8 +254,11 @@ export class DirectWebSocketTetraClient implements TetraClient {
 		}
 	}
 
-	async #connect(): Promise<WebSocket> {
-		const socket = new WebSocket(this.#url);
+	async #connect(): Promise<InstanceType<typeof UndiciWebSocket>> {
+		const dispatcher = this.#tlsCaCertificate
+			? new Agent({ connect: { ca: this.#tlsCaCertificate, rejectUnauthorized: true } })
+			: undefined;
+		const socket = new UndiciWebSocket(this.#url, dispatcher ? { dispatcher } : undefined);
 		await new Promise<void>((resolve, reject) => {
 			socket.addEventListener('open', () => resolve(), { once: true });
 			socket.addEventListener(
@@ -259,11 +270,12 @@ export class DirectWebSocketTetraClient implements TetraClient {
 		return socket;
 	}
 
-	async #receive(socket: WebSocket): Promise<AuthFrame> {
+	async #receive(socket: InstanceType<typeof UndiciWebSocket>): Promise<AuthFrame> {
 		return new Promise((resolve, reject) => {
-			const onMessage = (event: MessageEvent) => {
+			const onMessage = (event: Event) => {
 				try {
-					resolve(JSON.parse(String(event.data)) as AuthFrame);
+					const message = event as UndiciMessageEvent;
+					resolve(JSON.parse(String(message.data)) as AuthFrame);
 				} catch (error) {
 					reject(error);
 				}
@@ -275,7 +287,7 @@ export class DirectWebSocketTetraClient implements TetraClient {
 		});
 	}
 
-	async #send(socket: WebSocket, frame: AuthFrame) {
+	async #send(socket: InstanceType<typeof UndiciWebSocket>, frame: AuthFrame) {
 		socket.send(JSON.stringify(frame));
 	}
 
@@ -291,6 +303,7 @@ export function createTetraClient(options: {
 	controllerPublicKey?: string | null;
 	controllerPrivateKeyEncrypted?: string | null;
 	hostPublicKey?: string | null;
+	tlsCaCertificate?: string | null;
 }): TetraClient {
 	if (!options.agentUrl) throw new Error('Tetra hosts require an agent URL');
 
@@ -302,7 +315,8 @@ export function createTetraClient(options: {
 			options.agentUrl,
 			options.controllerPrivateKeyEncrypted,
 			options.controllerPublicKey,
-			options.hostPublicKey
+			options.hostPublicKey,
+			options.tlsCaCertificate
 		);
 	}
 

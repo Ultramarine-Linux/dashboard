@@ -34,15 +34,19 @@ function required(name: keyof RuntimeEnv, value: string | undefined): string {
 	return value;
 }
 
+export function getBetterAuthSecret() {
+	return resolveBetterAuthSecret({
+		explicitSecret: privateEnv.BETTER_AUTH_SECRET,
+		secretFile: privateEnv.BETTER_AUTH_SECRET_FILE,
+		stateDir: privateEnv.UM_DASHBOARD_STATE_DIR,
+		development: dev
+	});
+}
+
 export function getRuntimeEnv(): RuntimeEnv {
 	return {
 		ORIGIN: required('ORIGIN', privateEnv.ORIGIN),
-		BETTER_AUTH_SECRET: resolveBetterAuthSecret({
-			explicitSecret: privateEnv.BETTER_AUTH_SECRET,
-			secretFile: privateEnv.BETTER_AUTH_SECRET_FILE,
-			stateDir: privateEnv.UM_DASHBOARD_STATE_DIR,
-			development: dev
-		}),
+		BETTER_AUTH_SECRET: getBetterAuthSecret(),
 		DATABASE_URL: required('DATABASE_URL', privateEnv.DATABASE_URL),
 		EMAIL_FROM_ADDRESS: required('EMAIL_FROM_ADDRESS', privateEnv.EMAIL_FROM_ADDRESS),
 		EMAIL_FROM_NAME: required('EMAIL_FROM_NAME', privateEnv.EMAIL_FROM_NAME),

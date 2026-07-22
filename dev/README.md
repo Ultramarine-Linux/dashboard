@@ -1,50 +1,80 @@
-# Local Dev Stack
+# Development environments
 
-Postgres, VyOS, and a 3-node Proxmox HA cluster in containers.
+This directory contains the supported development environments for Ultramarine
+Dashboard. Dashboard is developed against Tetra and the Ultramarine userspace
+directly.
 
-## One-time machine setup (Linux)
+## Dashboard + Tetra integration stack
 
-```sh
-sudo dnf install podman podman-compose wireguard-tools
-printf 'fs.inotify.max_user_instances=512\nfs.inotify.max_user_watches=1048576\n' | sudo tee /etc/sysctl.d/99-fyrastack-dev.conf && sudo sysctl --system
+The recommended Linux test environment is the reproducible integration stack in
+this directory. It runs PostgreSQL, Dashboard, and Tetra in
+containers, with Tetra based on the bare Ultramarine 44 image:
+
+```text
+ghcr.io/ultramarine-linux/ultramarine:44
 ```
 
-this is needed cause the 3 proxmox nodes will make a lot of inotify instances.
+This tests the real Dashboard → Tetra authenticated WSS path, TLS certificates,
+controller enrollment, signed commands, migrations, generated Dashboard
+secrets, and container networking. It does not emulate a complete host: real
+systemd, Quadlets, desktop polkit agents, root-owned user changes, and reverse
+proxy changes must be tested in a VM or on an Ultramarine host.
 
-`wireguard-tools` is needed to reach VM IPs from the host.
+### Prerequisites
 
-## First-time setup
+Install Podman, a Compose provider, OpenSSL, and (for source builds) Rust and
+pnpm. For example on Fedora-based systems:
 
-1. `dev/vyos/build-image.sh`: builds `localhost/fyrastack/vyos:stream` from the latest VyOS Stream ISO (`rolling` for rolling)
-2. `cd dev && podman compose up -d`
-3. `dev/pve/init-cluster.sh`: forms the cluster, provisions storage/token/SDN, prints the `PROXMOX_*` env block
-4. Copy `apps/dashboard/.env.example` to `apps/dashboard/.env` and set `BETTER_AUTH_SECRET` (any string in dev) and the `PROXMOX_TOKEN_SECRET` printed by `init-cluster.sh`; everything else defaults to the dev stack
-5. `pnpm --filter stack-dashboard db:migrate`
-6. `podman exec -i fyra-postgres psql -U postgres < dev/seed-ipam.sql`
+```sh
+sudo dnf install podman podman-compose openssl
+```
 
-## usage
+### Start and test
 
-- `pnpm dashboard dev`
-- VM test IPs (`203.0.113.0/24`, `2001:db8:0:1::/64`, `2001:db8:100::/56`) from the host:
-  `sudo wg-quick up dev/fyra-wg.conf` / `sudo wg-quick down dev/fyra-wg.conf`
-- PVE web UIs: `https://127.0.0.1:8006`-`8008` (root / fyradev)
+From the Dashboard repository:
 
-## Fixture UI mode (non-Linux)
+```sh
+cd dev
+chmod +x prepare.sh smoke.sh
+./prepare.sh
+podman compose --env-file .env up --build
+```
 
-Use fixture mode when you only need to test Svelte UI changes and do not want
-to run Postgres, Proxmox, VyOS, or a Tetra/Podman host. This is the easiest path
-on macOS.
+In a second terminal, run the non-browser smoke checks:
 
-Fixture mode is enabled by `ACCESSIBILITY_FIXTURES=1`. It installs a fake
-authenticated admin session, a fake project, one fake VM, one fake managed host,
-managed-host Podman fixture data, and a Quadlet bundle with nginx companion
-files.
+```sh
+cd dev
+./smoke.sh
+```
 
-The Quadlet fixture mirrors the production storage split: unit files live in
-the Podman Quadlet directory, while companion files live in a mutable data root
-such as `/var/lib/tetra/quadlets/<bundle>` for system-scope Quadlets.
+Pairing details, reset procedures, certificate handling, and security limitations
+are documented below.
 
-From the repo root:
+The integration stack uses generated development-only credentials and a private
+CA. Do not reuse its enrollment token, controller keys, or CA private key in a
+production deployment.
+
+### Stop or reset
+
+Stop the stack while retaining its volumes:
+
+```sh
+podman compose --env-file .env down
+```
+
+Reset the database, Tetra identity, certificates, and generated credentials:
+
+```sh
+podman compose --env-file .env down -v
+rm -rf certs .env
+```
+
+Then run `./prepare.sh` again.
+
+## Fixture UI mode
+
+For UI-only work, use the deterministic fixture mode. It does not require
+PostgreSQL, Tetra, Podman, or a Linux host:
 
 ```sh
 CI=true \
@@ -53,41 +83,14 @@ DATABASE_URL=postgres://fixture:fixture@127.0.0.1:5432/fixture \
 pnpm --filter ultramarine-dashboard-app run dev --host 127.0.0.1 --port 5173
 ```
 
-The fixture database URL satisfies server startup. Fixture-backed routes do not connect to that database.
+The fixture database URL satisfies server startup; fixture-backed routes do not
+connect to that database. Fixture data lives in
+`src/lib/server/accessibility-fixtures.ts` and should remain deterministic.
 
 Useful fixture URLs:
 
-- Managed host:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host`
-- Managed host Podman tab:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/podman`
-- Managed host Podman container detail:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/podman/demo-web`
-- Managed host Quadlets tab:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/quadlets`
-- Managed host Quadlet detail:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/quadlets/demo-web.container`
-- Managed host Quadlet create from recipe:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/quadlets/create`
-- Managed host raw dispatch tab:
-  `http://127.0.0.1:5173/projects/accessibility-project/hosts/accessibility-host/dispatch`
-- Fixture VM:
-  `http://127.0.0.1:5173/projects/accessibility-project/servers/accessibility-server`
-
-Fixture data lives in
-`apps/dashboard/src/lib/server/accessibility-fixtures.ts`. If a UI needs more
-states for local testing, add them there and keep them deterministic.
-
-## After a reboot or stack restart
-
-```sh
-cd dev && podman compose up -d
-dev/pve/init-cluster.sh
-```
-
-the above rotates `PROXMOX_TOKEN_SECRET`, so update `.env` with the newly printed value. `podman compose down -v` for a factory reset.
-
-## Caveats
-
-- this currently only works on linux.
-- no gurantees on vm performance.
+- Managed host: `/projects/accessibility-project/hosts/accessibility-host`
+- Podman: `/projects/accessibility-project/hosts/accessibility-host/podman`
+- Quadlets: `/projects/accessibility-project/hosts/accessibility-host/quadlets`
+- Raw dispatch: `/projects/accessibility-project/hosts/accessibility-host/dispatch`
+- Fixture VM: `/projects/accessibility-project/servers/accessibility-server`

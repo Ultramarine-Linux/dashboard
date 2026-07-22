@@ -27,6 +27,7 @@ export const managedHosts = pgTable(
 		controllerPublicKey: text('controller_public_key'),
 		controllerPrivateKeyEncrypted: text('controller_private_key_encrypted'),
 		hostPublicKey: text('host_public_key'),
+		tlsCaCertificate: text('tls_ca_certificate'),
 		lastSeenAt: bigint('last_seen_at', { mode: 'number' }),
 		agentVersion: text('agent_version'),
 		hostname: text('hostname'),

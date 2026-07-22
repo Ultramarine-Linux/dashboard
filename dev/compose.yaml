@@ -1,151 +1,120 @@
-name: fyrastack-dev
+name: ultramarine-server-integration
 
 services:
   postgres:
     image: docker.io/library/postgres:17
-    container_name: fyra-postgres
-    ports:
-      - '5432:5432'
     environment:
-      POSTGRES_PASSWORD: mysecretpassword
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      POSTGRES_PASSWORD: integration
+      POSTGRES_DB: ultramarine
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 5s
-
-  vyos:
-    image: localhost/fyrastack/vyos:stream
-    container_name: fyra-vyos
-    privileged: true
-    ports:
-      - '8443:443'
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d ultramarine']
+      interval: 2s
+      timeout: 3s
+      retries: 20
     volumes:
-      - /lib/modules:/lib/modules:ro
-    networks:
-      - vyos
+      - postgres:/var/lib/postgresql/data
+    networks: [server]
 
-  snippets:
-    image: docker.io/library/nginx:alpine
-    container_name: fyra-snippets
-    command: sh -c "mkdir -p /shared/stack/snippets && chmod -R 777 /shared/stack && exec nginx -g 'daemon off;'"
-    ports:
-      - '8005:80'
-    volumes:
-      - ./pve/snippets-nginx.conf:/etc/nginx/conf.d/default.conf:ro,z
-      - pve_shared:/shared
-    networks:
-      - pve
-
-  gateway:
-    image: docker.io/library/alpine:3
-    container_name: fyra-gw
-    privileged: true
-    dns: [1.1.1.1]
-    command: sh /entrypoint.sh
-    ports:
-      - '51820:51820/udp'
-    volumes:
-      - ./gateway/entrypoint.sh:/entrypoint.sh:ro,z
-      - wg_data:/data
-    networks:
-      pve:
-        ipv4_address: 172.30.10.20
-      wan6: {}
-
-  pve1:
-    image: docker.io/dockurr/proxmox
-    container_name: fyra-pve1
-    hostname: pve1
-    privileged: true
-    stop_grace_period: 2m
-    dns: [1.1.1.1]
+  dashboard:
+    build:
+      context: ..
+      dockerfile: dev/dashboard/Dockerfile
     environment:
-      PASSWORD: fyradev
-    ports:
-      - '8006:8006'
+      ORIGIN: http://127.0.0.1:3000
+      DATABASE_URL: postgres://postgres:integration@postgres:5432/ultramarine
+      EMAIL_FROM_ADDRESS: no-reply@integration.test
+      EMAIL_FROM_NAME: Ultramarine Server Integration
+      EMAIL_REPLY_TO: support@integration.test
+      UM_DASHBOARD_STATE_DIR: /var/lib/ultramarine-dashboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # A new named volume is root-owned. Initialize only the mutable state
+    # directory, then run migrations and Dashboard as the unprivileged node user.
+    user: '0:0'
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        mkdir -p /var/lib/ultramarine-dashboard
+        chown node:node /var/lib/ultramarine-dashboard
+        chmod 700 /var/lib/ultramarine-dashboard
+        exec su -s /bin/sh node -c './node_modules/.bin/drizzle-kit migrate --config=drizzle.config.ts && exec node build'
     volumes:
-      - pve1_data:/var/lib/vz
-      - pve1_config:/var/lib/pve-cluster
-      - pve1_corosync:/etc/corosync
-      - pve1_ssh:/root/.ssh
-      - pve_shared:/shared
-    networks:
-      pve:
-        ipv4_address: 172.30.10.11
+      - dashboard-state:/var/lib/ultramarine-dashboard
+    ports:
+      - '127.0.0.1:3000:3000'
+    networks: [server]
 
-  pve2:
-    image: docker.io/dockurr/proxmox
-    container_name: fyra-pve2
-    hostname: pve2
-    privileged: true
-    stop_grace_period: 2m
-    dns: [1.1.1.1]
-    environment:
-      PASSWORD: fyradev
-    ports:
-      - '8007:8006'
+  tetra-smoke:
+    build:
+      context: ../../tetra
+      dockerfile: ../um-dashboard/dev/tetra/Dockerfile
+    command:
+      - agent-ws-serve
+      - --listen
+      - 0.0.0.0:7780
+      - --tls-cert
+      - /var/lib/tetra/config/tls/tetra.crt
+      - --tls-key
+      - /var/lib/tetra/config/tls/tetra.key
+      - --enrollment-token
+      - ${TETRA_ENROLLMENT_TOKEN:?Run ./prepare.sh before starting the stack}
     volumes:
-      - pve2_data:/var/lib/vz
-      - pve2_config:/var/lib/pve-cluster
-      - pve2_corosync:/etc/corosync
-      - pve2_ssh:/root/.ssh
-      - pve_shared:/shared
-    networks:
-      pve:
-        ipv4_address: 172.30.10.12
+      - tetra-smoke-state:/var/lib/tetra
+      - ./certs:/var/lib/tetra/config/tls:ro,Z
+    networks: [server]
 
-  pve3:
-    image: docker.io/dockurr/proxmox
-    container_name: fyra-pve3
-    hostname: pve3
-    privileged: true
-    stop_grace_period: 2m
-    dns: [1.1.1.1]
+  wss-smoke:
+    profiles: ['smoke']
+    image: localhost/ultramarine-server-integration_dashboard:latest
+    depends_on:
+      tetra-smoke:
+        condition: service_started
+    working_dir: /app/dev
+    command: ['node', 'wss-smoke.mjs']
     environment:
-      PASSWORD: fyradev
-    ports:
-      - '8008:8006'
+      TETRA_ENROLLMENT_TOKEN: ${TETRA_ENROLLMENT_TOKEN:?Run ./prepare.sh before starting the stack}
+      TETRA_WSS_URL: wss://tetra-smoke:7780
+      TETRA_CA_PATH: /app/dev/certs/public/ca.crt
+      TETRA_SMOKE_KEY_PATH: /var/lib/tetra-smoke/controller-ed25519-private.pem
     volumes:
-      - pve3_data:/var/lib/vz
-      - pve3_config:/var/lib/pve-cluster
-      - pve3_corosync:/etc/corosync
-      - pve3_ssh:/root/.ssh
-      - pve_shared:/shared
-    networks:
-      pve:
-        ipv4_address: 172.30.10.13
+      - tetra-smoke-controller:/var/lib/tetra-smoke
+      - ./wss-smoke.mjs:/app/dev/wss-smoke.mjs:ro,Z
+      - ./certs/public:/app/dev/certs/public:ro,Z
+    networks: [server]
+
+  tetra:
+    build:
+      context: ../../tetra
+      dockerfile: ../um-dashboard/dev/tetra/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - agent-ws-serve
+      - --listen
+      - 0.0.0.0:7780
+      - --tls-cert
+      - /var/lib/tetra/config/tls/tetra.crt
+      - --tls-key
+      - /var/lib/tetra/config/tls/tetra.key
+      - --enrollment-token
+      - ${TETRA_ENROLLMENT_TOKEN:?Run ./prepare.sh before starting the stack}
+    volumes:
+      - tetra-state:/var/lib/tetra
+      - ./certs:/var/lib/tetra/config/tls:ro,Z
+    ports:
+      - '127.0.0.1:7780:7780'
+    networks: [server]
 
 networks:
-  vyos:
-    enable_ipv6: true
-    ipam:
-      config:
-        - subnet: 172.30.11.0/24
-        - subnet: fd42:f17a:57ac:11::/64
-  pve:
-    ipam:
-      config:
-        - subnet: 172.30.10.0/24
-  wan6:
-    enable_ipv6: true
-    ipam:
-      config:
-        - subnet: fd42:f17a:57ac:12::/64
+  server:
+    internal: true
 
 volumes:
-  postgres_data:
-  wg_data:
-  pve_shared:
-  pve1_data:
-  pve1_config:
-  pve1_corosync:
-  pve1_ssh:
-  pve2_data:
-  pve2_config:
-  pve2_corosync:
-  pve2_ssh:
-  pve3_data:
-  pve3_config:
-  pve3_corosync:
-  pve3_ssh:
+  postgres:
+  dashboard-state:
+  tetra-state:
+  tetra-smoke-state:
+  tetra-smoke-controller:
