@@ -8,6 +8,11 @@ const root = resolve(new URL('..', import.meta.url).pathname);
 const upstreamRemote =
 	process.env.UPSTREAM_DASHBOARD_REMOTE ?? 'https://github.com/FyraStack/dashboard.git';
 const upstreamRef = process.env.UPSTREAM_DASHBOARD_REF ?? 'main';
+// This is the commit that flattened stack-dashboard into the repository root.
+// Git merge-base alone is too late because the local fork later merged upstream
+// commits before adding Ultramarine-specific work.
+const splitRevision =
+	process.env.UPSTREAM_DASHBOARD_SPLIT ?? '98686bb40d5d5599e8504b4c5b54c6240027311e';
 const outputDir = resolve(root, '.local/backports');
 
 function run(command, args, options = {}) {
@@ -15,6 +20,7 @@ function run(command, args, options = {}) {
 		cwd: root,
 		encoding: 'utf8',
 		stdio: options.capture === false ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+		maxBuffer: 256 * 1024 * 1024,
 		...options
 	});
 }
@@ -30,6 +36,7 @@ function usage() {
 Environment:
   UPSTREAM_DASHBOARD_REMOTE  default: ${upstreamRemote}
   UPSTREAM_DASHBOARD_REF     default: ${upstreamRef}
+  UPSTREAM_DASHBOARD_SPLIT   default: ${splitRevision}
 
 The plan command never modifies source files. It writes a patch and metadata
 under .local/backports/. Apply requires a clean working tree.`);
@@ -44,7 +51,8 @@ function status() {
 	ensureFetched();
 	const local = run('git', ['rev-parse', 'HEAD']).trim();
 	const upstream = run('git', ['rev-parse', 'FETCH_HEAD']).trim();
-	const split = run('git', ['merge-base', local, upstream]).trim();
+	const automaticMergeBase = run('git', ['merge-base', local, upstream]).trim();
+	const split = run('git', ['rev-parse', splitRevision]).trim();
 	const splitDetails = run('git', [
 		'--no-pager',
 		'show',
@@ -82,7 +90,10 @@ function status() {
 		`${split}..${local}`
 	]);
 	console.log(`Local:    ${local}\nUpstream: ${upstream}`);
-	console.log(`\nFork point: ${splitDetails[0]} (${splitDetails[1]}) ${splitDetails[2]}`);
+	console.log(
+		`\nConfigured split point: ${splitDetails[0]} (${splitDetails[1]}) ${splitDetails[2]}`
+	);
+	console.log(`Automatic merge-base (diagnostic only): ${automaticMergeBase}`);
 	console.log(`\nUpstream commits since fork (${countLines(upstreamSinceSplit)}):`);
 	console.log(upstreamSinceSplit || 'None.');
 	console.log(`\nUpstream commits not in local fork (${countLines(upstreamMissing)}):`);
@@ -98,8 +109,9 @@ function countLines(value) {
 function getHistory() {
 	const local = run('git', ['rev-parse', 'HEAD']).trim();
 	const upstream = run('git', ['rev-parse', 'FETCH_HEAD']).trim();
-	const split = run('git', ['merge-base', local, upstream]).trim();
-	return { local, upstream, split };
+	const automaticMergeBase = run('git', ['merge-base', local, upstream]).trim();
+	const split = run('git', ['rev-parse', splitRevision]).trim();
+	return { local, upstream, split, automaticMergeBase };
 }
 
 function planSinceFork() {
@@ -120,12 +132,7 @@ function planSinceFork() {
 		.split('\n')
 		.filter(Boolean);
 	const patch = commits.length
-		? run('git', [
-				'format-patch',
-				'--stdout',
-				'--binary',
-				...commits.map((commit) => `${commit}^!`)
-			])
+		? run('git', ['format-patch', '--stdout', '--binary', '--no-merges', `${split}..${upstream}`])
 		: '';
 	const files = commits.map((commit) => ({
 		commit,
@@ -143,6 +150,7 @@ function planSinceFork() {
 				upstreamRemote,
 				upstreamRef,
 				forkPoint: split,
+				automaticMergeBase: getHistory().automaticMergeBase,
 				local,
 				upstream,
 				excludesMergeCommits: true,
@@ -154,7 +162,7 @@ function planSinceFork() {
 		) + '\n'
 	);
 	console.log(`Patch: ${patchPath}\nMetadata: ${metadataPath}`);
-	console.log(`Prepared ${commits.length} non-merge upstream commits since fork ${split}.`);
+	console.log(`Prepared ${commits.length} non-merge upstream commits since split ${split}.`);
 }
 
 function plan(revision) {
