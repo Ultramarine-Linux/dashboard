@@ -181,6 +181,15 @@
 				</Button>
 			</form>
 
+			<div class="flex justify-center">
+				<a
+					href="/forgot-password"
+					class="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+				>
+					Forgot password?
+				</a>
+			</div>
+
 			<div class="flex items-center gap-2">
 				<div class="h-px flex-1 bg-muted"></div>
 				<span class="text-[10px] text-muted-foreground">or</span>
