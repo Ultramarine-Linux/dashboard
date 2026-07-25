@@ -500,7 +500,7 @@
 				<div class="px-5 pt-5 pb-4">
 					<div class="flex items-center gap-3">
 						<Avatar.Root class="h-9 w-9 border border-border">
-							<Avatar.Fallback class="bg-red-500/10 text-xs font-semibold text-red-400">
+							<Avatar.Fallback class="bg-primary/10 text-xs font-semibold text-primary">
 								{(user?.name ?? '??')
 									.split(' ')
 									.map((n: string) => n[0])
@@ -561,7 +561,7 @@
 					<Tabs.Content value="profile" class="mt-0 px-6 py-6">
 						<div class="rounded-xs border border-border/60 p-4">
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-								<User class="size-4 text-red-400" />
+								<User class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									Profile
 								</p>
@@ -605,7 +605,7 @@
 					<Tabs.Content value="security" class="mt-0 space-y-4 px-6 py-6">
 						<div class="rounded-xs border border-border/60 p-4">
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-								<Lock class="size-4 text-red-400" />
+								<Lock class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									Password
 								</p>
@@ -671,7 +671,7 @@
 
 						<div class="rounded-xs border border-border/60 p-4">
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-								<ShieldCheck class="size-4 text-red-400" />
+								<ShieldCheck class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									Two-Factor Authentication
 								</p>
@@ -805,7 +805,7 @@
 					<Tabs.Content value="keys" class="mt-0 space-y-4 px-6 py-6">
 						<div class="rounded-xs border border-border/60 p-4">
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-								<Key class="size-4 text-red-400" />
+								<Key class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									SSH Keys
 								</p>
@@ -813,7 +813,7 @@
 									href="https://docs.ultramarine-linux.org/server/ssh"
 									target="_blank"
 									rel="noopener noreferrer"
-									class="ml-auto text-[11px] font-medium text-red-400 transition-colors hover:text-red-300"
+									class="ml-auto text-[11px] font-medium text-primary transition-colors hover:text-primary/80"
 								>
 									SSH docs
 								</a>
@@ -895,7 +895,7 @@
 					<Tabs.Content value="api" class="mt-0 flex-1 overflow-y-auto px-6 py-6">
 						<div class="rounded-xs border border-border/60 p-4">
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-								<Key class="size-4 text-red-400" />
+								<Key class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									API Tokens
 								</p>
@@ -990,7 +990,7 @@
 					<Tabs.Content value="appearance" class="mt-0 px-6 py-6">
 						<div class="rounded-xs border border-border/60 p-4">
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
-								<SunMoon class="size-4 text-red-400" />
+								<SunMoon class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
 									Appearance
 								</p>

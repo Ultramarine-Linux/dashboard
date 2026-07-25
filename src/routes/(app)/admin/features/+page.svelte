@@ -116,7 +116,7 @@
 							<div class="flex min-w-0 items-center gap-3">
 								<div
 									class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {enabled
-										? 'bg-red-500/10 text-red-400'
+										? 'bg-primary/10 text-primary'
 										: 'bg-muted/50 text-muted-foreground'}"
 								>
 									<Icon class="h-4 w-4" />

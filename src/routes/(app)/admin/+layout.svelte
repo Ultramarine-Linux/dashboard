@@ -31,7 +31,7 @@
 				page.url.pathname === tab.href || page.url.pathname.startsWith(`${tab.href}/`)}
 			<a
 				class="flex h-full items-center gap-1.5 border-b-2 px-5 text-xs font-medium transition-colors {active
-					? 'border-red-500 text-foreground'
+					? 'border-primary text-foreground'
 					: 'border-transparent text-muted-foreground hover:text-foreground'}"
 				href={tab.href}
 			>

@@ -93,10 +93,10 @@
 		aria-busy="true"
 	>
 		<div
-			class="h-full bg-red-500 transition-[width,opacity] ease-out"
+			class="h-full bg-primary transition-[width,opacity] ease-out"
 			style="width: {width}%; opacity: {dimmed ? 0 : 1}; transition-duration: {dimmed
 				? FADE_OUT_MS
-				: TRICKLE_INTERVAL_MS}ms; box-shadow: 0 0 8px var(--red-500);"
+				: TRICKLE_INTERVAL_MS}ms; box-shadow: 0 0 8px var(--primary);"
 		></div>
 	</div>
 {/if}

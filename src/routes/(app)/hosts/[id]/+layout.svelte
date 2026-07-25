@@ -146,7 +146,7 @@
 			aria-current={activeTab === tab.id ? 'page' : undefined}
 			class="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors duration-100 {activeTab ===
 			tab.id
-				? 'border-b-2 border-red-500 text-foreground'
+				? 'border-b-2 border-primary text-foreground'
 				: 'text-muted-foreground hover:text-foreground'}"
 			href={resolve(tabHref(tab.id))}
 			data-sveltekit-preload-data="hover"

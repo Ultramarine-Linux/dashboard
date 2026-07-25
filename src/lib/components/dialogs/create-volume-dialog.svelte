@@ -39,7 +39,7 @@
 						max="500"
 						step="10"
 						bind:value={size}
-						class="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-muted accent-red-500"
+						class="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-muted accent-primary"
 					/>
 					<span class="w-16 text-right text-sm font-medium text-foreground">{size} GB</span>
 				</div>
