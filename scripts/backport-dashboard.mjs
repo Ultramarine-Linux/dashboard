@@ -23,7 +23,9 @@ function usage() {
 	console.log(`Usage:
   node scripts/backport-dashboard.mjs status
   node scripts/backport-dashboard.mjs plan <commit-or-range>
+  node scripts/backport-dashboard.mjs plan-since-fork
   node scripts/backport-dashboard.mjs apply <commit-or-range>
+  node scripts/backport-dashboard.mjs apply-since-fork
 
 Environment:
   UPSTREAM_DASHBOARD_REMOTE  default: ${upstreamRemote}
@@ -93,6 +95,68 @@ function countLines(value) {
 	return value.trim() ? value.trim().split('\n').length : 0;
 }
 
+function getHistory() {
+	const local = run('git', ['rev-parse', 'HEAD']).trim();
+	const upstream = run('git', ['rev-parse', 'FETCH_HEAD']).trim();
+	const split = run('git', ['merge-base', local, upstream]).trim();
+	return { local, upstream, split };
+}
+
+function planSinceFork() {
+	ensureFetched();
+	const { local, upstream, split } = getHistory();
+	mkdirSync(outputDir, { recursive: true });
+	const patchPath = resolve(outputDir, 'since-fork.patch');
+	const metadataPath = resolve(outputDir, 'since-fork.json');
+	const commits = run('git', [
+		'--no-pager',
+		'log',
+		'--reverse',
+		'--format=%H',
+		'--no-merges',
+		`${split}..${upstream}`
+	])
+		.trim()
+		.split('\n')
+		.filter(Boolean);
+	const patch = commits.length
+		? run('git', [
+				'format-patch',
+				'--stdout',
+				'--binary',
+				...commits.map((commit) => `${commit}^!`)
+			])
+		: '';
+	const files = commits.map((commit) => ({
+		commit,
+		subject: run('git', ['show', '--no-patch', '--format=%s', commit]).trim(),
+		files: run('git', ['diff-tree', '--no-commit-id', '--name-status', '-r', commit])
+			.trim()
+			.split('\n')
+			.filter(Boolean)
+	}));
+	writeFileSync(patchPath, patch);
+	writeFileSync(
+		metadataPath,
+		JSON.stringify(
+			{
+				upstreamRemote,
+				upstreamRef,
+				forkPoint: split,
+				local,
+				upstream,
+				excludesMergeCommits: true,
+				commitCount: commits.length,
+				commits: files
+			},
+			null,
+			2
+		) + '\n'
+	);
+	console.log(`Patch: ${patchPath}\nMetadata: ${metadataPath}`);
+	console.log(`Prepared ${commits.length} non-merge upstream commits since fork ${split}.`);
+}
+
 function plan(revision) {
 	if (!revision) throw new Error('A commit or range is required.');
 	ensureFetched();
@@ -126,6 +190,22 @@ function plan(revision) {
 	console.log(`Patch: ${patchPath}\nMetadata: ${metadataPath}\n\n${files}`);
 }
 
+function applySinceFork() {
+	const statusOutput = run('git', ['status', '--short']).trim();
+	if (statusOutput) {
+		throw new Error(
+			'Refusing bulk backport with a dirty working tree. Save or stash current work, then rerun apply-since-fork.'
+		);
+	}
+	ensureFetched();
+	const { upstream, split } = getHistory();
+	console.log(`Applying non-merge upstream commits from ${split} through ${upstream}.`);
+	console.log('No commit will be created; review and test the resulting working tree.');
+	run('git', ['cherry-pick', '--no-commit', '--no-merges', `${split}..${upstream}`], {
+		capture: false
+	});
+}
+
 function apply(revision) {
 	if (!revision) throw new Error('A commit or range is required.');
 	const statusOutput = run('git', ['status', '--short']).trim();
@@ -146,7 +226,9 @@ const [command, revision] = process.argv.slice(2);
 try {
 	if (command === 'status') status();
 	else if (command === 'plan') plan(revision);
+	else if (command === 'plan-since-fork') planSinceFork();
 	else if (command === 'apply') apply(revision);
+	else if (command === 'apply-since-fork') applySinceFork();
 	else {
 		usage();
 		process.exitCode = command ? 2 : 0;
