@@ -14,6 +14,10 @@ RUN cargo build --release --no-default-features \
 # closest available container analogue to the intended host family; it is still
 # not a replacement for systemd/polkit tests on a full VM or real install.
 FROM ghcr.io/ultramarine-linux/ultramarine:44
+# The bare Ultramarine image does not include Podman by default. Install it in
+# the integration image so Dashboard's Podman tab exercises the real Tetra
+# module; production hosts should provide Podman through the host OS instead.
+RUN dnf install -y podman && dnf clean all && rm -rf /var/cache/dnf
 RUN mkdir -p /var/lib/tetra/identity /var/lib/tetra/config/tls
 COPY --from=build /src/target/release/tetra /usr/local/bin/tetra
 # Root inside a rootless Podman container is not host root. It is used here only

@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { dashboardBrand, pageTitle } from '$lib/branding';
 	import { planSetupDomain, saveSetupDomain, type SetupState } from '$lib/remote/setup.remote';
+	import { enrollLocalTetra } from '$lib/remote/managed-hosts.remote';
 	import type { SetupPlan } from '$lib/server/setup/taidan';
 	import { getErrorMessage } from '$lib/utils';
 	import ArrowRight from '~icons/lucide/arrow-right';
@@ -12,6 +13,7 @@
 	import Loader2 from '~icons/lucide/loader-2';
 	import AlertTriangle from '~icons/nucleo/alert-triangle';
 	import Globe from '~icons/nucleo/globe';
+	import Server from '~icons/nucleo/server';
 
 	type PageData = {
 		setup: SetupState;
@@ -29,6 +31,10 @@
 	let plan = $state<SetupPlan | null>(initialSetup.taidanPlan);
 	let loadingPlan = $state(false);
 	let saving = $state(false);
+	let detectingLocal = $state(false);
+	let environment = $state<'local' | 'remote'>('local');
+	let localEnvironment: 'idle' | 'detecting' | 'found' | 'not_found' = $state('idle');
+	let localEnvironmentName = $state('');
 	let error = $state('');
 
 	const domainPlaceholder = $derived(domainMode === 'fyra_subdomain' ? 'my-server' : 'example.com');
@@ -50,12 +56,38 @@
 		}
 	}
 
+	async function detectLocalEnvironment() {
+		if (detectingLocal) return;
+		detectingLocal = true;
+		localEnvironment = 'detecting';
+		error = '';
+		try {
+			await saveSetupDomain({ domainMode, rootDomain, accessMode });
+			const host = await enrollLocalTetra({
+				displayName: rootDomain.trim() ? `${rootDomain.trim()} (local host)` : 'Local host'
+			});
+			if (!host) {
+				localEnvironment = 'not_found';
+				error =
+					'No local Tetra environment was found. Start Tetra and try again, or add a remote environment.';
+				return;
+			}
+			localEnvironment = 'found';
+			localEnvironmentName = host.displayName;
+		} catch (err) {
+			localEnvironment = 'not_found';
+			error = getErrorMessage(err, 'Local Tetra detection failed.');
+		} finally {
+			detectingLocal = false;
+		}
+	}
+
 	async function finishSetup() {
 		saving = true;
 		error = '';
 		try {
 			await saveSetupDomain({ domainMode, rootDomain, accessMode });
-			await goto('/hosts');
+			await goto(environment === 'remote' ? '/hosts/create' : '/hosts');
 		} catch (err) {
 			error = getErrorMessage(err, 'Unable to save setup.');
 		} finally {
@@ -90,7 +122,9 @@
 						<h1 class="text-xl font-semibold text-foreground">Choose your server domain</h1>
 						<p class="mt-1 text-sm text-muted-foreground">
 							The dashboard will live at <code>dash.&lt;domain&gt;</code>. Apps can use configurable
-							subdomains under the same root by default.
+							subdomains under the same root by default. After you choose the domain, Dashboard will
+							automatically look for a local Tetra endpoint when local development credentials are
+							available.
 						</p>
 					</div>
 				</div>
@@ -183,13 +217,54 @@
 						</div>
 					</div>
 
-					<div class="flex justify-end gap-2">
-						<Button variant="outline" onclick={previewPlan} loading={loadingPlan}
-							>Preview plan</Button
-						>
-						<Button onclick={finishSetup} loading={saving} class="gap-1.5">
-							Finish setup <ArrowRight class="size-4" />
-						</Button>
+					<div class="space-y-3 border-t border-border pt-5">
+						<p class="text-sm font-semibold text-foreground">Choose an environment</p>
+						<div class="grid gap-3 sm:grid-cols-2">
+							<button
+								type="button"
+								class="border p-4 text-left transition-colors {environment === 'local'
+									? 'border-primary bg-primary/10'
+									: 'border-border hover:border-ring'}"
+								onclick={() => (environment = 'local')}
+							>
+								<Server class="mb-2 size-5 text-muted-foreground" />
+								<p class="text-sm font-medium text-foreground">Local environment</p>
+								<p class="mt-1 text-xs text-muted-foreground">
+									Detect and enroll Tetra running on this machine or local stack.
+								</p>
+							</button>
+							<button
+								type="button"
+								class="border p-4 text-left transition-colors {environment === 'remote'
+									? 'border-primary bg-primary/10'
+									: 'border-border hover:border-ring'}"
+								onclick={() => (environment = 'remote')}
+							>
+								<Globe class="mb-2 size-5 text-muted-foreground" />
+								<p class="text-sm font-medium text-foreground">Add remote environment</p>
+								<p class="mt-1 text-xs text-muted-foreground">
+									Finish setup and enter a remote Tetra endpoint manually.
+								</p>
+							</button>
+						</div>
+						{#if environment === 'local'}
+							<Button
+								onclick={detectLocalEnvironment}
+								disabled={detectingLocal}
+								class="w-full gap-1.5"
+							>
+								{#if detectingLocal}<Loader2 class="size-4 animate-spin" />{:else}<Server
+										class="size-4"
+									/>{/if}
+								{localEnvironment === 'found'
+									? `Local environment: ${localEnvironmentName}`
+									: 'Detect local Tetra'}
+							</Button>
+						{:else}
+							<Button onclick={finishSetup} loading={saving} class="w-full gap-1.5">
+								Continue to remote environment <ArrowRight class="size-4" />
+							</Button>
+						{/if}
 					</div>
 				</div>
 			</section>

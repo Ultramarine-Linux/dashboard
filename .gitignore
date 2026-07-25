@@ -35,8 +35,11 @@ blob-report
 # traces for local dev
 Trace-*.json
 
-
+*.local.md
 
 # local Dashboard/Tetra integration CA, enrollment token, and test state
 dev/.env
 dev/certs/
+
+# Generated upstream Dashboard backport plans and patches
+.local/backports/

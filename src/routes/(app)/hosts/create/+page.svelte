@@ -11,9 +11,10 @@
 	import Server from '~icons/nucleo/server';
 
 	let displayName = $state('');
-	let agentUrl = $state('http://127.0.0.1:7777');
+	let managementTarget = $state<'local' | 'remote'>('local');
+	let agentUrl = $state('wss://tetra:7780');
 	let bearerToken = $state('');
-	let useWebSocket = $state(false);
+	let useWebSocket = $state(true);
 	let enrollmentToken = $state('');
 	let tlsCaCertificate = $state('');
 	let actionError = $state('');
@@ -28,13 +29,13 @@
 			const host = await createManagedHost({
 				displayName,
 				agentUrl,
-				bearerToken: useWebSocket ? undefined : bearerToken.trim() || undefined
+				bearerToken: useWebSocket ? '' : bearerToken.trim()
 			});
 			if (useWebSocket) {
 				await enrollManagedHost({
 					hostId: host.id,
 					enrollmentToken,
-					tlsCaCertificate: tlsCaCertificate.trim() || undefined
+					tlsCaCertificate: tlsCaCertificate.trim()
 				});
 			}
 			displayName = '';
@@ -80,20 +81,48 @@
 				<Input
 					id="agent-url"
 					bind:value={agentUrl}
-					placeholder={useWebSocket ? 'ws://127.0.0.1:7780' : 'http://127.0.0.1:7777'}
+					placeholder={useWebSocket ? 'wss://tetra:7780' : 'http://127.0.0.1:7777'}
 				/>
 				<p class="text-xs text-muted-foreground">
-					{useWebSocket
-						? 'Use the loopback Tetra development WebSocket listener.'
-						: 'Use a Tetra dev HTTP agent while the production WSS broker is being built.'}
+					{managementTarget === 'local'
+						? 'The local integration stack uses the authenticated Tetra WebSocket listener.'
+						: 'Enter the address and trust material for a remote Tetra host.'}
+				</p>
+			</div>
+
+			<div class="space-y-2">
+				<Label>Management target</Label>
+				<div class="grid grid-cols-2 gap-2">
+					<Button
+						type="button"
+						variant={managementTarget === 'local' ? 'default' : 'outline'}
+						onclick={() => {
+							managementTarget = 'local';
+							useWebSocket = true;
+							agentUrl = 'wss://tetra:7780';
+						}}>Local host</Button
+					>
+					<Button
+						type="button"
+						variant={managementTarget === 'remote' ? 'default' : 'outline'}
+						onclick={() => {
+							managementTarget = 'remote';
+							useWebSocket = true;
+							agentUrl = '';
+						}}>Remote host</Button
+					>
+				</div>
+				<p class="text-xs text-muted-foreground">
+					Local is selected by default for the Dashboard/Tetra development stack.
 				</p>
 			</div>
 
 			<div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
 				<div>
-					<Label for="use-websocket">Use authenticated development WebSocket</Label>
+					<Label for="use-websocket">Use authenticated WebSocket</Label>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Pairs the dashboard controller key with an unpaired loopback Tetra agent.
+						Uses Ed25519 enrollment instead of a bearer token. Required for local and remote Tetra
+						hosts.
 					</p>
 				</div>
 				<Switch
@@ -109,7 +138,7 @@
 					<Input id="enrollment-token" type="password" bind:value={enrollmentToken} />
 				</div>
 				<div class="space-y-2">
-					<Label for="tls-ca-certificate">Private CA certificate (optional)</Label>
+					<Label for="tls-ca-certificate">Private CA certificate</Label>
 					<textarea
 						id="tls-ca-certificate"
 						bind:value={tlsCaCertificate}
@@ -117,7 +146,8 @@
 						class="w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm"
 						placeholder="-----BEGIN CERTIFICATE-----"></textarea>
 					<p class="text-xs text-muted-foreground">
-						Provide the CA PEM only when the Tetra WSS certificate is signed by a private CA.
+						Paste the CA PEM when the host uses a private certificate authority, such as
+						`dev/certs/ca.crt` for local development.
 					</p>
 				</div>
 			{:else}

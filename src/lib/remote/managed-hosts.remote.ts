@@ -11,6 +11,7 @@ import {
 	revokeActiveInvitations
 } from '$lib/server/invitations';
 import { getRuntimeEnv } from '$lib/server/env';
+import { readFile } from 'node:fs/promises';
 import { ulid } from '$lib/server/id';
 import { managedHosts } from '$lib/server/db/schema';
 
@@ -607,21 +608,107 @@ function mapManagedHostUsers(response: AgentResponse): ManagedHostUser[] {
 	if (!response.ok) throw new Error(response.error || 'Failed to list host users');
 	const payload = isRecord(response.payload) ? response.payload : {};
 	if (!Array.isArray(payload.users)) return [];
+
 	return payload.users
 		.filter(isRecord)
 		.map((item) => ({
 			name: typeof item.name === 'string' ? item.name : '',
-			uid: typeof item.uid === 'string' ? item.uid : '',
+			uid: typeof item.uid === 'number' || typeof item.uid === 'string' ? String(item.uid) : '',
 			gid: typeof item.gid === 'string' ? item.gid : '',
 			gecos: typeof item.gecos === 'string' ? item.gecos : '',
 			home: typeof item.home === 'string' ? item.home : '',
 			shell: typeof item.shell === 'string' ? item.shell : ''
 		}))
-		.filter((item) => item.name)
+		.filter((item) => {
+			if (!item.name) return false;
+			// Keep the host Users view focused on human accounts, not service users.
+			// UID 65534 is `nobody` and is intentionally hidden even though it is
+			// outside the normal system UID range.
+			const uid = Number.parseInt(item.uid, 10);
+			return Number.isInteger(uid) && uid >= 1000 && uid !== 65534;
+		})
 		.sort((left, right) => left.name.localeCompare(right.name));
 }
 
 const getParams = type({ hostId: 'string' });
+
+const localTetraParams = type({ displayName: 'string' });
+
+/**
+ * Enroll the first reachable local Tetra endpoint using credentials explicitly
+ * provided by the development/runtime environment. We never scan arbitrary
+ * files or networks, and unset credential paths disable this convenience.
+ */
+export const enrollLocalTetra = command(
+	localTetraParams,
+	async (params): Promise<ManagedHost | null> => {
+		requireUser();
+		const runtime = getRuntimeEnv();
+		if (!runtime.TETRA_ENROLLMENT_TOKEN_FILE || !runtime.TETRA_TLS_CA_CERTIFICATE_FILE) return null;
+
+		let enrollmentToken: string;
+		let tlsCaCertificate: string;
+		try {
+			[enrollmentToken, tlsCaCertificate] = await Promise.all([
+				readFile(runtime.TETRA_ENROLLMENT_TOKEN_FILE, 'utf8'),
+				readFile(runtime.TETRA_TLS_CA_CERTIFICATE_FILE, 'utf8')
+			]);
+		} catch {
+			return null;
+		}
+		const token =
+			enrollmentToken
+				.split(/\r?\n/)
+				.find((line) => line.startsWith('TETRA_ENROLLMENT_TOKEN='))
+				?.slice('TETRA_ENROLLMENT_TOKEN='.length)
+				.trim() || enrollmentToken.trim();
+		if (!token || !tlsCaCertificate.trim()) return null;
+
+		const endpoints = (
+			runtime.TETRA_LOCAL_ENDPOINTS ??
+			'wss://tetra:7780,wss://host.containers.internal:7781,wss://host.containers.internal:7780,wss://127.0.0.1:7780'
+		)
+			.split(',')
+			.map((value) => value.trim())
+			.filter(Boolean);
+		const db = initDrizzle();
+		const failures: string[] = [];
+		for (const agentUrl of endpoints) {
+			try {
+				const existing = await db.query.managedHosts.findFirst({
+					where: eq(managedHosts.agentUrl, agentUrl)
+				});
+				if (existing?.connectionMode === 'direct_wss' && existing.hostPublicKey) {
+					return mapHost(existing);
+				}
+
+				const host = await createManagedHost({
+					displayName: params.displayName,
+					agentUrl,
+					bearerToken: ''
+				});
+				const enrolled = await enrollManagedHost({
+					hostId: host.id,
+					enrollmentToken: token,
+					tlsCaCertificate: tlsCaCertificate.trim()
+				});
+				if (enrolled.connectionState !== 'offline') return enrolled;
+
+				// Enrollment returns a persisted offline row on a failed probe so the
+				// interactive form can show its error; discovery must remove that
+				// temporary row before trying the next local endpoint.
+				await db.delete(managedHosts).where(eq(managedHosts.id, host.id));
+			} catch (cause) {
+				const message = cause instanceof Error ? cause.message : 'unknown enrollment error';
+				failures.push(`${agentUrl}: ${message}`);
+			}
+		}
+		if (failures.length > 0) {
+			throw new Error(`Local Tetra enrollment failed. ${failures.join(' | ')}`);
+		}
+		return null;
+	}
+);
 export const getManagedHost = query(getParams, async (params): Promise<ManagedHost> => {
 	if (accessibilityFixtureEnabled) {
 		const host = accessibilityFixtureManagedHosts.find((item) => item.id === params.hostId);
@@ -636,7 +723,7 @@ export const getManagedHost = query(getParams, async (params): Promise<ManagedHo
 const createParams = type({
 	displayName: 'string',
 	agentUrl: 'string',
-	bearerToken: 'string?'
+	bearerToken: 'unknown'
 });
 export const createManagedHost = command(createParams, async (params): Promise<ManagedHost> => {
 	requireUser();
@@ -649,9 +736,14 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 
 	let agentUrl: string;
 	try {
-		agentUrl = new URL(params.agentUrl).toString().replace(/\/+$/, '');
-	} catch {
-		error(400, 'Agent URL must be a valid URL');
+		const parsedAgentUrl = new URL(params.agentUrl.trim());
+		if (!['http:', 'https:', 'ws:', 'wss:'].includes(parsedAgentUrl.protocol)) {
+			error(400, 'Agent URL must use http, https, ws, or wss');
+		}
+		agentUrl = parsedAgentUrl.toString().replace(/\/+$/, '');
+	} catch (err) {
+		if (err instanceof Error && err.message.includes('Agent URL must use')) throw err;
+		error(400, 'Agent URL must be a complete URL, such as wss://tetra:7780');
 	}
 
 	const [host] = await db
@@ -660,7 +752,8 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 			displayName,
 			connectionState: 'unknown',
 			agentUrl,
-			bearerToken: params.bearerToken?.trim() || null,
+			bearerToken:
+				typeof params.bearerToken === 'string' ? params.bearerToken.trim() || null : null,
 			controllerKeyId: `controller-${ulid()}`,
 			controllerPublicKey: controllerKey.publicKey,
 			controllerPrivateKeyEncrypted: controllerKey.privateKeyEncrypted
@@ -673,7 +766,7 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 const enrollParams = type({
 	hostId: 'string',
 	enrollmentToken: 'string',
-	tlsCaCertificate: 'string?'
+	tlsCaCertificate: 'unknown'
 });
 export const enrollManagedHost = command(enrollParams, async (params): Promise<ManagedHost> => {
 	const { db, host } = await loadManagedHost(params.hostId);
@@ -684,7 +777,10 @@ export const enrollManagedHost = command(enrollParams, async (params): Promise<M
 
 	let hostPublicKey: string;
 	try {
-		const tlsCaCertificate = params.tlsCaCertificate?.trim() || host.tlsCaCertificate;
+		const tlsCaCertificate =
+			typeof params.tlsCaCertificate === 'string'
+				? params.tlsCaCertificate.trim() || host.tlsCaCertificate
+				: host.tlsCaCertificate;
 		const client = new DirectWebSocketTetraClient(
 			host.agentUrl,
 			host.controllerPrivateKeyEncrypted,
@@ -713,7 +809,10 @@ export const enrollManagedHost = command(enrollParams, async (params): Promise<M
 		.set({
 			connectionMode: 'direct_wss',
 			hostPublicKey,
-			tlsCaCertificate: params.tlsCaCertificate?.trim() || host.tlsCaCertificate,
+			tlsCaCertificate:
+				typeof params.tlsCaCertificate === 'string'
+					? params.tlsCaCertificate.trim() || host.tlsCaCertificate
+					: host.tlsCaCertificate,
 			connectionState: 'unknown',
 			lastError: null,
 			updatedAt: now

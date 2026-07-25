@@ -21,7 +21,10 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
-		"auth:schema": "pnpm dlx @better-auth/cli@1.4.22 generate --config auth.config.ts --output src/lib/server/db/auth.schema.ts --yes"
+		"auth:schema": "pnpm dlx @better-auth/cli@1.4.22 generate --config auth.config.ts --output src/lib/server/db/auth.schema.ts --yes",
+		"backport:dashboard:status": "node scripts/backport-dashboard.mjs status",
+		"backport:dashboard:plan": "node scripts/backport-dashboard.mjs plan",
+		"backport:dashboard:apply": "node scripts/backport-dashboard.mjs apply"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.11.0",
