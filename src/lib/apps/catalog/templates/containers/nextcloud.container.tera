@@ -1,0 +1,33 @@
+[Unit]
+Description={{ name }} application
+Requires={{ app_id }}-db.service
+After={{ app_id }}-db.service
+{% if enable_redis %}Wants={{ app_id }}-redis.service
+After={{ app_id }}-redis.service
+{% endif %}
+
+[Container]
+ContainerName={{ app_id }}-app
+Image=docker.io/library/nextcloud:latest
+Network={{ app_id }}-net.network
+Volume={{ app_id }}-data.volume:/var/www/html
+Environment=NEXTCLOUD_TRUSTED_DOMAINS={{ domain }}
+Environment=OVERWRITEHOST={{ domain }}
+Environment=OVERWRITEPROTOCOL={{ overwrite_protocol }}
+Environment=MYSQL_HOST={{ app_id }}-db
+Environment=MYSQL_DATABASE={{ database_name }}
+Environment=MYSQL_USER={{ database_user }}
+Environment=MYSQL_PASSWORD={{ db_password }}
+Environment=NEXTCLOUD_ADMIN_USER={{ admin_user }}
+Environment=NEXTCLOUD_ADMIN_PASSWORD={{ admin_password }}
+Environment=PHP_MEMORY_LIMIT={{ php_memory_limit }}
+Environment=PHP_UPLOAD_LIMIT={{ upload_limit }}
+{% if trusted_proxies %}Environment=TRUSTED_PROXIES={{ trusted_proxies }}
+{% endif %}{% if enable_redis %}Environment=REDIS_HOST={{ app_id }}-redis
+{% endif %}PublishPort={{ host_port }}:80
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

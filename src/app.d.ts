@@ -20,11 +20,8 @@ declare global {
 		interface PageData {
 			isAdmin?: boolean;
 			featureFlags?: {
-				colocation: boolean;
-				firewall: boolean;
-				images: boolean;
 				managedHosts: boolean;
-				volumes: boolean;
+				apps: boolean;
 			};
 		}
 	}

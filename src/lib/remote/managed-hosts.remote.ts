@@ -24,6 +24,17 @@ import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureManagedHosts
 } from '$lib/server/accessibility-fixtures';
+import { getAppRecipe } from '$lib/apps/catalog';
+import { isValidAppName } from '$lib/apps/params';
+import {
+	parseAppDetailResponse,
+	parseAppSummaries,
+	parseAppWriteResponse,
+	parseServiceStates,
+	type HostAppFileEntry,
+	type HostAppManifest,
+	type HostServiceState
+} from '$lib/apps/types';
 
 export type ManagedHost = {
 	id: string;
@@ -119,6 +130,54 @@ export type ManagedHostReverseProxySite = {
 export type ManagedHostReverseProxyList = {
 	configDir: string | null;
 	sites: ManagedHostReverseProxySite[];
+};
+
+export type ManagedHostAppStatus = 'running' | 'stopped' | 'failed' | 'unknown';
+
+export type ManagedHostAppService = {
+	name: string;
+	active: string;
+	sub: string;
+	description: string;
+};
+
+export type ManagedHostAppListItem = {
+	name: string;
+	recipeId: string;
+	recipeVersion: string;
+	scope: ManagedHostQuadletScope;
+	units: string[];
+	services: ManagedHostAppService[];
+	status: ManagedHostAppStatus;
+	createdAt: number;
+	updatedAt: number;
+	bundleDir: string;
+};
+
+export type ManagedHostAppDetail = {
+	manifest: HostAppManifest;
+	baseDir: string;
+	bundleDir: string;
+	units: HostAppFileEntry[];
+	files: HostAppFileEntry[];
+	services: ManagedHostAppService[];
+	status: ManagedHostAppStatus;
+};
+
+export type ManagedHostAppWriteResult = {
+	manifest: HostAppManifest;
+	bundleDir: string;
+	units: string[];
+	files: string[];
+	services: string[];
+	systemdCommands: string[];
+	written: boolean;
+};
+
+export type ManagedHostAppRemoveResult = {
+	name: string;
+	bundleRemoved: boolean;
+	deletedUnits: string[];
 };
 
 function requireUser() {
@@ -1301,3 +1360,424 @@ export const saveManagedHostQuadlet = command(quadletSaveParams, async (params) 
 	if (!response.ok) throw new Error(response.error || 'Failed to save Quadlet bundle');
 	return response;
 });
+
+const fixtureAppTimestamp = Date.parse('2026-01-01T00:00:00.000Z') / 1000;
+
+function fixtureAppBundleDir(scope: ManagedHostQuadletScope) {
+	return scope === 'system'
+		? '/var/lib/tetra/quadlets/demo-web'
+		: '/home/a11y/.local/share/tetra/quadlets/demo-web';
+}
+
+function fixtureAppServices(): ManagedHostAppService[] {
+	return [
+		{
+			name: 'demo-web.service',
+			active: 'active',
+			sub: 'running',
+			description: 'Demo Web web site'
+		}
+	];
+}
+
+function fixtureAppManifest(scope: ManagedHostQuadletScope): HostAppManifest {
+	return {
+		version: 1,
+		name: 'demo-web',
+		scope,
+		recipe_id: 'nginx-site',
+		recipe_version: '0.1.0',
+		recipe: { source: 'inline', recipe: '# fixture recipe', templates: {} },
+		values: { app_id: 'demo-web', site_title: 'Demo Web', server_name: '_', host_port: 8080 },
+		units: ['demo-web.container'],
+		files: ['index.html', 'default.conf'],
+		created_at: fixtureAppTimestamp,
+		updated_at: fixtureAppTimestamp
+	};
+}
+
+function fixtureAppListItem(scope: ManagedHostQuadletScope): ManagedHostAppListItem {
+	return {
+		name: 'demo-web',
+		recipeId: 'nginx-site',
+		recipeVersion: '0.1.0',
+		scope,
+		units: ['demo-web.container'],
+		services: fixtureAppServices(),
+		status: 'running',
+		createdAt: fixtureAppTimestamp,
+		updatedAt: fixtureAppTimestamp,
+		bundleDir: fixtureAppBundleDir(scope)
+	};
+}
+
+function fixtureAppDetail(scope: ManagedHostQuadletScope): ManagedHostAppDetail {
+	const bundleDir = fixtureAppBundleDir(scope);
+	return {
+		manifest: fixtureAppManifest(scope),
+		baseDir: '/home/a11y/.config/containers/systemd',
+		bundleDir,
+		units: [
+			{
+				filename: 'demo-web.container',
+				path: '/home/a11y/.config/containers/systemd/demo-web.container',
+				exists: true
+			}
+		],
+		files: [
+			{ filename: 'index.html', path: `${bundleDir}/index.html`, exists: true },
+			{ filename: 'default.conf', path: `${bundleDir}/default.conf`, exists: true }
+		],
+		services: fixtureAppServices(),
+		status: 'running'
+	};
+}
+
+function fixtureAppWriteResult(scope: ManagedHostQuadletScope): ManagedHostAppWriteResult {
+	const manifest = fixtureAppManifest(scope);
+	const systemctl = scope === 'system' ? 'systemctl' : 'systemctl --user';
+	return {
+		manifest,
+		bundleDir: fixtureAppBundleDir(scope),
+		units: manifest.units,
+		files: manifest.files,
+		services: ['demo-web.service'],
+		systemdCommands: [
+			`${systemctl} daemon-reload`,
+			`${systemctl} enable demo-web.service`,
+			`${systemctl} start demo-web.service`
+		],
+		written: true
+	};
+}
+
+const fixtureAppServiceLogs =
+	'127.0.0.1 - - [01/Jan/2026:00:00:01 +0000] "GET / HTTP/1.1" 200 178 "-" "Mozilla/5.0 (a11y fixture)"\n' +
+	'127.0.0.1 - - [01/Jan/2026:00:00:02 +0000] "GET /index.html HTTP/1.1" 200 178 "-" "Mozilla/5.0 (a11y fixture)"\n' +
+	'127.0.0.1 - - [01/Jan/2026:00:00:03 +0000] "GET /favicon.ico HTTP/1.1" 404 153 "-" "Mozilla/5.0 (a11y fixture)"\n';
+
+function mapAppServices(
+	serviceNames: string[],
+	states: HostServiceState[] | null
+): { services: ManagedHostAppService[]; status: ManagedHostAppStatus } {
+	const services = serviceNames.map((name) => {
+		const state = states?.find((item) => item.unit === name);
+		return {
+			name,
+			active: state?.active ?? '',
+			sub: state?.sub ?? '',
+			description: state?.description ?? ''
+		};
+	});
+	if (states === null || services.length === 0) return { services, status: 'unknown' };
+	if (services.some((service) => service.active === 'failed')) {
+		return { services, status: 'failed' };
+	}
+	if (services.every((service) => service.active === 'active')) {
+		return { services, status: 'running' };
+	}
+	return { services, status: 'stopped' };
+}
+
+async function dispatchAppServiceStates(
+	db: ReturnType<typeof initDrizzle>,
+	host: typeof managedHosts.$inferSelect,
+	scope: ManagedHostQuadletScope
+): Promise<HostServiceState[] | null> {
+	const response = await dispatchHostCommand(host, {
+		module: 'services',
+		action: 'list',
+		payload: { scope }
+	});
+	await markHostDispatchResult(db, host, response);
+	// Service state is best-effort: an app list/detail still renders with
+	// `unknown` status when the services module is unavailable.
+	if (!response.ok) return null;
+	return parseServiceStates(response.payload);
+}
+
+function parseAppValuesJson(valuesJson: string): Record<string, unknown> {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(valuesJson);
+	} catch {
+		error(400, 'App values must be valid JSON');
+	}
+	if (!isRecord(parsed)) error(400, 'App values must be a JSON object');
+	return parsed;
+}
+
+function mapAppWriteResult(payload: unknown): ManagedHostAppWriteResult {
+	const parsed = parseAppWriteResponse(payload);
+	if (!parsed) error(502, 'App write response was invalid');
+	return {
+		manifest: parsed.app,
+		bundleDir: parsed.bundle_dir,
+		units: parsed.units,
+		files: parsed.files,
+		services: parsed.services,
+		// Converge entries either report a `command` result or an `error` —
+		// only commands surface in the activity view.
+		systemdCommands: parsed.systemd
+			.filter(isRecord)
+			.map((entry) => entry.command)
+			.filter((command): command is string => typeof command === 'string'),
+		written: parsed.written
+	};
+}
+
+const appListParams = type({
+	hostId: 'string',
+	scope: 'string'
+});
+
+export const listManagedHostApps = command(
+	appListParams,
+	async (params): Promise<ManagedHostAppListItem[]> => {
+		const scope = normalizeQuadletScope(params.scope);
+		if (accessibilityFixtureEnabled) return [fixtureAppListItem(scope)];
+
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		const response = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'list',
+			payload: { scope }
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to list apps');
+		const apps = parseAppSummaries(response.payload);
+		const states = await dispatchAppServiceStates(db, host, scope);
+
+		return apps.map((app) => {
+			const { services, status } = mapAppServices(app.services, states);
+			return {
+				name: app.name,
+				recipeId: app.recipe_id,
+				recipeVersion: app.recipe_version,
+				scope: app.scope,
+				units: app.units,
+				services,
+				status,
+				createdAt: app.created_at,
+				updatedAt: app.updated_at,
+				bundleDir: app.bundle_dir
+			};
+		});
+	}
+);
+
+const appGetParams = type({
+	hostId: 'string',
+	scope: 'string',
+	name: 'string'
+});
+
+export const getManagedHostApp = command(
+	appGetParams,
+	async (params): Promise<ManagedHostAppDetail> => {
+		const scope = normalizeQuadletScope(params.scope);
+		if (accessibilityFixtureEnabled) return fixtureAppDetail(scope);
+
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		const response = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'get',
+			payload: { name: params.name, scope }
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to load app');
+		const detail = parseAppDetailResponse(response.payload);
+		if (!detail) error(502, 'App detail response was invalid');
+		const states = await dispatchAppServiceStates(db, host, scope);
+		const { services, status } = mapAppServices(detail.services, states);
+
+		return {
+			manifest: detail.app,
+			baseDir: detail.base_dir,
+			bundleDir: detail.bundle_dir,
+			units: detail.units,
+			files: detail.files,
+			services,
+			status
+		};
+	}
+);
+
+const appCreateParams = type({
+	hostId: 'string',
+	scope: 'string',
+	name: 'string',
+	recipeId: 'string',
+	valuesJson: 'string'
+});
+
+export const createManagedHostApp = command(
+	appCreateParams,
+	async (params): Promise<ManagedHostAppWriteResult> => {
+		const scope = normalizeQuadletScope(params.scope);
+		const name = params.name.trim();
+		if (!isValidAppName(name)) {
+			error(
+				400,
+				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
+			);
+		}
+		// Recipes come from the server-side catalog — clients pick an id,
+		// never ship recipe YAML.
+		const recipe = getAppRecipe(params.recipeId);
+		if (!recipe) error(400, 'Unknown recipe');
+		const values = parseAppValuesJson(params.valuesJson);
+		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
+
+		await requireHostAdmin();
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		const response = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'create',
+			payload: {
+				name,
+				scope,
+				recipe: recipe.recipeYaml,
+				templates: recipe.templates,
+				values,
+				converge: true
+			}
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to create app');
+		return mapAppWriteResult(response.payload);
+	}
+);
+
+const appUpdateParams = type({
+	hostId: 'string',
+	scope: 'string',
+	name: 'string',
+	valuesJson: 'string'
+});
+
+export const updateManagedHostApp = command(
+	appUpdateParams,
+	async (params): Promise<ManagedHostAppWriteResult> => {
+		const scope = normalizeQuadletScope(params.scope);
+		const values = parseAppValuesJson(params.valuesJson);
+		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
+
+		await requireHostAdmin();
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		const response = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'update',
+			payload: { name: params.name, scope, values, converge: true }
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to update app');
+		return mapAppWriteResult(response.payload);
+	}
+);
+
+const appRemoveParams = type({
+	hostId: 'string',
+	scope: 'string',
+	name: 'string'
+});
+
+export const removeManagedHostApp = command(
+	appRemoveParams,
+	async (params): Promise<ManagedHostAppRemoveResult> => {
+		const scope = normalizeQuadletScope(params.scope);
+		if (accessibilityFixtureEnabled) {
+			return {
+				name: params.name,
+				bundleRemoved: true,
+				deletedUnits: ['/home/a11y/.config/containers/systemd/demo-web.container']
+			};
+		}
+
+		await requireHostAdmin();
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		const response = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'remove',
+			payload: { name: params.name, scope, converge: true }
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to remove app');
+		const payload = isRecord(response.payload) ? response.payload : {};
+		return {
+			name: typeof payload.name === 'string' ? payload.name : params.name,
+			bundleRemoved: payload.bundle_removed === true,
+			deletedUnits: stringArray(payload.deleted_units)
+		};
+	}
+);
+
+const appServiceLogsParams = type({
+	hostId: 'string',
+	scope: 'string',
+	service: 'string',
+	lines: 'number'
+});
+
+export const getManagedHostAppServiceLogs = command(
+	appServiceLogsParams,
+	async (params): Promise<string> => {
+		const scope = normalizeQuadletScope(params.scope);
+		if (accessibilityFixtureEnabled) return fixtureAppServiceLogs;
+
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		const response = await dispatchHostCommand(host, {
+			module: 'services',
+			action: 'logs',
+			payload: {
+				service: params.service,
+				scope,
+				lines: Math.max(1, Math.min(1000, Math.trunc(params.lines)))
+			}
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to load service logs');
+		const payload = isRecord(response.payload) ? response.payload : {};
+		return typeof payload.stdout === 'string' ? payload.stdout : '';
+	}
+);
+
+const appFileReadParams = type({
+	hostId: 'string',
+	scope: 'string',
+	name: 'string',
+	filename: 'string'
+});
+
+export const readManagedHostAppFile = command(
+	appFileReadParams,
+	async (params): Promise<ManagedHostQuadletCompanionFile> => {
+		const scope = normalizeQuadletScope(params.scope);
+		if (accessibilityFixtureEnabled) {
+			return { filename: params.filename, contents: '<h1>Hello from demo-web</h1>\n' };
+		}
+
+		const { db, host } = await loadManagedHost(params.hostId);
+
+		// App companion files live under `<app>/<filename>` in the Quadlet
+		// files base dir (see `quadlets.rs` `Read`).
+		const response = await dispatchHostCommand(host, {
+			module: 'quadlets',
+			action: 'read',
+			payload: { scope, filename: `${params.name}/${params.filename}`, companion: true }
+		});
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to read app file');
+		const payload = isRecord(response.payload) ? response.payload : {};
+		return {
+			filename: params.filename,
+			contents: typeof payload.contents === 'string' ? payload.contents : ''
+		};
+	}
+);

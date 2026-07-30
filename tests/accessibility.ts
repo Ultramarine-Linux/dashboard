@@ -38,7 +38,10 @@ export const pages = [
 		label: 'host quadlet create',
 		path: '/projects/accessibility-project/hosts/accessibility-host/quadlets/create'
 	},
-	{ label: 'project settings', path: '/projects/accessibility-project/settings' }
+	{ label: 'project settings', path: '/projects/accessibility-project/settings' },
+	{ label: 'host apps', path: '/hosts/accessibility-host/apps' },
+	{ label: 'host app cook', path: '/hosts/accessibility-host/apps/create' },
+	{ label: 'host app detail', path: '/hosts/accessibility-host/apps/demo-web' }
 ];
 
 export const test = base.extend<AxeFixture>({
