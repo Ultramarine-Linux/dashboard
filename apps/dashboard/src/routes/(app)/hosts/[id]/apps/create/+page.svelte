@@ -22,9 +22,9 @@
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
 	import Loader2 from '~icons/lucide/loader-2';
-	import { parseHostCapabilities } from '../../lib/capabilities';
-	import AppCookResult from '../lib/AppCookResult.svelte';
-	import AppValuesForm from '../lib/AppValuesForm.svelte';
+	import { parseHostCapabilities } from '$lib/hosts/capabilities';
+	import AppCookResult from '$lib/hosts/apps/AppCookResult.svelte';
+	import AppValuesForm from '$lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
 		host: ManagedHost;

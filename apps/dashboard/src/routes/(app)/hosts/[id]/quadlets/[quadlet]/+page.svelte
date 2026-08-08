@@ -8,7 +8,7 @@
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
 	import Loader2 from '~icons/lucide/loader-2';
-	import QuadletEditor from '../lib/QuadletEditor.svelte';
+	import QuadletEditor from '$lib/hosts/quadlets/QuadletEditor.svelte';
 
 	type PageData = {
 		host: ManagedHost;

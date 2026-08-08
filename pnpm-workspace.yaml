@@ -2,6 +2,10 @@ packages:
   - 'apps/*'
 overrides:
   better-call: 1.3.7
+  better-auth: '>=1.6.26'
+  '@better-auth/utils': '>=0.5.0'
+  drizzle-orm: '>=0.45.2'
+  lodash: '>=4.17.24'
   cookie: ^0.7.0
   '@esbuild-kit/core-utils>esbuild': ^0.25.0
 ignoredBuiltDependencies:

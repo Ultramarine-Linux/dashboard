@@ -32,8 +32,8 @@
 	import RefreshCw from '~icons/lucide/refresh-cw';
 	import ScrollText from '~icons/lucide/scroll-text';
 	import Trash2 from '~icons/nucleo/trash';
-	import AppCookResult from '../lib/AppCookResult.svelte';
-	import AppValuesForm from '../lib/AppValuesForm.svelte';
+	import AppCookResult from '$lib/hosts/apps/AppCookResult.svelte';
+	import AppValuesForm from '$lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
 		host: ManagedHost;

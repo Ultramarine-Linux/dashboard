@@ -1,5 +1,13 @@
 import { randomBytes } from 'node:crypto';
-import { closeSync, mkdirSync, openSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+	closeSync,
+	fstatSync,
+	mkdirSync,
+	openSync,
+	readFileSync,
+	statSync,
+	writeFileSync
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
@@ -79,14 +87,20 @@ function ensurePrivateDirectory(directory: string) {
 }
 
 function readPrivateSecret(secretFile: string) {
-	const stats = statSync(secretFile);
-	if (!stats.isFile()) throw new Error(`Dashboard secret path ${secretFile} is not a regular file`);
-	if (stats.mode & 0o077) {
-		throw new Error(`Dashboard secret file ${secretFile} must have mode 0600 or stricter`);
+	const descriptor = openSync(secretFile, 'r');
+	try {
+		const stats = fstatSync(descriptor);
+		if (!stats.isFile())
+			throw new Error(`Dashboard secret path ${secretFile} is not a regular file`);
+		if (stats.mode & 0o077) {
+			throw new Error(`Dashboard secret file ${secretFile} must have mode 0600 or stricter`);
+		}
+		const secret = readFileSync(descriptor, 'utf8').trim();
+		if (!secret) throw new Error(`Dashboard secret file ${secretFile} is empty`);
+		return secret;
+	} finally {
+		closeSync(descriptor);
 	}
-	const secret = readFileSync(secretFile, 'utf8').trim();
-	if (!secret) throw new Error(`Dashboard secret file ${secretFile} is empty`);
-	return secret;
 }
 
 function isMissingFile(error: unknown) {
