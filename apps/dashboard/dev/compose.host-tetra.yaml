@@ -1,0 +1,20 @@
+# Optional override for running Tetra directly on the development machine.
+# PostgreSQL, Dashboard, and the isolated smoke service remain containerized.
+services:
+  dashboard:
+    # Podman resolves this name to the host gateway, allowing the Dashboard
+    # container to reach a Tetra process bound on the development machine.
+    extra_hosts:
+      - 'host.containers.internal:host-gateway'
+    environment:
+      TETRA_LOCAL_ENDPOINTS: wss://host.containers.internal:7781
+      TETRA_ENROLLMENT_TOKEN_FILE: /run/tetra-dev/TETRA_ENROLLMENT_TOKEN
+      TETRA_TLS_CA_CERTIFICATE_FILE: /run/tetra-dev/ca.crt
+    volumes:
+      - ./.env:/run/tetra-dev/TETRA_ENROLLMENT_TOKEN:ro,Z
+      - ./certs/ca.crt:/run/tetra-dev/ca.crt:ro,Z
+
+  # The host-mode command supplies Tetra. Keep the container service available
+  # only when explicitly requested with --profile container-tetra.
+  tetra:
+    profiles: ['container-tetra']

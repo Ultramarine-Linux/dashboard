@@ -5,12 +5,5 @@ yarn.lock
 bun.lock
 bun.lockb
 
-# Build output
-.svelte-kit/
-
-# Miscellaneous
-/static/
-/drizzle/
-.factory/
-/test-results/
-/playwright-report/
+# Root only
+node_modules/

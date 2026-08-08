@@ -11,7 +11,9 @@ overrides:
 
 importers:
 
-  .:
+  .: {}
+
+  apps/dashboard:
     dependencies:
       '@better-auth/core':
         specifier: ^1.6.23
@@ -31,6 +33,9 @@ importers:
       '@better-svelte-email/server':
         specifier: ^2.1.1
         version: 2.1.1(svelte@5.56.6)
+      '@lucide/svelte':
+        specifier: ^1.26.0
+        version: 1.26.0(svelte@5.56.6)
       '@plausible-analytics/tracker':
         specifier: ^0.4.5
         version: 0.4.5
@@ -890,8 +895,8 @@ packages:
   '@levischuck/tiny-cbor@0.2.11':
     resolution: {integrity: sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow==}
 
-  '@lucide/svelte@1.24.0':
-    resolution: {integrity: sha512-yXwewA7ANQ5hfaSDrvsecosWjZn5RglzeXUZRSnxeANBskpNwblOkEJTqD0ujDdNKIKL8E9eVc2U/P3ziJr7OA==}
+  '@lucide/svelte@1.26.0':
+    resolution: {integrity: sha512-KUfLTlNRVrHZ460Um7jdrvh46hI/8Sw4+1k/Ttj4g6JI9bCrjD7HZVG4cqhh7LasjfDz5b+CuKrjd/k/3obYcA==}
     peerDependencies:
       svelte: ^5
 
@@ -3562,7 +3567,7 @@ snapshots:
 
   '@better-svelte-email/preview-server@2.1.1(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.6)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.56.6)(tsx@4.23.1)(typescript@6.0.3)(yaml@2.9.0)(zod@4.4.3)':
     dependencies:
-      '@lucide/svelte': 1.24.0(svelte@5.56.6)
+      '@lucide/svelte': 1.26.0(svelte@5.56.6)
       '@sveltejs/adapter-node': 5.5.7(@sveltejs/kit@2.69.3(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.6)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.6)(typescript@6.0.3)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))
       '@sveltejs/kit': 2.69.3(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.6)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0)))(svelte@5.56.6)(typescript@6.0.3)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
       '@tailwindcss/vite': 4.3.3(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.1)(yaml@2.9.0))
@@ -3875,7 +3880,7 @@ snapshots:
 
   '@levischuck/tiny-cbor@0.2.11': {}
 
-  '@lucide/svelte@1.24.0(svelte@5.56.6)':
+  '@lucide/svelte@1.26.0(svelte@5.56.6)':
     dependencies:
       svelte: 5.56.6
 
