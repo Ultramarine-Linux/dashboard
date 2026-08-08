@@ -99,7 +99,14 @@
 				<Switch
 					id="use-websocket"
 					checked={useWebSocket}
-					onCheckedChange={(checked) => (useWebSocket = checked)}
+					onCheckedChange={(checked) => {
+						useWebSocket = checked;
+						if (checked && /^https?:\/\/127\.0\.0\.1(?::\d+)?/.test(agentUrl)) {
+							agentUrl = 'wss://tetra:7780';
+						} else if (!checked && /^wss:\/\/tetra:7780$/.test(agentUrl)) {
+							agentUrl = 'http://127.0.0.1:7777';
+						}
+					}}
 				/>
 			</div>
 

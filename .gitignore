@@ -40,3 +40,5 @@ Trace-*.json
 # local Dashboard/Tetra integration CA, enrollment token, and test state
 dev/.env
 dev/certs/
+
+*.local.md

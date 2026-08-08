@@ -619,7 +619,7 @@ function companionFilenameForEditor(filename: string, bundleName: string) {
 
 async function dispatchHostCommand(
 	host: typeof managedHosts.$inferSelect,
-	command: { module: string; action: string; payload: Record<string, unknown> }
+	command: { module: string; action: string; payload: Record<string, unknown> | null }
 ) {
 	const client = createTetraClient({
 		connectionMode: host.connectionMode,
@@ -695,7 +695,7 @@ export const getManagedHost = query(getParams, async (params): Promise<ManagedHo
 const createParams = type({
 	displayName: 'string',
 	agentUrl: 'string',
-	bearerToken: 'string?'
+	bearerToken: 'string | undefined'
 });
 export const createManagedHost = command(createParams, async (params): Promise<ManagedHost> => {
 	requireUser();
@@ -708,7 +708,16 @@ export const createManagedHost = command(createParams, async (params): Promise<M
 
 	let agentUrl: string;
 	try {
-		agentUrl = new URL(params.agentUrl).toString().replace(/\/+$/, '');
+		const parsedUrl = new URL(params.agentUrl);
+		if (parsedUrl.protocol === 'ws:' || parsedUrl.protocol === 'wss:') {
+			// WebSocket hosts are enrolled explicitly through enrollManagedHost;
+			// keep their URL intact for that flow rather than treating it as HTTP.
+			agentUrl = parsedUrl.toString().replace(/\/+$/, '');
+		} else if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+			agentUrl = parsedUrl.toString().replace(/\/+$/, '');
+		} else {
+			error(400, 'Agent URL must use http(s), ws, or wss');
+		}
 	} catch {
 		error(400, 'Agent URL must be a valid URL');
 	}
@@ -979,7 +988,7 @@ export const listManagedHostPodman = command(
 		const response = await dispatchHostCommand(host, {
 			module: 'podman',
 			action: resource,
-			payload: {}
+			payload: null
 		});
 		await markHostDispatchResult(db, host, response);
 		return mapPodmanResponse(response);
@@ -1473,6 +1482,9 @@ function mapAppServices(
 	if (services.some((service) => service.active === 'failed')) {
 		return { services, status: 'failed' };
 	}
+	if (services.some((service) => !service.active || !service.sub)) {
+		return { services, status: 'unknown' };
+	}
 	if (services.every((service) => service.active === 'active')) {
 		return { services, status: 'running' };
 	}
@@ -1663,6 +1675,13 @@ export const updateManagedHostApp = command(
 	appUpdateParams,
 	async (params): Promise<ManagedHostAppWriteResult> => {
 		const scope = normalizeQuadletScope(params.scope);
+		const name = params.name.trim();
+		if (!isValidAppName(name)) {
+			error(
+				400,
+				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
+			);
+		}
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
 
@@ -1672,7 +1691,7 @@ export const updateManagedHostApp = command(
 		const response = await dispatchHostCommand(host, {
 			module: 'apps',
 			action: 'update',
-			payload: { name: params.name, scope, values, converge: true }
+			payload: { name, scope, values, converge: true }
 		});
 		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to update app');
@@ -1690,9 +1709,16 @@ export const removeManagedHostApp = command(
 	appRemoveParams,
 	async (params): Promise<ManagedHostAppRemoveResult> => {
 		const scope = normalizeQuadletScope(params.scope);
+		const name = params.name.trim();
+		if (!isValidAppName(name)) {
+			error(
+				400,
+				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
+			);
+		}
 		if (accessibilityFixtureEnabled) {
 			return {
-				name: params.name,
+				name,
 				bundleRemoved: true,
 				deletedUnits: ['/home/a11y/.config/containers/systemd/demo-web.container']
 			};
@@ -1704,13 +1730,13 @@ export const removeManagedHostApp = command(
 		const response = await dispatchHostCommand(host, {
 			module: 'apps',
 			action: 'remove',
-			payload: { name: params.name, scope, converge: true }
+			payload: { name, scope, converge: true }
 		});
 		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to remove app');
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return {
-			name: typeof payload.name === 'string' ? payload.name : params.name,
+			name: typeof payload.name === 'string' ? payload.name : name,
 			bundleRemoved: payload.bundle_removed === true,
 			deletedUnits: stringArray(payload.deleted_units)
 		};
@@ -1720,6 +1746,7 @@ export const removeManagedHostApp = command(
 const appServiceLogsParams = type({
 	hostId: 'string',
 	scope: 'string',
+	name: 'string',
 	service: 'string',
 	lines: 'number'
 });
@@ -1728,15 +1755,34 @@ export const getManagedHostAppServiceLogs = command(
 	appServiceLogsParams,
 	async (params): Promise<string> => {
 		const scope = normalizeQuadletScope(params.scope);
+		const name = params.name.trim();
+		if (!isValidAppName(name)) {
+			error(
+				400,
+				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
+			);
+		}
 		if (accessibilityFixtureEnabled) return fixtureAppServiceLogs;
 
 		const { db, host } = await loadManagedHost(params.hostId);
+		const appResponse = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'get',
+			payload: { name, scope }
+		});
+		await markHostDispatchResult(db, host, appResponse);
+		if (!appResponse.ok) throw new Error(appResponse.error || 'Failed to load app');
+		const app = parseAppDetailResponse(appResponse.payload);
+		if (!app) error(502, 'App detail response was invalid');
+		if (!app.services.some((service) => service === params.service)) {
+			error(404, 'Service is not part of this app');
+		}
 
 		const response = await dispatchHostCommand(host, {
 			module: 'services',
 			action: 'logs',
 			payload: {
-				service: params.service,
+				service: params.service.trim(),
 				scope,
 				lines: Math.max(1, Math.min(1000, Math.trunc(params.lines)))
 			}
@@ -1759,18 +1805,41 @@ export const readManagedHostAppFile = command(
 	appFileReadParams,
 	async (params): Promise<ManagedHostQuadletCompanionFile> => {
 		const scope = normalizeQuadletScope(params.scope);
+		const name = params.name.trim();
+		if (!isValidAppName(name)) {
+			error(
+				400,
+				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
+			);
+		}
 		if (accessibilityFixtureEnabled) {
 			return { filename: params.filename, contents: '<h1>Hello from demo-web</h1>\n' };
 		}
 
 		const { db, host } = await loadManagedHost(params.hostId);
 
+		// Resolve the app manifest first so callers can only read companion files
+		// recorded by that app. The agent protects traversal, but this additional
+		// ownership check prevents arbitrary bundle files (including app.json)
+		// from being exposed through the dashboard action.
+		const detailResponse = await dispatchHostCommand(host, {
+			module: 'apps',
+			action: 'get',
+			payload: { name, scope }
+		});
+		await markHostDispatchResult(db, host, detailResponse);
+		if (!detailResponse.ok) throw new Error(detailResponse.error || 'Failed to load app');
+		const detail = parseAppDetailResponse(detailResponse.payload);
+		if (!detail) error(502, 'App detail response was invalid');
+		const file = detail.files.find((entry) => entry.filename === params.filename);
+		if (!file || !file.exists) error(404, 'App companion file was not found');
+
 		// App companion files live under `<app>/<filename>` in the Quadlet
 		// files base dir (see `quadlets.rs` `Read`).
 		const response = await dispatchHostCommand(host, {
 			module: 'quadlets',
 			action: 'read',
-			payload: { scope, filename: `${params.name}/${params.filename}`, companion: true }
+			payload: { scope, filename: `${name}/${params.filename}`, companion: true }
 		});
 		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to read app file');

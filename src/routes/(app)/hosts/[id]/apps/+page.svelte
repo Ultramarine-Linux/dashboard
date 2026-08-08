@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { getAppRecipe } from '$lib/apps/catalog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -21,7 +22,9 @@
 
 	let { data }: { data: PageData } = $props();
 	const host = $derived(data.host);
-	let scope = $state<ManagedHostQuadletScope>('user');
+	let scope = $state<ManagedHostQuadletScope>(
+		page.url.searchParams.get('scope') === 'system' ? 'system' : 'user'
+	);
 	let apps = $state<ManagedHostAppListItem[]>([]);
 	let loading = $state(false);
 	let actionError = $state('');
@@ -35,15 +38,18 @@
 	});
 
 	async function loadApps() {
-		if (loading) return;
+		const requestKey = `${host.id}:${scope}`;
 		loading = true;
 		actionError = '';
 		try {
-			apps = await listManagedHostApps({ hostId: host.id, scope });
+			const nextApps = await listManagedHostApps({ hostId: host.id, scope });
+			if (requestKey === `${host.id}:${scope}`) apps = nextApps;
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to load apps.');
+			if (requestKey === `${host.id}:${scope}`) {
+				actionError = getErrorMessage(err, 'Failed to load apps.');
+			}
 		} finally {
-			loading = false;
+			if (requestKey === `${host.id}:${scope}`) loading = false;
 		}
 	}
 
@@ -52,6 +58,15 @@
 		if (status === 'failed') return 'destructive';
 		if (status === 'stopped') return 'secondary';
 		return 'outline';
+	}
+
+	function setScope(nextScope: ManagedHostQuadletScope) {
+		scope = nextScope;
+		goto(`/hosts/${host.id}/apps?scope=${nextScope}`, {
+			replaceState: true,
+			keepFocus: true,
+			noScroll: true
+		});
 	}
 
 	function openApp(app: ManagedHostAppListItem) {
@@ -75,7 +90,7 @@
 						size="sm"
 						class="h-8 rounded-none px-3 text-xs"
 						onclick={() => {
-							scope = item as ManagedHostQuadletScope;
+							setScope(item as ManagedHostQuadletScope);
 						}}
 					>
 						{item}

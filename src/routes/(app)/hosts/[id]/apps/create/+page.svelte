@@ -13,6 +13,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import Icon from '$lib/components/icon.svelte';
 	import {
 		createManagedHostApp,
 		type ManagedHost,
@@ -35,6 +36,7 @@
 		page.url.searchParams.get('scope') === 'system' ? 'system' : 'user'
 	);
 	let selectedRecipeId = $state<string | null>(null);
+	let recipeSearch = $state('');
 	let appName = $state('');
 	let appIdTouched = $state(false);
 	let values = $state<AppValueMap>({});
@@ -43,6 +45,17 @@
 	let result = $state<ManagedHostAppWriteResult | null>(null);
 
 	const recipe = $derived(selectedRecipeId ? getAppRecipe(selectedRecipeId) : null);
+	const filteredRecipes = $derived(
+		appRecipes.filter((option) => {
+			const query = recipeSearch.trim().toLowerCase();
+			return (
+				!query ||
+				option.name.toLowerCase().includes(query) ||
+				option.description.toLowerCase().includes(query) ||
+				option.category.toLowerCase().includes(query)
+			);
+		})
+	);
 	const errors = $derived(recipe ? validateRecipeValues(recipe, values) : []);
 	const nameValid = $derived(isValidAppName(appName));
 	const hostModules = $derived(
@@ -52,8 +65,18 @@
 		recipe ? recipe.requires.filter((module) => !hostModules.has(module)) : []
 	);
 
+	const recipeAccentColors: Record<string, string> = {
+		'nginx-site': '#51a2da',
+		nextcloud: '#0082c9'
+	};
+
+	function recipeAccentColor(id: string) {
+		return recipeAccentColors[id] ?? '#9ca3af';
+	}
+
 	function selectRecipe(next: AppRecipe) {
-		selectedRecipeId = next.id;
+		selectedRecipeId = selectedRecipeId === next.id ? null : next.id;
+		if (selectedRecipeId === null) return;
 		appName = normalizeAppId(next.id);
 		appIdTouched = false;
 		values = defaultRecipeValues(next);
@@ -102,37 +125,89 @@
 </script>
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-5">
-	<div>
+	<div class="mx-auto max-w-6xl">
 		<h1 class="text-sm font-semibold text-foreground">New App</h1>
 		<p class="mt-1 text-xs text-muted-foreground">
 			Cook a recipe into an installed app on this host.
 		</p>
-	</div>
 
-	<div class="mt-5">
-		<h2 class="text-sm font-semibold text-foreground">Recipe</h2>
-		<div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-			{#each appRecipes as option (option.id)}
-				<Button
-					variant={selectedRecipeId === option.id ? 'default' : 'outline'}
-					class="h-auto min-w-0 justify-start p-3 text-left whitespace-normal"
-					onclick={() => selectRecipe(option)}
+		<section class="mt-5 border border-border p-4">
+			<div class="flex items-center justify-between gap-3 border-b border-border pb-2">
+				<div>
+					<h2 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+						Recipe catalog
+					</h2>
+					<p class="mt-1 text-xs text-muted-foreground">
+						Choose an app recipe to install on this host.
+					</p>
+				</div>
+				<span class="text-[11px] text-muted-foreground">{filteredRecipes.length} available</span>
+			</div>
+			<div class="mt-3">
+				<Input
+					bind:value={recipeSearch}
+					placeholder="Search recipes..."
+					aria-label="Search recipes"
+				/>
+			</div>
+			{#if filteredRecipes.length > 0}
+				<div class="mt-3 grid gap-px bg-border md:grid-cols-2">
+					{#each filteredRecipes as option (option.id)}
+						<button
+							type="button"
+							class="relative flex min-w-0 gap-3 overflow-hidden bg-background p-4 text-left transition-colors hover:bg-muted/30 {selectedRecipeId ===
+							option.id
+								? 'ring-2 ring-primary ring-inset'
+								: ''}"
+							onclick={() => selectRecipe(option)}
+						>
+							<div
+								class="pointer-events-none absolute inset-0 opacity-[0.05]"
+								style={`background: linear-gradient(135deg, ${recipeAccentColor(option.id)} 0%, transparent 60%)`}
+							></div>
+							<div
+								class="relative flex size-10 shrink-0 items-center justify-center rounded border border-border bg-muted/40 text-primary"
+							>
+								<Icon name={option.icon ?? option.id} class="size-6" title={option.name} />
+							</div>
+							<div class="relative min-w-0 flex-1">
+								<div class="flex items-center gap-2">
+									<span class="truncate text-sm font-semibold text-foreground">{option.name}</span>
+									<span class="shrink-0 text-[10px] text-muted-foreground">v{option.version}</span>
+								</div>
+								<p class="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+									{option.description}
+								</p>
+								<p
+									class="mt-2 text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
+								>
+									{option.category}
+								</p>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{:else}
+				<div class="py-8 text-center text-xs text-muted-foreground">
+					No recipes match “{recipeSearch}”.
+				</div>
+			{/if}
+		</section>
+
+		<div class="mt-4 min-h-12" aria-live="polite">
+			{#if actionError}
+				<div
+					role="alert"
+					class="flex items-start gap-2 border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive"
 				>
-					<span class="min-w-0">
-						<span class="block text-xs font-semibold">{option.name}</span>
-						<span class="mt-1 block text-xs leading-snug break-words">{option.description}</span>
-						<span class="mt-1 block text-[11px] opacity-80">
-							{option.category} · v{option.version}
-						</span>
-					</span>
-				</Button>
-			{/each}
+					<span class="mt-0.5 size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true"></span>
+					<span>{actionError}</span>
+				</div>
+			{/if}
 		</div>
-	</div>
 
-	{#if recipe}
-		<div class="mt-5">
-			<div class="mx-auto max-w-5xl space-y-5">
+		{#if recipe}
+			<div class="mt-5 space-y-5">
 				<section class="space-y-5 border border-border p-5">
 					<div>
 						<h2 class="text-sm font-semibold text-foreground">App Settings</h2>
@@ -181,13 +256,6 @@
 						{/if}
 						Cook app
 					</Button>
-
-					{#if saving}
-						<p class="text-xs text-muted-foreground">
-							Cooking on the host — rendering templates, installing units, starting services. This
-							can take a minute.
-						</p>
-					{/if}
 				</section>
 
 				{#if result}
@@ -207,13 +275,7 @@
 						{/snippet}
 					</AppCookResult>
 				{/if}
-
-				{#if actionError}
-					<div class="border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-						{actionError}
-					</div>
-				{/if}
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </section>

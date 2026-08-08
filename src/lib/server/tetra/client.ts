@@ -11,7 +11,7 @@ export type AgentCommand = {
 	id: string;
 	module: string;
 	action: string;
-	payload: Record<string, unknown>;
+	payload: Record<string, unknown> | null;
 	signature?: string | null;
 };
 
@@ -186,8 +186,9 @@ export class DirectWebSocketTetraClient implements TetraClient {
 		const socket = await this.#connect();
 		try {
 			const challenge = await this.#receive(socket);
-			if (challenge.type !== 'challenge')
-				throw new Error('Tetra WebSocket did not send a challenge');
+			if (challenge.type !== 'challenge') {
+				throw new Error(`Tetra WebSocket did not send a challenge: ${JSON.stringify(challenge)}`);
+			}
 			if (this.#hostPublicKey && challenge.host_fingerprint !== this.#hostPublicKey) {
 				throw new Error('Tetra host key fingerprint does not match the enrolled key');
 			}

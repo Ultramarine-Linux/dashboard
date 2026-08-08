@@ -88,15 +88,18 @@
 	});
 
 	async function loadApp() {
-		if (loading) return;
+		const requestKey = `${host.id}:${scope}:${appName}`;
 		loading = true;
 		actionError = '';
 		try {
-			detail = await getManagedHostApp({ hostId: host.id, scope, name: appName });
+			const nextDetail = await getManagedHostApp({ hostId: host.id, scope, name: appName });
+			if (requestKey === `${host.id}:${scope}:${appName}`) detail = nextDetail;
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to load app.');
+			if (requestKey === `${host.id}:${scope}:${appName}`) {
+				actionError = getErrorMessage(err, 'Failed to load app.');
+			}
 		} finally {
-			loading = false;
+			if (requestKey === `${host.id}:${scope}:${appName}`) loading = false;
 		}
 	}
 
@@ -137,6 +140,7 @@
 			const logs = await getManagedHostAppServiceLogs({
 				hostId: host.id,
 				scope,
+				name: appName,
 				service: name,
 				lines: 200
 			});
