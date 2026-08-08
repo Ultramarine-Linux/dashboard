@@ -28,7 +28,8 @@ export const accessibilityFixtureSession = {
 };
 
 export const accessibilityFixtureFeatureFlags: FeatureFlags = {
-	managedHosts: true
+	managedHosts: true,
+	apps: true
 };
 
 export const accessibilityFixtureManagedHosts = [
@@ -75,6 +76,14 @@ export const accessibilityFixtureManagedHosts = [
 					description: 'Manage Quadlet files and companion resources.',
 					status: 'available',
 					actions: ['list', 'list_files', 'read', 'write', 'delete', 'validate', 'install']
+				},
+				{
+					name: 'apps',
+					feature: 'apps',
+					description:
+						'Cook recipes into installed Quadlet-backed apps and manage their lifecycle.',
+					status: 'available',
+					actions: ['capabilities', 'plan', 'list', 'get', 'create', 'update', 'remove']
 				}
 			]
 		},

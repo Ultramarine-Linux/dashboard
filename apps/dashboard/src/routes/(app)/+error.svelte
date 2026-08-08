@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-	<title>{page.status} / Stack</title>
+	<title>{page.status} / Ultramarine Server</title>
 </svelte:head>
 
 <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 text-center">

@@ -8,7 +8,11 @@ mkdir -p certs/public
 chmod 700 certs
 chmod 755 certs/public
 
-if [ ! -f certs/ca.crt ] || [ ! -f certs/ca.key ]; then
+regenerate_ca=0
+if [ ! -f certs/ca.crt ] || [ ! -f certs/ca.key ] \
+  || ! openssl x509 -in certs/ca.crt -noout -checkend 86400 >/dev/null 2>&1; then
+  regenerate_ca=1
+  rm -f certs/ca.crt certs/ca.key
   openssl req -x509 -newkey rsa:2048 -sha256 -nodes \
     -keyout certs/ca.key \
     -out certs/ca.crt \
@@ -16,7 +20,9 @@ if [ ! -f certs/ca.crt ] || [ ! -f certs/ca.key ]; then
     -subj "/CN=Ultramarine Server Integration CA"
 fi
 
-if [ ! -f certs/tetra.crt ] || [ ! -f certs/tetra.key ] \
+if [ "$regenerate_ca" -eq 1 ] \
+  || [ ! -f certs/tetra.crt ] || [ ! -f certs/tetra.key ] \
+  || ! openssl x509 -in certs/tetra.crt -noout -checkend 86400 >/dev/null 2>&1 \
   || ! openssl x509 -in certs/tetra.crt -noout -text | grep -q 'DNS:tetra-smoke'; then
   rm -f certs/tetra.crt certs/tetra.key
   openssl req -newkey rsa:2048 -nodes \

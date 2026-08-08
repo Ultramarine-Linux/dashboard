@@ -164,7 +164,7 @@
 				>
 					<Search class="h-3 w-3" />
 					<span>Search</span>
-					<kbd class="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">⌘K</kbd>
+					<kbd class="rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-foreground">⌘K</kbd>
 				</button>
 				<button class="flex items-center gap-2" type="button" onclick={() => openUserSettings()}>
 					<div class="hidden min-w-0 text-right sm:block">

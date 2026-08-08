@@ -57,7 +57,7 @@ try {
 		id: 'integration-settings',
 		module: 'settings',
 		action: 'get_system',
-		payload: {},
+		payload: null,
 		signature: null
 	};
 	const timestamp = Math.floor(Date.now() / 1000);
@@ -169,7 +169,7 @@ function assertResponse(frame, stage) {
 	if (frame.type === 'error') {
 		throw new Error(`Tetra ${stage} failed: ${frame.error}`);
 	}
-	if (frame.type !== 'response' || !frame.response.ok) {
-		throw new Error(`Tetra ${stage} returned an invalid response`);
+	if (frame.type !== 'response' || !frame.response?.ok) {
+		throw new Error(`Tetra ${stage} returned an invalid response: ${JSON.stringify(frame)}`);
 	}
 }

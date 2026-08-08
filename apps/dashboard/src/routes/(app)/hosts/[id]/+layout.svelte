@@ -19,6 +19,7 @@
 
 	type HostTabHref =
 		| `/hosts/${string}`
+		| `/hosts/${string}/apps`
 		| `/hosts/${string}/podman`
 		| `/hosts/${string}/quadlets`
 		| `/hosts/${string}/proxy`
@@ -40,6 +41,8 @@
 	$effect(() => {
 		host = data.host;
 	});
+
+	const appsEnabled = $derived(page.data.featureFlags?.apps === true);
 
 	let activeTab = $derived.by<HostTab>(() => {
 		const hostPath = `/hosts/${host.id}`;
@@ -143,7 +146,7 @@
 </div>
 
 <div class="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-border px-2">
-	{#each hostTabs as tab (tab.id)}
+	{#each hostTabs.filter((tab) => tab.id !== 'apps' || appsEnabled) as tab (tab.id)}
 		<a
 			aria-current={activeTab === tab.id ? 'page' : undefined}
 			class="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors duration-100 {activeTab ===

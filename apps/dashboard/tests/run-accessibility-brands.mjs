@@ -1,9 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-const runs = [
-	{ label: 'stack', env: {} },
-	{ label: 'ultramarine', env: { PUBLIC_DASHBOARD_BRAND: 'ultramarine' } }
-];
+const runs = [{ label: 'ultramarine', env: { PUBLIC_DASHBOARD_BRAND: 'ultramarine' } }];
 
 let failed = false;
 
