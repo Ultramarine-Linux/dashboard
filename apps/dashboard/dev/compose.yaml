@@ -17,8 +17,8 @@ services:
 
   dashboard:
     build:
-      context: ..
-      dockerfile: dev/dashboard/Dockerfile
+      context: ../../..
+      dockerfile: apps/dashboard/dev/dashboard/Dockerfile
     environment:
       ORIGIN: http://127.0.0.1:3000
       DATABASE_URL: postgres://postgres:integration@postgres:5432/ultramarine
@@ -26,6 +26,9 @@ services:
       EMAIL_FROM_NAME: Ultramarine Server Integration
       EMAIL_REPLY_TO: support@integration.test
       UM_DASHBOARD_STATE_DIR: /var/lib/ultramarine-dashboard
+      TETRA_ENROLLMENT_TOKEN_FILE: /run/tetra-dev/TETRA_ENROLLMENT_TOKEN
+      TETRA_TLS_CA_CERTIFICATE_FILE: /run/tetra-dev/ca.crt
+      TETRA_LOCAL_ENDPOINTS: wss://tetra:7780
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,14 +45,16 @@ services:
         exec su -s /bin/sh node -c './node_modules/.bin/drizzle-kit migrate --config=drizzle.config.ts && exec node build'
     volumes:
       - dashboard-state:/var/lib/ultramarine-dashboard
+      - ./.env:/run/tetra-dev/TETRA_ENROLLMENT_TOKEN:ro,Z
+      - ./certs/ca.crt:/run/tetra-dev/ca.crt:ro,Z
     ports:
       - '127.0.0.1:3000:3000'
     networks: [server]
 
   tetra-smoke:
     build:
-      context: ../../tetra
-      dockerfile: ../um-dashboard/dev/tetra/Dockerfile
+      context: ../../../../tetra
+      dockerfile: ../um-dashboard/apps/dashboard/dev/tetra/Dockerfile
     command:
       - agent-ws-serve
       - --listen
@@ -86,8 +91,8 @@ services:
 
   tetra:
     build:
-      context: ../../tetra
-      dockerfile: ../um-dashboard/dev/tetra/Dockerfile
+      context: ../../../../tetra
+      dockerfile: ../um-dashboard/apps/dashboard/dev/tetra/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy

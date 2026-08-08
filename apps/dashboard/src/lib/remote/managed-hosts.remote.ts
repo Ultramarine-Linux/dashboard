@@ -63,6 +63,18 @@ export type ManagedHostUser = {
 	shell: string;
 };
 
+export type ManagedHostStorageResult = {
+	mounts: unknown[];
+	partitions: unknown[];
+	zfs: Record<string, unknown> | null;
+};
+
+export type ManagedHostNetworkResult = {
+	interfaces: unknown[];
+	resolvConf: string | null;
+	routes: unknown;
+};
+
 export type ManagedHostPodmanResource = 'containers' | 'images' | 'volumes' | 'networks';
 
 export type ManagedHostPodmanResult = {
@@ -1052,6 +1064,51 @@ const dispatchParams = type({
 	action: 'string',
 	payloadJson: 'string'
 });
+
+function responsePayload(response: AgentResponse, message: string) {
+	if (!response.ok) throw new Error(response.error || message);
+	return isRecord(response.payload) ? response.payload : {};
+}
+
+export const getManagedHostStorage = command(
+	getParams,
+	async (params): Promise<ManagedHostStorageResult> => {
+		const { db, host } = await loadManagedHost(params.hostId);
+		const [listResponse, zfsResponse] = await Promise.all([
+			dispatchHostCommand(host, { module: 'storage', action: 'list', payload: {} }),
+			dispatchHostCommand(host, { module: 'storage', action: 'zfs', payload: {} })
+		]);
+		await markHostDispatchResult(db, host, listResponse);
+		const list = responsePayload(listResponse, 'Failed to load storage inventory.');
+		const zfs = zfsResponse.ok && isRecord(zfsResponse.payload) ? zfsResponse.payload : null;
+		return {
+			mounts: Array.isArray(list.mounts) ? list.mounts : [],
+			partitions: Array.isArray(list.partitions) ? list.partitions : [],
+			zfs
+		};
+	}
+);
+
+export const getManagedHostNetwork = command(
+	getParams,
+	async (params): Promise<ManagedHostNetworkResult> => {
+		const { db, host } = await loadManagedHost(params.hostId);
+		const responses = await Promise.all([
+			dispatchHostCommand(host, { module: 'network', action: 'interfaces', payload: {} }),
+			dispatchHostCommand(host, { module: 'network', action: 'dns', payload: {} }),
+			dispatchHostCommand(host, { module: 'network', action: 'routes', payload: {} })
+		]);
+		await markHostDispatchResult(db, host, responses[0]);
+		const interfaces = responsePayload(responses[0], 'Failed to load network interfaces.');
+		const dns = responsePayload(responses[1], 'Failed to load DNS configuration.');
+		const routes = responsePayload(responses[2], 'Failed to load network routes.');
+		return {
+			interfaces: Array.isArray(interfaces.interfaces) ? interfaces.interfaces : [],
+			resolvConf: typeof dns.resolv_conf === 'string' ? dns.resolv_conf : null,
+			routes: routes.data ?? routes
+		};
+	}
+);
 export const dispatchManagedHostCommand = command(dispatchParams, async (params) => {
 	const { db, host } = await loadManagedHost(params.hostId);
 
