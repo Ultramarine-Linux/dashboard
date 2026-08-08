@@ -14,6 +14,16 @@ Details, one-time machine setup, and caveats: [dev/README.md](dev/README.md)
 For UI-only work on macOS or without the local database/backend stack, use the
 fixture mode documented in [dev/README.md](dev/README.md#fixture-ui-mode).
 
+## Managed applications
+
+Dashboard can cook and manage recipe-backed applications on enrolled Tetra hosts.
+The application catalog and host application routes are part of the Dashboard app
+under `apps/dashboard/src/lib/apps` and
+`apps/dashboard/src/routes/(app)/hosts/[id]/apps`. Applications are deployed as
+Quadlet resources, so the target host must have the required Tetra, Podman, and
+systemd/Quadlet support available. Enroll a host first, then open **Hosts → Apps**
+to create, inspect, update, or remove an application.
+
 ## Build and run
 
 ```sh
