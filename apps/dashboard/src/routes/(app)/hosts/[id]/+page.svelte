@@ -8,7 +8,7 @@
 	import Check from '~icons/lucide/check';
 	import ChevronDown from '~icons/lucide/chevron-down';
 	import Minus from '~icons/lucide/minus';
-	import { parseHostCapabilities, type ModuleStatus } from './lib/capabilities';
+	import { parseHostCapabilities, type ModuleStatus } from '$lib/hosts/capabilities';
 
 	type PageData = {
 		host: ManagedHost;

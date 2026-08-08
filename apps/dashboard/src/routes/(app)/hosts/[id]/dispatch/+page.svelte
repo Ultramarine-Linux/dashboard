@@ -7,7 +7,7 @@
 	import { getErrorMessage } from '$lib/utils';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Send from '~icons/lucide/send';
-	import { parseHostCapabilities } from '../lib/capabilities';
+	import { parseHostCapabilities } from '$lib/hosts/capabilities';
 
 	type PageData = {
 		host: ManagedHost;

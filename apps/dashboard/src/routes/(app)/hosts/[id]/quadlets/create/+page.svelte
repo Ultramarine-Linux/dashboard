@@ -15,7 +15,7 @@
 	import Eye from '~icons/lucide/eye';
 	import EyeOff from '~icons/lucide/eye-off';
 	import Loader2 from '~icons/lucide/loader-2';
-	import QuadletEditor from '../lib/QuadletEditor.svelte';
+	import QuadletEditor from '$lib/hosts/quadlets/QuadletEditor.svelte';
 	import {
 		buildRecipeDetail,
 		defaultComposeOptions,
@@ -27,7 +27,7 @@
 		type NextcloudOptions,
 		type NginxSiteOptions,
 		type QuadletRecipeOption
-	} from '../lib/recipes';
+	} from '$lib/hosts/quadlets/recipes';
 
 	type PageData = {
 		host: ManagedHost;

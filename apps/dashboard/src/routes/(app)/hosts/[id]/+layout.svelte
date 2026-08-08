@@ -15,7 +15,7 @@
 	import RefreshCw from '~icons/lucide/refresh-cw';
 	import Trash2 from '~icons/nucleo/trash';
 	import { untrack } from 'svelte';
-	import { hostTabs, type HostTab } from './lib/host-detail';
+	import { hostTabs, type HostTab } from '$lib/hosts/host-detail';
 
 	type HostTabHref =
 		| `/hosts/${string}`

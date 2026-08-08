@@ -5,7 +5,7 @@ import {
 	sign,
 	randomBytes
 } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { Agent, WebSocket } from 'undici';
 
 const URL = process.env.TETRA_WSS_URL ?? 'wss://tetra-smoke:7780';
@@ -100,12 +100,25 @@ try {
 }
 
 function loadOrCreateControllerKey() {
-	if (existsSync(keyPath)) {
+	try {
+		return createPrivateKey(readFileSync(keyPath));
+	} catch (error) {
+		if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT') {
+			throw error;
+		}
+	}
+
+	const { privateKey } = generateKeyPairSync('ed25519');
+	const encodedKey = privateKey.export({ type: 'pkcs8', format: 'pem' });
+	try {
+		writeFileSync(keyPath, encodedKey, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+		return privateKey;
+	} catch (error) {
+		if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'EEXIST') {
+			throw error;
+		}
 		return createPrivateKey(readFileSync(keyPath));
 	}
-	const { privateKey } = generateKeyPairSync('ed25519');
-	writeFileSync(keyPath, privateKey.export({ type: 'pkcs8', format: 'pem' }), { mode: 0o600 });
-	return privateKey;
 }
 
 function rawEd25519PublicKey(privateKey) {
