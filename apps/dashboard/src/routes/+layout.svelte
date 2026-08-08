@@ -23,7 +23,7 @@
 
 <svelte:head>
 	<script data-brand={dashboardBrand.id}>
-		document.documentElement.dataset.brand = document.currentScript?.dataset.brand ?? 'stack';
+		document.documentElement.dataset.brand = document.currentScript?.dataset.brand ?? 'ultramarine';
 	</script>
 	<link rel="icon" href={dashboardBrand.favicon} sizes="any" />
 	<link rel="icon" href={dashboardBrand.favicon32} type="image/png" sizes="32x32" />

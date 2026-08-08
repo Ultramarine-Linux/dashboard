@@ -1958,6 +1958,9 @@ export const readManagedHostAppFile = command(
 
 const hostUserMappingParams = type({ hostId: 'string' });
 export const getHostUserMapping = query(hostUserMappingParams, async (params) => {
+	requireUser();
+	if (accessibilityFixtureEnabled) return null;
+
 	const currentUser = requireUser();
 	const db = initDrizzle();
 	const [mapping] = await db
@@ -1972,6 +1975,9 @@ export const getHostUserMapping = query(hostUserMappingParams, async (params) =>
 
 const setHostUserMappingParams = type({ hostId: 'string', hostUsername: 'string' });
 export const setHostUserMapping = command(setHostUserMappingParams, async (params) => {
+	requireUser();
+	if (accessibilityFixtureEnabled) return;
+
 	const currentUser = requireUser();
 	const db = initDrizzle();
 	const hostUsername = params.hostUsername.trim() || null;

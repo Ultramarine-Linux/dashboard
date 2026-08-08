@@ -966,7 +966,7 @@
 												<div class="min-w-0">
 													<p class="truncate text-sm font-medium text-foreground">{token.name}</p>
 													<p class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-														sk-stack-****...****
+														um-stack-****...****
 														<span class="ml-2 font-sans text-muted-foreground"
 															>Created {token.created}</span
 														>

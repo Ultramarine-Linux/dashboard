@@ -77,7 +77,7 @@ export const sendPasswordChangeCode = command(async () => {
 	await sendRenderedEmail({
 		component: PasswordChangeCodeEmail,
 		props: { userName: user.name, code, expiresInMinutes: CODE_TTL_MS / 60_000 },
-		subject: 'Confirm your Stack password change',
+		subject: 'Confirm your Ultramarine Server password change',
 		to: user.email
 	});
 });

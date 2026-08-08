@@ -50,7 +50,8 @@ export const disableTwoFactorWithVerification = command(disableTwoFactorParams, 
 		to: user.email,
 		userName: user.name,
 		alertType: 'Two-factor authentication disabled',
-		message: 'Authenticator app two-factor authentication was disabled for your Stack account.',
+		message:
+			'Authenticator app two-factor authentication was disabled for your Ultramarine Server account.',
 		actionUrl: event.url.origin
 	});
 });
