@@ -26,6 +26,10 @@ export type TetraClient = {
 	health(): Promise<{ ok: boolean }>;
 	capabilities(): Promise<AgentResponse>;
 	dispatch(command: Omit<AgentCommand, 'id'> & { id?: string }): Promise<AgentResponse>;
+	dispatchElevated?(
+		command: Omit<AgentCommand, 'id'> & { id?: string },
+		password: string
+	): Promise<AgentResponse>;
 };
 
 export class DirectHttpTetraClient implements TetraClient {
@@ -115,6 +119,7 @@ type AuthFrame =
 			command: AgentCommand;
 	  }
 	| { type: 'response'; response: AgentResponse }
+	| { type: 'elevation_request'; session_id: string }
 	| { type: 'error'; error: string }
 	| {
 			type: 'password_prompt';
@@ -258,6 +263,93 @@ export class DirectWebSocketTetraClient implements TetraClient {
 				})
 			);
 
+			await this.#send(socket, {
+				type: 'command',
+				session_id: challenge.session_id,
+				sequence,
+				timestamp,
+				nonce,
+				command: fullCommand
+			});
+			const response = await this.#receive(socket);
+			if (response.type === 'error') throw new Error(response.error);
+			if (response.type !== 'response')
+				throw new Error('Tetra returned an unexpected WebSocket frame');
+			return response.response;
+		} finally {
+			socket.close();
+		}
+	}
+
+	async dispatchElevated(command: Omit<AgentCommand, 'id'> & { id?: string }, password: string) {
+		const socket = await this.#connect();
+		try {
+			const challenge = await this.#receive(socket);
+			if (challenge.type !== 'challenge') throw new Error('Tetra did not send a challenge');
+			if (this.#hostPublicKey && challenge.host_fingerprint !== this.#hostPublicKey) {
+				throw new Error('Tetra host key fingerprint does not match the enrolled key');
+			}
+			await this.#send(socket, {
+				type: 'authenticate',
+				protocol_version: challenge.protocol_version,
+				session_id: challenge.session_id,
+				public_key: this.#publicKey,
+				signature: this.#sign(
+					canonicalObject({
+						protocol_version: challenge.protocol_version,
+						session_id: challenge.session_id,
+						challenge: challenge.challenge
+					})
+				),
+				user: this.#user
+			});
+			const authenticated = await this.#receive(socket);
+			if (authenticated.type === 'error') throw new Error(authenticated.error);
+			if (authenticated.type !== 'response' || !authenticated.response.ok) {
+				throw new Error('Tetra authentication failed');
+			}
+
+			await this.#send(socket, { type: 'elevation_request', session_id: challenge.session_id });
+			const prompt = await this.#receive(socket);
+			if (prompt.type !== 'password_prompt') {
+				throw new Error(
+					prompt.type === 'error' ? prompt.error : 'Tetra did not request an elevation password'
+				);
+			}
+			await this.#send(socket, {
+				type: 'password_response',
+				prompt_id: prompt.prompt_id,
+				response: password
+			});
+			const elevation = await this.#receive(socket);
+			if (elevation.type !== 'elevation_status' || elevation.state !== 'active') {
+				throw new Error(
+					elevation.type === 'elevation_status'
+						? elevation.message || 'Elevation was not granted'
+						: elevation.type === 'error'
+							? elevation.error
+							: 'Tetra returned an unexpected elevation response'
+				);
+			}
+
+			const id = command.id ?? `cmd-${ulid()}`;
+			const sequence = 0;
+			const timestamp = Math.floor(Date.now() / 1000);
+			const nonce = cryptoRandomToken();
+			const fullCommand: AgentCommand = { ...command, id, signature: null };
+			fullCommand.signature = this.#sign(
+				canonicalCommand({
+					version: COMMAND_SIGNING_VERSION,
+					session_id: challenge.session_id,
+					sequence,
+					timestamp,
+					nonce,
+					id,
+					module: fullCommand.module,
+					action: fullCommand.action,
+					payload: sortJson(fullCommand.payload)
+				})
+			);
 			await this.#send(socket, {
 				type: 'command',
 				session_id: challenge.session_id,

@@ -24,6 +24,8 @@
 		| `/hosts/${string}/quadlets`
 		| `/hosts/${string}/proxy`
 		| `/hosts/${string}/users`
+		| `/hosts/${string}/storage`
+		| `/hosts/${string}/network`
 		| `/hosts/${string}/dispatch`;
 
 	type LayoutData = {

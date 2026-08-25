@@ -38,8 +38,8 @@ Trace-*.json
 *.local.md
 
 # local Dashboard/Tetra integration CA, enrollment token, and test state
-dev/.env
-dev/certs/
+apps/dashboard/dev/.env
+apps/dashboard/dev/certs/
 
 # Generated upstream Dashboard backport plans and patches
 .local/backports/

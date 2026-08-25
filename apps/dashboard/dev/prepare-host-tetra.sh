@@ -3,7 +3,7 @@ set -eu
 
 # Resolve the Dashboard dev directory even when this script is invoked by path.
 dev_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-tetra_dir=$(CDPATH= cd -- "$dev_dir/../../tetra" && pwd)
+tetra_dir=$(CDPATH= cd -- "$dev_dir/../../../../tetra" && pwd)
 reset_controller=false
 if [ "${1:-}" = "--reset-controller" ]; then
   reset_controller=true
@@ -23,7 +23,8 @@ if [ ! -f "$dev_dir/certs/ca.crt" ] || [ ! -f "$dev_dir/certs/ca.key" ]; then
   exit 1
 fi
 
-if [ ! -f "$dev_dir/certs/host-tetra/tetra.crt" ] || [ ! -f "$dev_dir/certs/host-tetra/tetra.key" ]; then
+if [ ! -f "$dev_dir/certs/host-tetra/tetra.crt" ] || [ ! -f "$dev_dir/certs/host-tetra/tetra.key" ] \
+  || ! openssl x509 -in "$dev_dir/certs/host-tetra/tetra.crt" -noout -checkend 86400 >/dev/null 2>&1; then
   openssl req -newkey rsa:2048 -nodes \
     -keyout "$dev_dir/certs/host-tetra/tetra.key" \
     -out "$dev_dir/certs/host-tetra/tetra.csr" \
@@ -71,7 +72,7 @@ if command -v ss >/dev/null 2>&1 && ss -ltn | grep -q ':7781 '; then
 fi
 printf '%s\n' ''
 printf '%s\n' 'Start (or restart) Tetra from the tetra checkout with:'
-printf '%s\n' "cargo run --manifest-path $tetra_dir/Cargo.toml --release --no-default-features --features files,recipes,selinux,services,quadlets,reverse-proxy,podman,samba,nfs,users,virtual-machines -- agent-ws-serve --listen 0.0.0.0:7781 --identity-dir $dev_dir/certs/host-tetra/identity --tls-cert $dev_dir/certs/host-tetra/tetra.crt --tls-key $dev_dir/certs/host-tetra/tetra.key --enrollment-token $token"
+printf '%s\n' "cargo run --manifest-path $tetra_dir/Cargo.toml --release --no-default-features --features apps,files,recipes,selinux,services,quadlets,reverse-proxy,podman,samba,nfs,users,virtual-machines -- agent-ws-serve --listen 0.0.0.0:7781 --identity-dir $dev_dir/certs/host-tetra/identity --tls-cert $dev_dir/certs/host-tetra/tetra.crt --tls-key $dev_dir/certs/host-tetra/tetra.key --enrollment-token $token"
 printf '%s\n' ''
 printf '%s\n' 'Start Dashboard setup and submit the server domain.'
 printf '%s\n' 'Dashboard will automatically discover and enroll this local endpoint:'

@@ -63,6 +63,18 @@ export type ManagedHostUser = {
 	shell: string;
 };
 
+export type ManagedHostStorageResult = {
+	mounts: unknown[];
+	partitions: unknown[];
+	zfs: Record<string, unknown> | null;
+};
+
+export type ManagedHostNetworkResult = {
+	interfaces: unknown[];
+	resolvConf: string | null;
+	routes: unknown;
+};
+
 export type ManagedHostPodmanResource = 'containers' | 'images' | 'volumes' | 'networks';
 
 export type ManagedHostPodmanResult = {
@@ -620,11 +632,13 @@ function companionFilenameForEditor(filename: string, bundleName: string) {
 
 async function dispatchHostCommand(
 	host: typeof managedHosts.$inferSelect,
-	command: { module: string; action: string; payload: Record<string, unknown> | null }
+	command: { module: string; action: string; payload: Record<string, unknown> | null },
+	password?: string
 ) {
 	const event = getRequestEvent();
 	const user = event?.locals.user;
 	let tetraUser: string | null = null;
+	let hasExplicitHostMapping = false;
 
 	if (user) {
 		const db = initDrizzle();
@@ -633,7 +647,14 @@ async function dispatchHostCommand(
 			.from(hostUserMappings)
 			.where(and(eq(hostUserMappings.userId, user.id), eq(hostUserMappings.hostId, host.id)))
 			.limit(1);
+		hasExplicitHostMapping = Boolean(mapping?.hostUsername?.trim());
 		tetraUser = mapping?.hostUsername ?? user.username ?? user.name ?? null;
+	}
+
+	if (password && !hasExplicitHostMapping) {
+		throw new Error(
+			'Link your Dashboard account to a local host user before requesting elevation.'
+		);
 	}
 
 	const client = createTetraClient({
@@ -646,7 +667,23 @@ async function dispatchHostCommand(
 		tlsCaCertificate: host.tlsCaCertificate,
 		user: tetraUser
 	});
-	return client.dispatch(command);
+	try {
+		if (password && client.dispatchElevated)
+			return await client.dispatchElevated(command, password);
+		return await client.dispatch(command);
+	} catch (cause) {
+		const message = cause instanceof Error ? cause.message : 'Tetra command failed';
+		if (message === 'Incorrect password.') {
+			error(
+				401,
+				'The host password was incorrect. Enter the Linux password for the mapped host user.'
+			);
+		}
+		if (message.includes('mapped host user')) {
+			error(400, message);
+		}
+		throw cause;
+	}
 }
 
 async function markHostDispatchResult(
@@ -718,7 +755,14 @@ export const enrollLocalTetra = command(
 	async (params): Promise<ManagedHost | null> => {
 		requireUser();
 		const runtime = getRuntimeEnv();
-		if (!runtime.TETRA_ENROLLMENT_TOKEN_FILE || !runtime.TETRA_TLS_CA_CERTIFICATE_FILE) return null;
+		console.info('[tetra] local detection requested', {
+			endpointFile: runtime.TETRA_ENROLLMENT_TOKEN_FILE,
+			caFile: runtime.TETRA_TLS_CA_CERTIFICATE_FILE,
+			endpoints: runtime.TETRA_LOCAL_ENDPOINTS
+		});
+		if (!runtime.TETRA_ENROLLMENT_TOKEN_FILE || !runtime.TETRA_TLS_CA_CERTIFICATE_FILE) {
+			throw new Error('Local Tetra credentials are not configured in Dashboard.');
+		}
 
 		let enrollmentToken: string;
 		let tlsCaCertificate: string;
@@ -727,8 +771,9 @@ export const enrollLocalTetra = command(
 				readFile(runtime.TETRA_ENROLLMENT_TOKEN_FILE, 'utf8'),
 				readFile(runtime.TETRA_TLS_CA_CERTIFICATE_FILE, 'utf8')
 			]);
-		} catch {
-			return null;
+		} catch (cause) {
+			console.warn('[tetra] local detection skipped: unable to read credentials', cause);
+			throw new Error('Dashboard cannot read the local Tetra token or CA certificate.');
 		}
 		const token =
 			enrollmentToken
@@ -736,7 +781,9 @@ export const enrollLocalTetra = command(
 				.find((line) => line.startsWith('TETRA_ENROLLMENT_TOKEN='))
 				?.slice('TETRA_ENROLLMENT_TOKEN='.length)
 				.trim() || enrollmentToken.trim();
-		if (!token || !tlsCaCertificate.trim()) return null;
+		if (!token || !tlsCaCertificate.trim()) {
+			throw new Error('The local Tetra enrollment token or CA certificate is empty.');
+		}
 
 		const endpoints = (
 			runtime.TETRA_LOCAL_ENDPOINTS ??
@@ -747,12 +794,14 @@ export const enrollLocalTetra = command(
 			.filter(Boolean);
 		const db = initDrizzle();
 		const failures: string[] = [];
+		console.info('[tetra] trying local endpoints', endpoints);
 		for (const agentUrl of endpoints) {
 			try {
 				const existing = await db.query.managedHosts.findFirst({
 					where: eq(managedHosts.agentUrl, agentUrl)
 				});
 				if (existing?.connectionMode === 'direct_wss' && existing.hostPublicKey) {
+					console.info('[tetra] using existing enrolled host', agentUrl);
 					return mapHost(existing);
 				}
 
@@ -766,11 +815,20 @@ export const enrollLocalTetra = command(
 					enrollmentToken: token,
 					tlsCaCertificate: tlsCaCertificate.trim()
 				});
+				console.info(
+					'[tetra] enrollment result',
+					agentUrl,
+					enrolled.connectionState,
+					enrolled.lastError
+				);
 				if (enrolled.connectionState !== 'offline') return enrolled;
 
+				const enrollmentError = enrolled.lastError || 'Tetra enrollment failed';
+				failures.push(`${agentUrl}: ${enrollmentError}`);
+
 				// Enrollment returns a persisted offline row on a failed probe so the
-				// interactive form can show its error; discovery must remove that
-				// temporary row before trying the next local endpoint.
+				// interactive form can show its error; discovery removes that temporary
+				// row before trying the next local endpoint.
 				await db.delete(managedHosts).where(eq(managedHosts.id, host.id));
 			} catch (cause) {
 				const message = cause instanceof Error ? cause.message : 'unknown enrollment error';
@@ -1052,6 +1110,51 @@ const dispatchParams = type({
 	action: 'string',
 	payloadJson: 'string'
 });
+
+function responsePayload(response: AgentResponse, message: string) {
+	if (!response.ok) throw new Error(response.error || message);
+	return isRecord(response.payload) ? response.payload : {};
+}
+
+export const getManagedHostStorage = command(
+	getParams,
+	async (params): Promise<ManagedHostStorageResult> => {
+		const { db, host } = await loadManagedHost(params.hostId);
+		const [listResponse, zfsResponse] = await Promise.all([
+			dispatchHostCommand(host, { module: 'storage', action: 'list', payload: {} }),
+			dispatchHostCommand(host, { module: 'storage', action: 'zfs', payload: {} })
+		]);
+		await markHostDispatchResult(db, host, listResponse);
+		const list = responsePayload(listResponse, 'Failed to load storage inventory.');
+		const zfs = zfsResponse.ok && isRecord(zfsResponse.payload) ? zfsResponse.payload : null;
+		return {
+			mounts: Array.isArray(list.mounts) ? list.mounts : [],
+			partitions: Array.isArray(list.partitions) ? list.partitions : [],
+			zfs
+		};
+	}
+);
+
+export const getManagedHostNetwork = command(
+	getParams,
+	async (params): Promise<ManagedHostNetworkResult> => {
+		const { db, host } = await loadManagedHost(params.hostId);
+		const responses = await Promise.all([
+			dispatchHostCommand(host, { module: 'network', action: 'interfaces', payload: {} }),
+			dispatchHostCommand(host, { module: 'network', action: 'dns', payload: {} }),
+			dispatchHostCommand(host, { module: 'network', action: 'routes', payload: {} })
+		]);
+		await markHostDispatchResult(db, host, responses[0]);
+		const interfaces = responsePayload(responses[0], 'Failed to load network interfaces.');
+		const dns = responsePayload(responses[1], 'Failed to load DNS configuration.');
+		const routes = responsePayload(responses[2], 'Failed to load network routes.');
+		return {
+			interfaces: Array.isArray(interfaces.interfaces) ? interfaces.interfaces : [],
+			resolvConf: typeof dns.resolv_conf === 'string' ? dns.resolv_conf : null,
+			routes: routes.data ?? routes
+		};
+	}
+);
 export const dispatchManagedHostCommand = command(dispatchParams, async (params) => {
 	const { db, host } = await loadManagedHost(params.hostId);
 
@@ -1198,7 +1301,8 @@ const reverseProxySiteParams = type({
 	hostId: 'string',
 	domain: 'string',
 	upstream: 'string',
-	tls: 'boolean'
+	tls: 'boolean',
+	adminPassword: 'string?'
 });
 
 export const listManagedHostReverseProxySites = command(
@@ -1225,16 +1329,20 @@ export const writeManagedHostReverseProxySite = command(
 		}
 
 		const { db, host } = await loadManagedHost(params.hostId);
-		const response = await dispatchHostCommand(host, {
-			module: 'reverse_proxy',
-			action: 'write',
-			payload: {
-				domain: params.domain,
-				upstream: params.upstream,
-				tls: params.tls,
-				reload: true
-			}
-		});
+		const response = await dispatchHostCommand(
+			host,
+			{
+				module: 'reverse_proxy',
+				action: 'write',
+				payload: {
+					domain: params.domain,
+					upstream: params.upstream,
+					tls: params.tls,
+					reload: true
+				}
+			},
+			params.adminPassword
+		);
 		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to save reverse proxy site');
 		const payload = isRecord(response.payload) ? response.payload : {};
@@ -1248,36 +1356,51 @@ export const writeManagedHostReverseProxySite = command(
 	}
 );
 
-const reverseProxyDeleteParams = type({ hostId: 'string', domain: 'string' });
+const reverseProxyDeleteParams = type({
+	hostId: 'string',
+	domain: 'string',
+	adminPassword: 'string?'
+});
 export const deleteManagedHostReverseProxySite = command(
 	reverseProxyDeleteParams,
 	async (params) => {
 		if (accessibilityFixtureEnabled) return;
 
 		const { db, host } = await loadManagedHost(params.hostId);
-		const response = await dispatchHostCommand(host, {
-			module: 'reverse_proxy',
-			action: 'delete',
-			payload: { domain: params.domain, reload: true }
-		});
+		const response = await dispatchHostCommand(
+			host,
+			{
+				module: 'reverse_proxy',
+				action: 'delete',
+				payload: { domain: params.domain, reload: true }
+			},
+			params.adminPassword
+		);
 		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to delete reverse proxy site');
 	}
 );
 
-export const reloadManagedHostReverseProxy = command(getParams, async (params) => {
-	if (accessibilityFixtureEnabled) return { ok: true };
+export const reloadManagedHostReverseProxy = command(
+	type({ hostId: 'string', adminPassword: 'string?' }),
+	async (params) => {
+		if (accessibilityFixtureEnabled) return { ok: true };
 
-	const { db, host } = await loadManagedHost(params.hostId);
-	const response = await dispatchHostCommand(host, {
-		module: 'reverse_proxy',
-		action: 'reload',
-		payload: {}
-	});
-	await markHostDispatchResult(db, host, response);
-	if (!response.ok) throw new Error(response.error || 'Failed to reload Caddy');
-	return response;
-});
+		const { db, host } = await loadManagedHost(params.hostId);
+		const response = await dispatchHostCommand(
+			host,
+			{
+				module: 'reverse_proxy',
+				action: 'reload',
+				payload: {}
+			},
+			params.adminPassword
+		);
+		await markHostDispatchResult(db, host, response);
+		if (!response.ok) throw new Error(response.error || 'Failed to reload Caddy');
+		return response;
+	}
+);
 
 const quadletScopeValues = ['user', 'system'] as const;
 
@@ -1727,7 +1850,8 @@ const appCreateParams = type({
 	scope: 'string',
 	name: 'string',
 	recipeId: 'string',
-	valuesJson: 'string'
+	valuesJson: 'string',
+	adminPassword: 'string?'
 });
 
 export const createManagedHostApp = command(
@@ -1747,22 +1871,28 @@ export const createManagedHostApp = command(
 		if (!recipe) error(400, 'Unknown recipe');
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
+		if (!params.adminPassword?.trim())
+			error(400, 'Administrator password is required for app creation');
 
 		await requireHostAdmin();
 		const { db, host } = await loadManagedHost(params.hostId);
 
-		const response = await dispatchHostCommand(host, {
-			module: 'apps',
-			action: 'create',
-			payload: {
-				name,
-				scope,
-				recipe: recipe.recipeYaml,
-				templates: recipe.templates,
-				values,
-				converge: true
-			}
-		});
+		const response = await dispatchHostCommand(
+			host,
+			{
+				module: 'apps',
+				action: 'create',
+				payload: {
+					name,
+					scope,
+					recipe: recipe.recipeYaml,
+					templates: recipe.templates,
+					values,
+					converge: true
+				}
+			},
+			params.adminPassword
+		);
 		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to create app');
 		return mapAppWriteResult(response.payload);

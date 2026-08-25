@@ -34,7 +34,7 @@ sudo dnf install podman podman-compose openssl
 From the Dashboard repository:
 
 ```sh
-cd dev
+cd apps/dashboard/dev
 chmod +x prepare.sh smoke.sh
 ./prepare.sh
 podman compose --env-file .env up --build -d
@@ -43,7 +43,7 @@ podman compose --env-file .env up --build -d
 In a second terminal, run the non-browser smoke checks:
 
 ```sh
-cd dev
+cd apps/dashboard/dev
 ./smoke.sh
 ```
 

@@ -24,5 +24,8 @@
 		"backport:dashboard:plan-since-fork": "pnpm --filter ultramarine-dashboard backport:dashboard:plan-since-fork",
 		"backport:dashboard:apply": "pnpm --filter ultramarine-dashboard backport:dashboard:apply",
 		"backport:dashboard:apply-since-fork": "pnpm --filter ultramarine-dashboard backport:dashboard:apply-since-fork"
+	},
+	"devDependencies": {
+		"@types/node": "^26.2.0"
 	}
 }
