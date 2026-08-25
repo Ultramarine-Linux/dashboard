@@ -64,7 +64,7 @@
 		try {
 			await saveSetupDomain({ domainMode, rootDomain, accessMode });
 			const host = await enrollLocalTetra({
-				displayName: rootDomain.trim() ? `${rootDomain.trim()} (local host)` : 'Local host'
+				displayName: rootDomain.trim() || 'Local host'
 			});
 			if (!host) {
 				localEnvironment = 'not_found';
@@ -74,6 +74,7 @@
 			}
 			localEnvironment = 'found';
 			localEnvironmentName = host.displayName;
+			await goto('/hosts');
 		} catch (err) {
 			localEnvironment = 'not_found';
 			error = getErrorMessage(err, 'Local Tetra detection failed.');

@@ -38,6 +38,7 @@
 	let editingDomain = $state<string | null>(null);
 	let formOpen = $state(false);
 	let form = $state({ domain: '', upstream: '', tls: true });
+	let adminPassword = $state('');
 
 	$effect(() => {
 		if (loadedHostId === host.id) return;
@@ -84,13 +85,22 @@
 		error = '';
 		try {
 			if (editingDomain && editingDomain !== form.domain) {
-				await deleteManagedHostReverseProxySite({ hostId: host.id, domain: editingDomain });
+				await deleteManagedHostReverseProxySite({
+					hostId: host.id,
+					domain: editingDomain,
+					adminPassword
+				});
 			}
-			const saved = await writeManagedHostReverseProxySite({ hostId: host.id, ...form });
+			const saved = await writeManagedHostReverseProxySite({
+				hostId: host.id,
+				...form,
+				adminPassword
+			});
 			sites = [
 				saved,
 				...sites.filter((site) => site.domain !== saved.domain && site.domain !== editingDomain)
 			].sort((left, right) => left.domain.localeCompare(right.domain));
+			adminPassword = '';
 			resetForm();
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to save reverse proxy site.');
@@ -112,7 +122,11 @@
 		deletingDomain = site.domain;
 		error = '';
 		try {
-			await deleteManagedHostReverseProxySite({ hostId: host.id, domain: site.domain });
+			await deleteManagedHostReverseProxySite({
+				hostId: host.id,
+				domain: site.domain,
+				adminPassword
+			});
 			sites = sites.filter((entry) => entry.domain !== site.domain);
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to delete reverse proxy site.');
@@ -126,7 +140,8 @@
 		reloading = true;
 		error = '';
 		try {
-			await reloadManagedHostReverseProxy({ hostId: host.id });
+			await reloadManagedHostReverseProxy({ hostId: host.id, adminPassword });
+			adminPassword = '';
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to reload reverse proxy.');
 		} finally {
@@ -213,6 +228,16 @@
 						<Switch bind:checked={form.tls} />
 						<span class="text-sm text-foreground">Enable automatic HTTPS</span>
 					</div>
+					<label class="space-y-1.5 text-xs font-medium text-muted-foreground lg:col-span-2">
+						Administrator password
+						<Input
+							type="password"
+							bind:value={adminPassword}
+							autocomplete="current-password"
+							placeholder="Required for privileged operations"
+						/>
+						<span class="block font-normal">Used only for this request; it is not stored.</span>
+					</label>
 					<div class="flex items-center justify-end gap-2 lg:col-span-2">
 						<Button type="button" variant="outline" onclick={resetForm}>Cancel</Button>
 						<Button type="submit" loading={saving}
