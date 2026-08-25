@@ -12,6 +12,37 @@ export const managedHostConnectionStateEnum = pgEnum('managed_host_connection_st
 	'unknown'
 ]);
 
+export const tetraEnrollmentStatusEnum = pgEnum('tetra_enrollment_status', [
+	'pending',
+	'approved',
+	'denied',
+	'expired'
+]);
+
+export const tetraEnrollments = pgTable(
+	'tetra_enrollments',
+	{
+		id: ulidPk(),
+		deviceCodeHash: text('device_code_hash').notNull().unique(),
+		userCode: text('user_code').notNull().unique(),
+		displayName: text('display_name').notNull(),
+		hostname: text('hostname'),
+		agentUrl: text('agent_url').notNull(),
+		hostPublicKey: text('host_public_key').notNull(),
+		tlsCaCertificate: text('tls_ca_certificate'),
+		status: tetraEnrollmentStatusEnum('status').notNull().default('pending'),
+		controllerPublicKey: text('controller_public_key'),
+		controllerPrivateKeyEncrypted: text('controller_private_key_encrypted'),
+		hostId: text('host_id'),
+		expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+		approvedAt: bigint('approved_at', { mode: 'number' }),
+		createdAt: bigint('created_at', { mode: 'number' })
+			.notNull()
+			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+	},
+	(table) => [index('tetra_enrollments_status_index').on(table.status)]
+);
+
 export const managedHosts = pgTable(
 	'managed_hosts',
 	{
