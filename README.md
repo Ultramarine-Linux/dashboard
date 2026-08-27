@@ -16,7 +16,7 @@ fixture mode documented in [dev/README.md](dev/README.md#fixture-ui-mode).
 
 ## Managed applications
 
-Dashboard can cook and manage recipe-backed applications on enrolled Tetra hosts.
+Dashboard can cook and manage recipe-backed applications on enrolled Tetra hosts. Hosts can start enrollment from the command line with `tetra enroll`; an authenticated Dashboard user approves the printed device code at `/tetra/device`.
 The application catalog and host application routes are part of the Dashboard app
 under `apps/dashboard/src/lib/apps` and
 `apps/dashboard/src/routes/(app)/hosts/[id]/apps`. Applications are deployed as
