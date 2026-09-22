@@ -25,7 +25,8 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
 	const displayName = typeof body?.display_name === 'string' ? body.display_name.trim() : '';
 	const agentUrl = typeof body?.agent_url === 'string' ? body.agent_url.trim() : '';
-	const hostPublicKey = typeof body?.host_public_key === 'string' ? body.host_public_key.trim() : '';
+	const hostPublicKey =
+		typeof body?.host_public_key === 'string' ? body.host_public_key.trim() : '';
 	const hostname = typeof body?.hostname === 'string' ? body.hostname.trim() || null : null;
 	const tlsCaCertificate =
 		typeof body?.tls_ca_certificate === 'string' ? body.tls_ca_certificate.trim() || null : null;
@@ -78,7 +79,10 @@ export const PUT: RequestHandler = async ({ request }) => {
 		.limit(1);
 	if (!enrollment) throw error(400, 'invalid device code');
 	if (enrollment.status === 'pending' && enrollment.expiresAt <= Date.now()) {
-		await db.update(tetraEnrollments).set({ status: 'expired' }).where(eq(tetraEnrollments.id, enrollment.id));
+		await db
+			.update(tetraEnrollments)
+			.set({ status: 'expired' })
+			.where(eq(tetraEnrollments.id, enrollment.id));
 		return json({ status: 'expired_token' });
 	}
 	if (enrollment.status === 'pending') return json({ status: 'authorization_pending' });

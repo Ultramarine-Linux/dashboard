@@ -5,7 +5,9 @@
 <div class="mx-auto max-w-lg space-y-6 p-8">
 	<h1 class="text-xl font-semibold">Authorize Tetra host</h1>
 	{#if !data.code}
-		<p class="text-sm text-muted-foreground">Run <code>tetra enroll</code> on the host, then open the verification URL with its code.</p>
+		<p class="text-sm text-muted-foreground">
+			Run <code>tetra enroll</code> on the host, then open the verification URL with its code.
+		</p>
 	{:else if !data.enrollment}
 		<p class="text-sm text-destructive">Enrollment code not found.</p>
 	{:else}
@@ -19,8 +21,18 @@
 		</div>
 		{#if data.enrollment.status === 'pending'}
 			<div class="flex gap-3">
-				<form method="POST" action="?/approve"><input type="hidden" name="code" value={data.code} /><button class="rounded bg-primary px-4 py-2 text-primary-foreground" type="submit">Approve host</button></form>
-				<form method="POST" action="?/deny"><input type="hidden" name="code" value={data.code} /><button class="rounded border border-border px-4 py-2" type="submit">Deny</button></form>
+				<form method="POST" action="?/approve">
+					<input type="hidden" name="code" value={data.code} /><button
+						class="rounded bg-primary px-4 py-2 text-primary-foreground"
+						type="submit">Approve host</button
+					>
+				</form>
+				<form method="POST" action="?/deny">
+					<input type="hidden" name="code" value={data.code} /><button
+						class="rounded border border-border px-4 py-2"
+						type="submit">Deny</button
+					>
+				</form>
 			</div>
 		{:else if form?.approved}
 			<p class="text-sm text-green-600">Host approved. Return to the terminal to finish setup.</p>
