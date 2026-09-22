@@ -26,14 +26,9 @@ services:
       EMAIL_FROM_NAME: Ultramarine Server Integration
       EMAIL_REPLY_TO: support@integration.test
       UM_DASHBOARD_STATE_DIR: /var/lib/ultramarine-dashboard
-      TETRA_ENROLLMENT_TOKEN_FILE: /run/tetra-dev/TETRA_ENROLLMENT_TOKEN
-      TETRA_TLS_CA_CERTIFICATE_FILE: /run/tetra-dev/ca.crt
-      TETRA_LOCAL_ENDPOINTS: wss://tetra:7780
     depends_on:
       postgres:
         condition: service_healthy
-    # A new named volume is root-owned. Initialize only the mutable state
-    # directory, then run migrations and Dashboard as the unprivileged node user.
     user: '0:0'
     command:
       - /bin/sh
@@ -45,49 +40,43 @@ services:
         exec su -s /bin/sh node -c './node_modules/.bin/drizzle-kit migrate --config=drizzle.config.ts && exec node build'
     volumes:
       - dashboard-state:/var/lib/ultramarine-dashboard
-      - ./.env:/run/tetra-dev/TETRA_ENROLLMENT_TOKEN:ro,Z
-      - ./certs/ca.crt:/run/tetra-dev/ca.crt:ro,Z
     ports:
       - '127.0.0.1:3000:3000'
     networks: [server]
 
-  tetra-smoke:
+  # One-shot host-side enrollment. Run ./enroll-tetra.sh, approve the code in
+  # Dashboard, then the helper starts the tetra service below.
+  tetra-enroller:
     build:
       context: ../../../../tetra
       dockerfile: ../um-dashboard/apps/dashboard/dev/tetra/Dockerfile
+    depends_on:
+      dashboard:
+        condition: service_started
     command:
-      - agent-ws-serve
+      - enroll
+      - --dashboard-url
+      - http://dashboard:3000
+      - --verification-url
+      - http://127.0.0.1:3000
+      - --agent-url
+      - wss://tetra:7780
       - --listen
       - 0.0.0.0:7780
-      - --tls-cert
-      - /var/lib/tetra/config/tls/tetra.crt
-      - --tls-key
-      - /var/lib/tetra/config/tls/tetra.key
-      - --enrollment-token
-      - ${TETRA_ENROLLMENT_TOKEN:?Run ./prepare.sh before starting the stack}
+      - --hostname
+      - tetra
+      - --display-name
+      - integration-tetra
+      - --identity-dir
+      - /var/lib/tetra/identity
+      - --config-dir
+      - /var/lib/tetra/config
+      - --skip-service
+      - --insecure
     volumes:
-      - tetra-smoke-state:/var/lib/tetra
-      - ./certs:/var/lib/tetra/config/tls:ro,Z
+      - tetra-state:/var/lib/tetra
     networks: [server]
-
-  wss-smoke:
-    profiles: ['smoke']
-    image: localhost/ultramarine-server-integration_dashboard:latest
-    depends_on:
-      tetra-smoke:
-        condition: service_started
-    working_dir: /app/dev
-    command: ['node', 'wss-smoke.mjs']
-    environment:
-      TETRA_ENROLLMENT_TOKEN: ${TETRA_ENROLLMENT_TOKEN:?Run ./prepare.sh before starting the stack}
-      TETRA_WSS_URL: wss://tetra-smoke:7780
-      TETRA_CA_PATH: /app/dev/certs/public/ca.crt
-      TETRA_SMOKE_KEY_PATH: /var/lib/tetra-smoke/controller-ed25519-private.pem
-    volumes:
-      - tetra-smoke-controller:/var/lib/tetra-smoke
-      - ./wss-smoke.mjs:/app/dev/wss-smoke.mjs:ro,Z
-      - ./certs/public:/app/dev/certs/public:ro,Z
-    networks: [server]
+    profiles: ['enroll']
 
   tetra:
     build:
@@ -100,18 +89,18 @@ services:
       - agent-ws-serve
       - --listen
       - 0.0.0.0:7780
+      - --identity-dir
+      - /var/lib/tetra/identity
       - --tls-cert
-      - /var/lib/tetra/config/tls/tetra.crt
+      - /var/lib/tetra/config/tetra.crt
       - --tls-key
-      - /var/lib/tetra/config/tls/tetra.key
-      - --enrollment-token
-      - ${TETRA_ENROLLMENT_TOKEN:?Run ./prepare.sh before starting the stack}
+      - /var/lib/tetra/config/tetra.key
     volumes:
       - tetra-state:/var/lib/tetra
-      - ./certs:/var/lib/tetra/config/tls:ro,Z
     ports:
       - '127.0.0.1:7780:7780'
     networks: [server]
+    profiles: ['tetra']
 
 networks:
   server:
@@ -121,5 +110,3 @@ volumes:
   postgres:
   dashboard-state:
   tetra-state:
-  tetra-smoke-state:
-  tetra-smoke-controller:

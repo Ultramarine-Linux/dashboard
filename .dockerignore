@@ -1,0 +1,19 @@
+# Dependencies and generated build output
+node_modules
+.pnpm-store
+.svelte-kit
+build
+dist
+coverage
+playwright-report
+test-results
+
+# Local environment and runtime credentials
+.env
+.env.*
+!.env.example
+!.env.test
+.dev.vars
+.dev.vars.*
+apps/dashboard/dev/certs
+apps/dashboard/dev/.env
