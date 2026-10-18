@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, bigint, integer, jsonb, index, boolean } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { ulid } from '$lib/server/id';
 
@@ -6,49 +6,18 @@ export * from './auth.schema';
 
 const ulidPk = () => text('id').primaryKey().$defaultFn(ulid);
 
-export const managedHostConnectionStateEnum = pgEnum('managed_host_connection_state', [
-	'online',
-	'offline',
-	'unknown'
-]);
+/** Milliseconds since the Unix epoch, matching `Date.now()`. */
+const epochMs = (name: string) => integer(name, { mode: 'number' });
+const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
-export const tetraEnrollmentStatusEnum = pgEnum('tetra_enrollment_status', [
-	'pending',
-	'approved',
-	'denied',
-	'expired'
-]);
+export const managedHostConnectionStates = ['online', 'offline', 'unknown'] as const;
 
-export const tetraEnrollments = pgTable(
-	'tetra_enrollments',
-	{
-		id: ulidPk(),
-		deviceCodeHash: text('device_code_hash').notNull().unique(),
-		userCode: text('user_code').notNull().unique(),
-		displayName: text('display_name').notNull(),
-		hostname: text('hostname'),
-		agentUrl: text('agent_url').notNull(),
-		hostPublicKey: text('host_public_key').notNull(),
-		tlsCaCertificate: text('tls_ca_certificate'),
-		status: tetraEnrollmentStatusEnum('status').notNull().default('pending'),
-		controllerPublicKey: text('controller_public_key'),
-		controllerPrivateKeyEncrypted: text('controller_private_key_encrypted'),
-		hostId: text('host_id'),
-		expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
-		approvedAt: bigint('approved_at', { mode: 'number' }),
-		createdAt: bigint('created_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
-	},
-	(table) => [index('tetra_enrollments_status_index').on(table.status)]
-);
-
-export const managedHosts = pgTable(
+export const managedHosts = sqliteTable(
 	'managed_hosts',
 	{
 		id: ulidPk(),
 		displayName: text('display_name').notNull(),
-		connectionState: managedHostConnectionStateEnum('connection_state')
+		connectionState: text('connection_state', { enum: managedHostConnectionStates })
 			.notNull()
 			.default('unknown'),
 		agentUrl: text('agent_url'),
@@ -59,32 +28,28 @@ export const managedHosts = pgTable(
 		controllerPrivateKeyEncrypted: text('controller_private_key_encrypted'),
 		hostPublicKey: text('host_public_key'),
 		tlsCaCertificate: text('tls_ca_certificate'),
-		lastSeenAt: bigint('last_seen_at', { mode: 'number' }),
+		lastSeenAt: epochMs('last_seen_at'),
 		agentVersion: text('agent_version'),
 		hostname: text('hostname'),
 		os: text('os'),
 		arch: text('arch'),
-		capabilities: jsonb('capabilities').$type<Record<string, unknown> | null>(),
+		capabilities: text('capabilities', { mode: 'json' }).$type<Record<string, unknown> | null>(),
 		lastError: text('last_error'),
-		createdAt: bigint('created_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`),
-		updatedAt: bigint('updated_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+		createdAt: epochMs('created_at').notNull().default(nowMs),
+		updatedAt: epochMs('updated_at').notNull().default(nowMs)
 	},
 	(table) => [index('managed_hosts_connection_state_index').on(table.connectionState)]
 );
 
-export const dashboardInvitationStatusEnum = pgEnum('dashboard_invitation_status', [
+export const dashboardInvitationStatuses = [
 	'pending',
 	'accepting',
 	'revoked',
 	'accepted',
 	'expired'
-]);
+] as const;
 
-export const dashboardInvitations = pgTable(
+export const dashboardInvitations = sqliteTable(
 	'dashboard_invitations',
 	{
 		id: ulidPk(),
@@ -93,21 +58,17 @@ export const dashboardInvitations = pgTable(
 		hostId: text('host_id').notNull(),
 		hostUsername: text('host_username').notNull(),
 		hostShell: text('host_shell'),
-		hostGroups: jsonb('host_groups').$type<string[] | null>(),
+		hostGroups: text('host_groups', { mode: 'json' }).$type<string[] | null>(),
 		tokenDigest: text('token_digest').notNull().unique(),
-		status: dashboardInvitationStatusEnum('status').notNull().default('pending'),
-		expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+		status: text('status', { enum: dashboardInvitationStatuses }).notNull().default('pending'),
+		expiresAt: epochMs('expires_at').notNull(),
 		createdByUserId: text('created_by_user_id').notNull(),
 		acceptedByUserId: text('accepted_by_user_id'),
-		acceptedAt: bigint('accepted_at', { mode: 'number' }),
-		revokedAt: bigint('revoked_at', { mode: 'number' }),
+		acceptedAt: epochMs('accepted_at'),
+		revokedAt: epochMs('revoked_at'),
 		lastError: text('last_error'),
-		createdAt: bigint('created_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`),
-		updatedAt: bigint('updated_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+		createdAt: epochMs('created_at').notNull().default(nowMs),
+		updatedAt: epochMs('updated_at').notNull().default(nowMs)
 	},
 	(table) => [
 		index('dashboard_invitations_host_id_index').on(table.hostId),
@@ -116,7 +77,7 @@ export const dashboardInvitations = pgTable(
 	]
 );
 
-export const sshKeys = pgTable(
+export const sshKeys = sqliteTable(
 	'ssh_keys',
 	{
 		id: ulidPk(),
@@ -129,31 +90,27 @@ export const sshKeys = pgTable(
 	(table) => [index('ssh_keys_user_id_index').on(table.userId)]
 );
 
-export const apiTokens = pgTable(
+export const apiTokens = sqliteTable(
 	'api_tokens',
 	{
 		id: ulidPk(),
 		userId: text('user_id').notNull(),
 		name: text('name').notNull(),
 		tokenHash: text('token_hash').notNull(),
-		createdAt: bigint('created_at', { mode: 'number' }).notNull()
+		createdAt: epochMs('created_at').notNull()
 	},
 	(table) => [index('api_tokens_user_id_index').on(table.userId)]
 );
 
-export const hostUserMappings = pgTable(
+export const hostUserMappings = sqliteTable(
 	'host_user_mappings',
 	{
 		id: ulidPk(),
 		userId: text('user_id').notNull(),
 		hostId: text('host_id').notNull(),
 		hostUsername: text('host_username').notNull(),
-		createdAt: bigint('created_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`),
-		updatedAt: bigint('updated_at', { mode: 'number' })
-			.notNull()
-			.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+		createdAt: epochMs('created_at').notNull().default(nowMs),
+		updatedAt: epochMs('updated_at').notNull().default(nowMs)
 	},
 	(table) => [
 		index('host_user_mappings_user_id_index').on(table.userId),
@@ -161,19 +118,15 @@ export const hostUserMappings = pgTable(
 	]
 );
 
-export const serverSetup = pgTable('server_setup', {
+export const serverSetup = sqliteTable('server_setup', {
 	id: text('id').primaryKey().default('default'),
-	completed: boolean('completed').notNull().default(false),
+	completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
 	domainMode: text('domain_mode'),
 	rootDomain: text('root_domain'),
 	dashboardDomain: text('dashboard_domain'),
 	accessMode: text('access_mode'),
 	dnsProvider: text('dns_provider'),
-	taidanPlan: jsonb('taidan_plan').$type<Record<string, unknown> | null>(),
-	createdAt: bigint('created_at', { mode: 'number' })
-		.notNull()
-		.default(sql`(extract(epoch from now()) * 1000)::bigint`),
-	updatedAt: bigint('updated_at', { mode: 'number' })
-		.notNull()
-		.default(sql`(extract(epoch from now()) * 1000)::bigint`)
+	taidanPlan: text('taidan_plan', { mode: 'json' }).$type<Record<string, unknown> | null>(),
+	createdAt: epochMs('created_at').notNull().default(nowMs),
+	updatedAt: epochMs('updated_at').notNull().default(nowMs)
 });

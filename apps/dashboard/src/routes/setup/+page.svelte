@@ -32,7 +32,6 @@
 	let loadingPlan = $state(false);
 	let saving = $state(false);
 	let detectingLocal = $state(false);
-	let environment = $state<'local' | 'remote'>('local');
 	let localEnvironment: 'idle' | 'detecting' | 'found' | 'not_found' = $state('idle');
 	let localEnvironmentName = $state('');
 	let error = $state('');
@@ -69,12 +68,12 @@
 			if (!host) {
 				localEnvironment = 'not_found';
 				error =
-					'No local Tetra environment was found. Start Tetra and try again, or add a remote environment.';
+					'No local Tetra environment was found. Start Tetra and try again, or finish setup and connect later.';
 				return;
 			}
 			localEnvironment = 'found';
 			localEnvironmentName = host.displayName;
-			await goto('/hosts');
+			await goto('/');
 		} catch (err) {
 			localEnvironment = 'not_found';
 			error = getErrorMessage(err, 'Local Tetra detection failed.');
@@ -88,7 +87,7 @@
 		error = '';
 		try {
 			await saveSetupDomain({ domainMode, rootDomain, accessMode });
-			await goto(environment === 'remote' ? '/hosts/create' : '/hosts');
+			await goto('/');
 		} catch (err) {
 			error = getErrorMessage(err, 'Unable to save setup.');
 		} finally {
@@ -219,53 +218,27 @@
 					</div>
 
 					<div class="space-y-3 border-t border-border pt-5">
-						<p class="text-sm font-semibold text-foreground">Choose an environment</p>
-						<div class="grid gap-3 sm:grid-cols-2">
-							<button
-								type="button"
-								class="border p-4 text-left transition-colors {environment === 'local'
-									? 'border-primary bg-primary/10'
-									: 'border-border hover:border-ring'}"
-								onclick={() => (environment = 'local')}
-							>
-								<Server class="mb-2 size-5 text-muted-foreground" />
-								<p class="text-sm font-medium text-foreground">Local environment</p>
-								<p class="mt-1 text-xs text-muted-foreground">
-									Detect and enroll Tetra running on this machine or local stack.
-								</p>
-							</button>
-							<button
-								type="button"
-								class="border p-4 text-left transition-colors {environment === 'remote'
-									? 'border-primary bg-primary/10'
-									: 'border-border hover:border-ring'}"
-								onclick={() => (environment = 'remote')}
-							>
-								<Globe class="mb-2 size-5 text-muted-foreground" />
-								<p class="text-sm font-medium text-foreground">Add remote environment</p>
-								<p class="mt-1 text-xs text-muted-foreground">
-									Finish setup and enter a remote Tetra endpoint manually.
-								</p>
-							</button>
+						<div>
+							<p class="text-sm font-semibold text-foreground">Connect to this server</p>
+							<p class="mt-1 text-xs text-muted-foreground">
+								Detect and enroll the Tetra agent running on this machine.
+							</p>
 						</div>
-						{#if environment === 'local'}
-							<Button
-								onclick={detectLocalEnvironment}
-								disabled={detectingLocal}
-								class="w-full gap-1.5"
-							>
-								{#if detectingLocal}<Loader2 class="size-4 animate-spin" />{:else}<Server
-										class="size-4"
-									/>{/if}
-								{localEnvironment === 'found'
-									? `Local environment: ${localEnvironmentName}`
-									: 'Detect local Tetra'}
-							</Button>
-						{:else}
-							<Button onclick={finishSetup} loading={saving} class="w-full gap-1.5">
-								Continue to remote environment <ArrowRight class="size-4" />
-							</Button>
-						{/if}
+						<Button
+							onclick={detectLocalEnvironment}
+							disabled={detectingLocal}
+							class="w-full gap-1.5"
+						>
+							{#if detectingLocal}<Loader2 class="size-4 animate-spin" />{:else}<Server
+									class="size-4"
+								/>{/if}
+							{localEnvironment === 'found'
+								? `Local environment: ${localEnvironmentName}`
+								: 'Detect local Tetra'}
+						</Button>
+						<Button variant="outline" onclick={finishSetup} loading={saving} class="w-full gap-1.5">
+							Finish setup and connect later <ArrowRight class="size-4" />
+						</Button>
 					</div>
 				</div>
 			</section>

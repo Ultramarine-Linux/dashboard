@@ -16,5 +16,5 @@ onlyBuiltDependencies:
   - sharp
 allowBuilds:
   '@prisma/client': false
-  better-sqlite3: false
+  better-sqlite3: true
   esbuild: true

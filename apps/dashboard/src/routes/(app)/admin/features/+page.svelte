@@ -32,7 +32,6 @@
 	import type { IconComponent } from '$lib';
 
 	const featureFlagIcons: Record<FeatureFlagKey, IconComponent> = {
-		managedHosts: Server,
 		apps: LayoutGrid
 	};
 

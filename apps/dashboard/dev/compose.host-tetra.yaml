@@ -1,30 +1,25 @@
 # Optional override for running Tetra directly on the development machine.
-# PostgreSQL, Dashboard, and the isolated smoke service remain containerized.
+# Dashboard remains containerized and reaches Tetra on the host.
 networks:
   server:
     internal: false
 
 services:
-  postgres:
-    ports:
-      - '127.0.0.1:5432:5432'
-
   # Keep the regular Dashboard service unchanged. Use dashboard-host below
   # with --scale dashboard=0 for rootless Podman host-Tetra testing.
   dashboard-host:
     image: localhost/ultramarine-server-integration_dashboard:latest
     network_mode: host
-    depends_on:
-      postgres:
-        condition: service_healthy
     user: '0:0'
     environment:
       ORIGIN: http://127.0.0.1:3000
-      DATABASE_URL: postgres://postgres:integration@127.0.0.1:5432/ultramarine
       EMAIL_FROM_ADDRESS: no-reply@integration.test
       EMAIL_FROM_NAME: Ultramarine Server Integration
       EMAIL_REPLY_TO: support@integration.test
       UM_DASHBOARD_STATE_DIR: /var/lib/ultramarine-dashboard
+      TETRA_ENROLLMENT_TOKEN_FILE: /run/tetra-dev/TETRA_ENROLLMENT_TOKEN
+      TETRA_TLS_CA_CERTIFICATE_FILE: /run/tetra-dev/ca.crt
+      TETRA_LOCAL_ENDPOINTS: wss://127.0.0.1:7781
 
     command:
       - /bin/sh
@@ -34,11 +29,13 @@ services:
         chown node:node /var/lib/ultramarine-dashboard
         chmod 700 /var/lib/ultramarine-dashboard
 
-        exec su -s /bin/sh node -c './node_modules/.bin/drizzle-kit migrate --config=drizzle.config.ts && exec node build'
+        exec su -s /bin/sh node -c 'exec node build'
     volumes:
       - dashboard-state:/var/lib/ultramarine-dashboard
+      - ./.env:/run/tetra-dev/TETRA_ENROLLMENT_TOKEN:ro,Z
+      - ./certs/ca.crt:/run/tetra-dev/ca.crt:ro,Z
 
-  # The host-mode command supplies Tetra. Keep the container service available
-  # only when explicitly requested with --profile container-tetra.
+  # The host supplies Tetra. Keep the container service available only when
+  # explicitly requested with --profile container-tetra.
   tetra:
     profiles: ['container-tetra']

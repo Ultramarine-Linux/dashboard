@@ -1,14 +1,55 @@
 #!/usr/bin/env sh
 set -eu
 
-# The dev stack now uses host-initiated Tetra device enrollment. No shared
-# enrollment token or private CA is required; tetra enroll generates the host
-# identity and certificate in the shared Tetra volume.
-if [ ! -f .env ]; then
-  : > .env
-  chmod 600 .env
+# This directory is intentionally gitignored. It holds a development-only CA,
+# Tetra server key, and a one-time enrollment token for the local integration
+# stack. Do not reuse these artifacts outside this stack.
+mkdir -p certs
+chmod 700 certs
+
+regenerate_ca=0
+if [ ! -f certs/ca.crt ] || [ ! -f certs/ca.key ] \
+  || ! openssl x509 -in certs/ca.crt -noout -checkend 86400 >/dev/null 2>&1; then
+  regenerate_ca=1
+  rm -f certs/ca.crt certs/ca.key
+  openssl req -x509 -newkey rsa:2048 -sha256 -nodes \
+    -keyout certs/ca.key \
+    -out certs/ca.crt \
+    -days 7 \
+    -subj "/CN=Ultramarine Server Integration CA"
 fi
 
-printf '%s\n' 'Prepared Dashboard dev environment.'
-printf '%s\n' 'Start Dashboard with: podman compose --env-file .env up --build -d postgres dashboard'
-printf '%s\n' 'Then run ./enroll-tetra.sh and approve the displayed device code.'
+if [ "$regenerate_ca" -eq 1 ] \
+  || [ ! -f certs/tetra.crt ] || [ ! -f certs/tetra.key ] \
+  || ! openssl x509 -in certs/tetra.crt -noout -checkend 86400 >/dev/null 2>&1 \
+  || ! openssl x509 -in certs/tetra.crt -noout -text | grep -q 'DNS:tetra'; then
+  rm -f certs/tetra.crt certs/tetra.key
+  openssl req -newkey rsa:2048 -nodes \
+    -keyout certs/tetra.key \
+    -out certs/tetra.csr \
+    -subj "/CN=tetra"
+  printf 'subjectAltName=DNS:tetra,DNS:localhost,IP:127.0.0.1\n' > certs/tetra.ext
+  openssl x509 -req \
+    -in certs/tetra.csr \
+    -CA certs/ca.crt \
+    -CAkey certs/ca.key \
+    -CAcreateserial \
+    -out certs/tetra.crt \
+    -days 7 \
+    -sha256 \
+    -extfile certs/tetra.ext
+  rm -f certs/tetra.ext certs/tetra.csr certs/ca.srl
+fi
+
+chmod 600 certs/*.key
+chmod 644 certs/*.crt
+
+if [ ! -f .env ] || ! grep -q '^TETRA_ENROLLMENT_TOKEN=' .env; then
+  token=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+  printf 'TETRA_ENROLLMENT_TOKEN=%s\n' "$token" >> .env
+  chmod 600 .env
+  printf '%s\n' "Generated TETRA_ENROLLMENT_TOKEN in dev/.env"
+fi
+
+printf '%s\n' "Integration CA: dev/certs/ca.crt"
+printf '%s\n' 'Start the stack with: podman compose --env-file .env up --build -d dashboard tetra'

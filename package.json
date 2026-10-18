@@ -7,6 +7,7 @@
 		"dev": "pnpm --filter ultramarine-dashboard dev",
 		"build": "pnpm --filter ultramarine-dashboard build",
 		"preview": "pnpm --filter ultramarine-dashboard preview",
+		"test:unit": "pnpm --filter ultramarine-dashboard test:unit",
 		"test:accessibility": "pnpm --filter ultramarine-dashboard test:accessibility",
 		"test:accessibility:ultramarine": "pnpm --filter ultramarine-dashboard test:accessibility:ultramarine",
 		"test:accessibility:ci": "pnpm --filter ultramarine-dashboard test:accessibility:ci",
