@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MockTetra, totpCode } from './mock';
 import { TetraError, type AuthenticatedResult } from './protocol';
-import type { LauncherVisibility } from '$lib/permissions';
+import type { LauncherEntryInput, LauncherVisibility } from '$lib/permissions';
 
 const NOW = 1_800_000_000;
 const SECRET = 'JBSWY3DPEHPK3PXP';
@@ -251,5 +251,53 @@ describe('MockTetra launcher', () => {
 		});
 		const remaining = await mock.call('launcher.list', {}, admin.token);
 		expect(remaining.entries.map((entry) => entry.name)).toEqual(['Everyone', 'Shared']);
+	});
+
+	it('tells administrators where an entry came from and keeps it on replace', async () => {
+		const { mock } = tetra({
+			launcher: [
+				{
+					id: 'catalog-app',
+					name: 'Jellyfin',
+					icon: null,
+					url: 'https://jellyfin.example.com/',
+					visibility: { kind: 'everyone' },
+					public: false,
+					source: 'catalog'
+				}
+			]
+		});
+		const admin = (await mock.call('auth.password', {
+			username: 'admin',
+			password: 'admin'
+		})) as AuthenticatedResult;
+		const input = {
+			name: 'Media',
+			icon: null,
+			url: 'https://media.example.com',
+			visibility: { kind: 'everyone' },
+			public: false
+		} satisfies LauncherEntryInput;
+
+		const added = await mock.call('launcher.set', { entry: input }, admin.token);
+		expect(added.entry.source).toBe('manual');
+		const replaced = await mock.call(
+			'launcher.set',
+			{ id: 'catalog-app', entry: input },
+			admin.token
+		);
+		expect(replaced.entry.source).toBe('catalog');
+
+		const { entries } = await mock.call('launcher.list', {}, admin.token);
+		expect(entries.map((entry) => entry.source)).toEqual(['catalog', 'manual']);
+
+		mock.users.find((candidate) => candidate.username === 'user')!.totpSecret = null;
+		const user = (await mock.call('auth.password', {
+			username: 'user',
+			password: 'user'
+		})) as AuthenticatedResult;
+		const visible = await mock.call('launcher.list', {}, user.token);
+		expect(visible.entries).toHaveLength(2);
+		for (const entry of visible.entries) expect(entry).not.toHaveProperty('source');
 	});
 });

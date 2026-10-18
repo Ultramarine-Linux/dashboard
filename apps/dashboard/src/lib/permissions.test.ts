@@ -21,6 +21,14 @@ describe('page permissions', () => {
 		expect(canView(user, 'apps')).toBe(false);
 		expect(canView(null, 'launcher')).toBe(false);
 	});
+
+	it('keeps system services separate from the launcher', () => {
+		expect(canView(user, 'system_services')).toBe(false);
+		const operator: Permissions = { system_services: 'view' };
+		expect(canView(operator, 'system_services')).toBe(true);
+		expect(canView(operator, 'launcher')).toBe(false);
+		expect(canView(admin, 'system_services')).toBe(true);
+	});
 });
 
 describe('route access', () => {

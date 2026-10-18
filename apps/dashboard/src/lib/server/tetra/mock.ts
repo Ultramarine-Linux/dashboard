@@ -565,7 +565,9 @@ export class MockTetra implements TetraClient {
 		const index = params.id ? this.launcher.findIndex((entry) => entry.id === params.id) : -1;
 		if (params.id && index < 0) throw new TetraError('not_found', 'no such entry');
 		const entry = validateLauncherEntry(params.entry);
-		const stored: LauncherEntry = { id: params.id ?? randomId(9), ...entry };
+		// Like Tetra, replacing an entry keeps where it came from.
+		const source = index >= 0 ? (this.launcher[index].source ?? 'manual') : 'manual';
+		const stored: LauncherEntry = { id: params.id ?? randomId(9), ...entry, source };
 		if (index >= 0) this.launcher[index] = stored;
 		else this.launcher.push(stored);
 		return { entry: { ...stored } };
@@ -587,7 +589,7 @@ export class MockTetra implements TetraClient {
 	}
 }
 
-function validateLauncherEntry(entry: LauncherEntryInput): Omit<LauncherEntry, 'id'> {
+function validateLauncherEntry(entry: LauncherEntryInput): Omit<LauncherEntry, 'id' | 'source'> {
 	const name = entry.name?.trim();
 	if (!name) throw new TetraError('bad_request', 'name is required');
 	let url: URL;

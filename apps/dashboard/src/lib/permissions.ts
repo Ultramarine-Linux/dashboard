@@ -6,10 +6,12 @@
 
 /**
  * Tetra's permission pages. `launcher` is the Services page every user gets by
- * default; it replaces Tetra's current `services` (systemd units) default.
+ * default. `system_services` (systemd units and their logs) replaces Tetra's
+ * earlier `services` page; administrators can grant it.
  */
 export type TetraPage =
 	| 'launcher'
+	| 'system_services'
 	| 'apps'
 	| 'containers'
 	| 'storage'
@@ -102,7 +104,13 @@ export type LauncherVisibility =
 	| { kind: 'members'; users: string[]; groups: string[] };
 
 /**
- * One entry on the Services page. `visibility` and `public` are only
+ * Where a launcher entry came from: added by an administrator, or by
+ * installing an app from the catalog.
+ */
+export type LauncherSource = 'manual' | 'catalog';
+
+/**
+ * One entry on the Services page. `visibility`, `public` and `source` are only
  * returned to administrators.
  */
 export type LauncherEntry = {
@@ -112,6 +120,7 @@ export type LauncherEntry = {
 	url: string;
 	visibility?: LauncherVisibility;
 	public?: boolean;
+	source?: LauncherSource;
 };
 
 export type LauncherEntryInput = {
