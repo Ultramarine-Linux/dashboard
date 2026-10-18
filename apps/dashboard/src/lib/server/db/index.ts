@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path';
 import { dev } from '$app/environment';
 import { env as privateEnv } from '$env/dynamic/private';
 import * as schema from './schema';
-import { MIGRATIONS_TABLE, prepareDatabaseForMigration } from './snapshots';
+import { MIGRATIONS_TABLE, prepareDatabaseForMigration, type PrepareResult } from './snapshots';
 import { resolveStateDir } from '$lib/server/runtime-secret';
 import { timingLog } from '$lib/server/observability';
 
@@ -17,6 +17,7 @@ const DATABASE_FILE_NAME = 'dashboard.db';
 let sqlite: Sqlite.Database | null = null;
 let db: Database | null = null;
 let initializing: Promise<Database> | null = null;
+let startupState: PrepareResult | null = null;
 
 /**
  * `UM_DASHBOARD_DB_PATH` wins; otherwise the database lives in the dashboard
@@ -55,9 +56,12 @@ async function initialize(): Promise<Database> {
 	const connection = openSqlite(dbPath);
 	const database = drizzle(connection, { schema });
 	if (prepared.action !== 'newer-without-snapshot') {
-		migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE });
+		migrateWithoutForeignKeys(connection, () =>
+			migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE })
+		);
 	}
 
+	startupState = prepared;
 	sqlite = connection;
 	db = database;
 	timingLog('db.initialize.end', {
@@ -66,6 +70,36 @@ async function initialize(): Promise<Database> {
 		duration_ms: Math.round((performance.now() - started) * 100) / 100
 	});
 	return database;
+}
+
+/**
+ * Migrations run in one transaction, where SQLite ignores `foreign_keys`, so
+ * switch enforcement off around them. Otherwise a migration that rebuilds a
+ * table (create, copy, drop, rename) would cascade deletes into tables that
+ * reference it. Violations are checked before enforcement comes back on.
+ */
+export function migrateWithoutForeignKeys(connection: Sqlite.Database, run: () => void) {
+	connection.pragma('foreign_keys = OFF');
+	try {
+		run();
+		const violations = connection.pragma('foreign_key_check') as unknown[];
+		if (violations.length > 0) {
+			throw new Error(
+				`Database migration left ${violations.length} foreign key violation(s): ${JSON.stringify(violations.slice(0, 5))}`
+			);
+		}
+	} finally {
+		connection.pragma('foreign_keys = ON');
+	}
+}
+
+/**
+ * The database's schema is newer than this release and no snapshot at this
+ * release's version existed, so Dashboard is running on it unmigrated.
+ */
+export function getNewerDatabaseWarning(): { dbVersion: number; appVersion: number } | null {
+	if (startupState?.action !== 'newer-without-snapshot') return null;
+	return { dbVersion: startupState.dbVersion, appVersion: startupState.appVersion };
 }
 
 /**
@@ -90,4 +124,5 @@ export function closeDatabase() {
 	sqlite = null;
 	db = null;
 	initializing = null;
+	startupState = null;
 }

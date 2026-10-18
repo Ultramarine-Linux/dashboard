@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { goto, invalidate } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { invalidate } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import type { UserSettingsTab } from '$lib/state/user-settings.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -10,19 +9,22 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { authClient } from '$lib/auth-client';
+	import RecoveryCodes from '$lib/components/recovery-codes.svelte';
 	import TotpOnboardingDialog from './totp-onboarding-dialog.svelte';
 	import PasskeyOnboardingDialog from './passkey-onboarding-dialog.svelte';
-	import PasswordVerificationDialog from './password-verification-dialog.svelte';
 	import {
 		createSshKey as createSshKeyRpc,
 		deleteSshKey,
 		listSshKeys
 	} from '$lib/remote/ssh-keys.remote';
 	import { listApiTokens, createApiToken, revokeApiToken } from '$lib/remote/api-tokens.remote';
-	import { getPendingEmailChange, requestEmailChange } from '$lib/remote/email-change.remote';
-	import { disableTwoFactorWithVerification } from '$lib/remote/two-factor.remote';
-	import { hasPassword } from '$lib/remote/password-change.remote';
+	import {
+		disableTotp,
+		getAccountSecurity,
+		regenerateRecoveryCodes,
+		removePasskey as removePasskeyRpc,
+		type AccountSecurity
+	} from '$lib/remote/account.remote';
 	import { toast } from 'svelte-sonner';
 	import { getErrorMessage } from '$lib/utils';
 	import { confirmDestructive } from '$lib/confirm.svelte';
@@ -31,10 +33,9 @@
 	import Loader2 from '~icons/lucide/loader-2';
 	import Minus from '~icons/lucide/minus';
 	import Plus from '~icons/lucide/plus';
+	import RefreshCw from '~icons/lucide/refresh-cw';
 	import X from '~icons/lucide/x';
 	import Copy from '~icons/nucleo/copy';
-	import Eye from '~icons/nucleo/eye';
-	import EyeOff from '~icons/nucleo/eye-off';
 	import Fingerprint from '~icons/nucleo/fingerprint';
 	import Key from '~icons/nucleo/key';
 	import Lock from '~icons/nucleo/lock';
@@ -61,244 +62,81 @@
 	type Props = {
 		open?: boolean;
 		activeTab?: UserSettingsTab;
-		profileName?: string;
-		user: { name?: string | null; email?: string | null; username?: string | null };
+		/** The system account this session belongs to. */
+		user: { username: string; uid: number; admin: boolean };
 	};
 
 	let {
 		open = $bindable(false),
 		activeTab = $bindable<UserSettingsTab>('profile'),
-		profileName = $bindable(''),
 		user
 	}: Props = $props();
 
-	let profileSaving = $state(false);
-	let profileSaved = $state(false);
-	let profileEmail = $state('');
-	let profileUsername = $state('');
-	let profileError = $state('');
-	let profileEmailChangePending = $state(false);
-	let pendingProfileEmail = $state('');
-	const currentProfileEmail = $derived(user?.email ?? '');
-	const currentProfileUsername = $derived(user?.username ?? '');
-	const normalizedProfileEmail = $derived(profileEmail.trim().toLowerCase());
-	const profileEmailChanged = $derived(
-		normalizedProfileEmail !== currentProfileEmail.toLowerCase()
-	);
-	const profileSaveDisabled = $derived(profileSaving || !profileEmail.trim());
+	// Accounts are system accounts: Tetra checks the password with PAM, so it is
+	// changed on the console or over SSH, not here.
 
-	$effect(() => {
-		if (!open) return;
-		untrack(() => {
-			profileSaved = false;
-			profileError = '';
-			profileEmail = currentProfileEmail;
-			profileUsername = currentProfileUsername;
-			profileEmailChangePending = false;
-			pendingProfileEmail = '';
-		});
-	});
-
-	async function saveProfile() {
-		if (profileSaving) return;
-		profileSaving = true;
-		profileSaved = false;
-		profileError = '';
-
-		const originalName = user?.name ?? '';
-		const originalEmail = currentProfileEmail;
-		const originalUsername = currentProfileUsername;
-		const nextName = profileName.trim() || originalName;
-		const nextEmail = normalizedProfileEmail;
-		const nextUsername = profileUsername.trim();
-		profileName = nextName;
-		profileEmail = nextEmail || originalEmail;
-		profileUsername = nextUsername;
-
-		if (!nextEmail) {
-			profileError = 'Enter an email address.';
-			profileSaving = false;
-			return;
-		}
-
-		try {
-			if (nextName !== originalName || nextUsername !== originalUsername) {
-				const { error } = await authClient.updateUser({
-					name: nextName,
-					username: nextUsername
-				} as { name: string; username: string });
-
-				if (error) {
-					profileError = error.message ?? 'Failed to update profile.';
-					return;
-				}
-			}
-
-			if (profileEmailChanged) {
-				const result = await requestEmailChange({
-					newEmail: nextEmail,
-					callbackURL: window.location.pathname + window.location.search
-				});
-
-				profileEmailChangePending = true;
-				pendingProfileEmail = result.email;
-			}
-
-			profileSaved = true;
-			setTimeout(() => (profileSaved = false), 1500);
-		} catch (error) {
-			console.error('Failed to update profile:', error);
-			profileError = getErrorMessage(error, 'Failed to update profile.');
-			profileName = originalName;
-			profileEmail = originalEmail;
-			profileUsername = originalUsername;
-		} finally {
-			profileSaving = false;
-		}
-	}
-
-	async function loadPendingProfileEmailChange() {
-		pendingProfileEmail = (await getPendingEmailChange()) ?? '';
-		profileEmailChangePending = Boolean(pendingProfileEmail);
-	}
-
-	let currentPassword = $state('');
-	let newPassword = $state('');
-	let confirmPassword = $state('');
-	let showPassword = $state(false);
-	let passwordSaved = $state(false);
-	let passwordError = $state('');
-	let passwordVerificationOpen = $state(false);
-	let passwordVerificationPreparing = $state(false);
-	let userHasPassword = $state<boolean | null>(null);
-
-	$effect(() => {
-		if (!open) return;
-		untrack(() => {
-			void (async () => {
-				try {
-					userHasPassword = await await hasPassword();
-				} catch {
-					userHasPassword = null;
-				}
-			})();
-		});
-	});
-
-	async function beginPasswordChange() {
-		if (
-			passwordVerificationOpen ||
-			passwordVerificationPreparing ||
-			(userHasPassword && !currentPassword) ||
-			!newPassword ||
-			newPassword !== confirmPassword
-		) {
-			return;
-		}
-
-		passwordError = '';
-		passwordSaved = false;
-		passwordVerificationPreparing = true;
-		try {
-			await loadTwoFactorStatus();
-			passwordVerificationOpen = true;
-		} finally {
-			passwordVerificationPreparing = false;
-		}
-	}
-
-	function onPasswordVerified() {
-		passwordSaved = true;
-		currentPassword = '';
-		newPassword = '';
-		confirmPassword = '';
-		setTimeout(() => (passwordSaved = false), 1500);
-	}
-
-	let twoFactorEnabled = $state(false);
-	let passkeys = $state<{ id: string; name: string; createdAt?: string }[]>([]);
-	let passkeysLoading = $state(false);
-	let hasPasskey = $derived(passkeys.length > 0);
+	let security = $state<AccountSecurity | null>(null);
+	let securityLoading = $state(false);
 	let totpDialogOpen = $state(false);
 	let passkeyDialogOpen = $state(false);
-	let totpDisableDialogOpen = $state(false);
-	let totpDisablePassword = $state('');
-	type TotpDisableMethod = 'totp' | 'backupCode';
-	let totpDisableMethod = $state<TotpDisableMethod>('totp');
-	let totpDisableCode = $state('');
-	let disablingTotp = $state(false);
-	let totpDisableError = $state('');
 	let removingPasskey = $state<string | null>(null);
-	let normalizedTotpDisableCode = $derived(totpDisableCode.replace(/\D/g, '').slice(0, 6));
-	let totpDisableCodeLabel = $derived(
-		totpDisableMethod === 'totp' ? 'Authenticator Code' : 'Backup Code'
-	);
-	let totpDisableCodeValid = $derived(
-		totpDisableMethod === 'totp' ? normalizedTotpDisableCode.length === 6 : Boolean(totpDisableCode)
-	);
-	let totpDisableSubmitDisabled = $derived(
-		disablingTotp || !totpDisablePassword || !totpDisableCodeValid
-	);
 
-	async function loadTwoFactorStatus() {
-		const { data: session } = await authClient.getSession();
-		if (session?.user) {
-			twoFactorEnabled = session.user.twoFactorEnabled ?? false;
-		}
-		passkeysLoading = true;
+	type CodeMethod = 'totp' | 'recovery_code';
+	type CodeAction = 'disable' | 'regenerate';
+	let codeDialogOpen = $state(false);
+	let codeAction = $state<CodeAction>('disable');
+	let codeMethod = $state<CodeMethod>('totp');
+	let codeValue = $state('');
+	let codeSubmitting = $state(false);
+	let codeError = $state('');
+	let regeneratedCodes = $state<string[]>([]);
+	let normalizedCode = $derived(
+		codeMethod === 'totp' ? codeValue.replace(/\D/g, '').slice(0, 6) : codeValue.trim()
+	);
+	let codeValid = $derived(codeMethod === 'totp' ? normalizedCode.length === 6 : !!normalizedCode);
+
+	async function loadSecurity() {
+		securityLoading = true;
 		try {
-			const { data } = await authClient.passkey.listUserPasskeys();
-			passkeys = (Array.isArray(data) ? data : []) as unknown as {
-				id: string;
-				name: string;
-				createdAt?: string;
-			}[];
-		} catch {
-			passkeys = [];
+			security = await getAccountSecurity();
+		} catch (err) {
+			toast.error(getErrorMessage(err, 'Failed to load security settings'));
 		} finally {
-			passkeysLoading = false;
+			securityLoading = false;
 		}
 	}
 
-	async function disableTotp() {
-		if (!totpDisablePassword) {
-			totpDisableError = 'Enter your current password to disable authenticator app 2FA.';
-			return;
-		}
+	function openCodeDialog(action: CodeAction) {
+		codeAction = action;
+		codeMethod = 'totp';
+		codeValue = '';
+		codeError = '';
+		regeneratedCodes = [];
+		codeDialogOpen = true;
+	}
 
-		if (!totpDisableCodeValid) {
-			totpDisableError =
-				totpDisableMethod === 'totp'
-					? 'Enter the verification code from your authenticator app.'
-					: 'Enter a backup code.';
-			return;
-		}
-
-		totpDisableError = '';
-		disablingTotp = true;
+	async function submitCode() {
+		if (!codeValid || codeSubmitting) return;
+		codeSubmitting = true;
+		codeError = '';
 		try {
-			await disableTwoFactorWithVerification({
-				password: totpDisablePassword,
-				method: totpDisableMethod,
-				code: totpDisableMethod === 'totp' ? normalizedTotpDisableCode : totpDisableCode
-			});
-
-			twoFactorEnabled = false;
-			totpDisableDialogOpen = false;
-			totpDisablePassword = '';
-			totpDisableMethod = 'totp';
-			totpDisableCode = '';
-			totpDisableError = '';
-			currentPassword = '';
+			const params = { method: codeMethod, code: normalizedCode };
+			if (codeAction === 'disable') {
+				await disableTotp(params);
+				codeDialogOpen = false;
+			} else {
+				regeneratedCodes = (await regenerateRecoveryCodes(params)).recoveryCodes;
+			}
+			await loadSecurity();
 		} catch (err) {
-			totpDisableError = getErrorMessage(err, 'Failed to disable authenticator app 2FA.');
+			codeError = getErrorMessage(err, 'That code did not work.');
 		} finally {
-			disablingTotp = false;
+			codeSubmitting = false;
 		}
 	}
 
 	async function removePasskey(id: string) {
-		const passkey = passkeys.find((p) => p.id === id);
+		const passkey = security?.passkeys.find((p) => p.id === id);
 		const ok = await confirmDestructive({
 			title: 'Remove passkey',
 			description: `You will no longer be able to sign in with ${passkey?.name ?? 'this passkey'}.`,
@@ -308,13 +146,17 @@
 		if (!ok) return;
 		removingPasskey = id;
 		try {
-			await authClient.passkey.deletePasskey({ id });
-			passkeys = passkeys.filter((p) => p.id !== id);
+			await removePasskeyRpc({ id });
+			await loadSecurity();
 		} catch (err) {
 			toast.error(getErrorMessage(err, 'Failed to remove passkey'));
 		} finally {
 			removingPasskey = null;
 		}
+	}
+
+	function formatDate(seconds: number | null | undefined) {
+		return seconds ? new Date(seconds * 1000).toISOString().slice(0, 10) : null;
 	}
 
 	let sshKeys = $state<{ id: string; name: string; fingerprint: string }[]>([]);
@@ -466,20 +308,10 @@
 		setTimeout(() => (copiedTokenId = null), 1500);
 	}
 
-	async function signOut() {
-		await authClient.signOut();
-		goto(resolve('/login'));
-	}
-
 	$effect(() => {
 		if (!open) return;
 		untrack(() => {
-			void Promise.all([
-				loadSshKeys(),
-				loadTokens(),
-				loadTwoFactorStatus(),
-				loadPendingProfileEmailChange()
-			]);
+			void Promise.all([loadSshKeys(), loadTokens(), loadSecurity()]);
 		});
 	});
 </script>
@@ -511,17 +343,14 @@
 					<div class="flex items-center gap-3">
 						<Avatar.Root class="h-9 w-9 border border-border">
 							<Avatar.Fallback class="bg-primary/10 text-xs font-semibold text-primary">
-								{(user?.name ?? '??')
-									.split(' ')
-									.map((n: string) => n[0])
-									.join('')
-									.slice(0, 2)
-									.toUpperCase()}
+								{(user?.username ?? '??').slice(0, 2).toUpperCase()}
 							</Avatar.Fallback>
 						</Avatar.Root>
 						<div class="min-w-0">
-							<p class="truncate text-sm font-medium text-foreground">{profileName}</p>
-							<p class="truncate text-xs text-muted-foreground">{profileEmail}</p>
+							<p class="truncate text-sm font-medium text-foreground">{user?.username}</p>
+							<p class="truncate text-xs text-muted-foreground">
+								{user?.admin ? 'Administrator' : 'User'}
+							</p>
 						</div>
 					</div>
 				</div>
@@ -573,49 +402,27 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<User class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									Profile
+									Account
 								</p>
 							</div>
-							<div class="flex flex-col gap-3">
-								<div class="flex flex-col gap-1.5">
-									<Label>Full Name</Label>
-									<Input bind:value={profileName} />
+							<dl class="divide-y divide-border/50 text-sm">
+								<div class="flex justify-between gap-4 py-2">
+									<dt class="text-muted-foreground">Username</dt>
+									<dd class="font-mono text-foreground">{user?.username}</dd>
 								</div>
-								<div class="flex flex-col gap-1.5">
-									<Label>Username</Label>
-									<Input bind:value={profileUsername} placeholder={user?.name ?? ''} />
-									<p class="text-xs text-muted-foreground">
-										Used as the default login name on managed hosts.
-									</p>
+								<div class="flex justify-between gap-4 py-2">
+									<dt class="text-muted-foreground">User ID</dt>
+									<dd class="font-mono text-foreground">{user?.uid}</dd>
 								</div>
-								<div class="flex flex-col gap-1.5">
-									<Label>Email Address</Label>
-									<Input bind:value={profileEmail} type="email" />
-									{#if profileEmailChangePending}
-										<p class="text-xs text-muted-foreground">
-											Check {pendingProfileEmail} to verify this email change.
-										</p>
-									{/if}
+								<div class="flex justify-between gap-4 py-2">
+									<dt class="text-muted-foreground">Role</dt>
+									<dd class="text-foreground">{user?.admin ? 'Administrator' : 'User'}</dd>
 								</div>
-								{#if profileError}
-									<p class="text-xs text-red-400">{profileError}</p>
-								{/if}
-								<Button
-									size="sm"
-									onclick={saveProfile}
-									disabled={profileSaveDisabled}
-									class="w-fit"
-								>
-									{#if profileSaving}
-										Saving...
-									{:else if profileSaved}
-										<Check class="h-3 w-3" />
-										{profileEmailChangePending ? 'Verification sent' : 'Saved'}
-									{:else}
-										Save Profile
-									{/if}
-								</Button>
-							</div>
+							</dl>
+							<p class="mt-3 text-xs text-muted-foreground">
+								This is your account on this server. You sign in to the dashboard with the same
+								password as on the console and over SSH.
+							</p>
 						</div>
 					</Tabs.Content>
 
@@ -627,63 +434,10 @@
 									Password
 								</p>
 							</div>
-							<div class="flex flex-col gap-3">
-								{#if userHasPassword}
-									<div class="flex flex-col gap-1.5">
-										<Label>Current Password</Label>
-										<div class="relative">
-											<Input
-												bind:value={currentPassword}
-												type={showPassword ? 'text' : 'password'}
-												placeholder="********"
-											/>
-											<button
-												type="button"
-												class="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-												onclick={() => (showPassword = !showPassword)}
-											>
-												{#if showPassword}
-													<EyeOff class="size-4" />
-												{:else}
-													<Eye class="size-4" />
-												{/if}
-											</button>
-										</div>
-									</div>
-								{/if}
-								<div class="flex flex-col gap-1.5">
-									<Label>New Password</Label>
-									<Input bind:value={newPassword} type="password" placeholder="********" />
-								</div>
-								<div class="flex flex-col gap-1.5">
-									<Label>Confirm New Password</Label>
-									<Input bind:value={confirmPassword} type="password" placeholder="********" />
-									{#if confirmPassword && newPassword !== confirmPassword}
-										<p class="text-xs text-red-400">Passwords do not match.</p>
-									{/if}
-								</div>
-								{#if passwordError}
-									<p class="text-xs text-red-400">{passwordError}</p>
-								{/if}
-								<Button
-									size="sm"
-									onclick={beginPasswordChange}
-									disabled={passwordVerificationOpen ||
-										passwordVerificationPreparing ||
-										(userHasPassword && !currentPassword) ||
-										!newPassword ||
-										newPassword !== confirmPassword}
-									class="w-fit"
-								>
-									{#if passwordVerificationPreparing}
-										Preparing...
-									{:else if passwordSaved}
-										<Check class="h-3 w-3" /> Updated
-									{:else}
-										Update Password
-									{/if}
-								</Button>
-							</div>
+							<p class="text-xs text-muted-foreground">
+								To change your password, run <code class="font-mono text-foreground">passwd</code> on
+								the server's console or over SSH.
+							</p>
 						</div>
 
 						<div class="rounded-xs border border-border/60 p-4">
@@ -694,111 +448,136 @@
 								</p>
 							</div>
 
-							<div class="flex items-center justify-between py-2.5">
-								<div class="flex items-center gap-2.5">
-									<ShieldCheck class="h-4 w-4 text-muted-foreground" />
-									<div>
-										<p class="text-sm font-medium text-foreground">Authenticator App</p>
-										<p class="text-xs text-muted-foreground">
-											{twoFactorEnabled ? 'Enabled' : 'Not configured'}
-										</p>
-									</div>
+							{#if securityLoading && !security}
+								<div class="space-y-2 py-2">
+									<Skeleton class="h-3.5 w-40" />
+									<Skeleton class="h-2.5 w-24" />
 								</div>
-								{#if twoFactorEnabled}
-									<Button
-										variant="destructive"
-										size="sm"
-										class="h-7 w-20 gap-1.5 text-xs"
-										onclick={() => {
-											totpDisableError = '';
-											totpDisablePassword = '';
-											totpDisableMethod = 'totp';
-											totpDisableCode = '';
-											totpDisableDialogOpen = true;
-										}}
-									>
-										<Minus class="h-3 w-3" />
-										Disable
-									</Button>
-								{:else}
-									<Button
-										variant="outline"
-										size="sm"
-										class="h-7 gap-1.5 text-xs"
-										onclick={() => (totpDialogOpen = true)}
-									>
-										<Plus class="h-3 w-3" />
-										Set Up
-									</Button>
-								{/if}
-							</div>
-							<div class="border-t border-border/50"></div>
-
-							<div class="py-2.5">
-								<div class="flex items-center justify-between">
+							{:else if security}
+								<div class="flex items-center justify-between py-2.5">
 									<div class="flex items-center gap-2.5">
-										<Fingerprint class="h-4 w-4 text-muted-foreground" />
+										<ShieldCheck class="h-4 w-4 text-muted-foreground" />
 										<div>
-											<p class="text-sm font-medium text-foreground">Passkeys</p>
+											<p class="text-sm font-medium text-foreground">Authenticator App</p>
 											<p class="text-xs text-muted-foreground">
-												{passkeys.length > 0 ? `${passkeys.length} registered` : 'Not configured'}
+												{security.totpEnrolled ? 'Enabled' : 'Not configured'}
 											</p>
 										</div>
 									</div>
-									<Button
-										variant="outline"
-										size="sm"
-										class="h-7 w-20 gap-1.5 text-xs"
-										onclick={() => (passkeyDialogOpen = true)}
-									>
-										<Plus class="h-3 w-3" />
-										Add
-									</Button>
+									{#if security.totpEnrolled}
+										<Button
+											variant="destructive"
+											size="sm"
+											class="h-7 w-20 gap-1.5 text-xs"
+											onclick={() => openCodeDialog('disable')}
+										>
+											<Minus class="h-3 w-3" />
+											Disable
+										</Button>
+									{:else}
+										<Button
+											variant="outline"
+											size="sm"
+											class="h-7 gap-1.5 text-xs"
+											onclick={() => (totpDialogOpen = true)}
+										>
+											<Plus class="h-3 w-3" />
+											Set Up
+										</Button>
+									{/if}
 								</div>
 
-								{#if passkeysLoading && passkeys.length === 0}
-									<div class="mt-2 flex flex-col gap-2">
-										{#each Array.from({ length: 2 }) as _, index (index)}
-											<div
-												class="flex items-center gap-2.5 rounded-xs border border-border/60 bg-background px-3 py-2"
-											>
-												<Skeleton class="size-4 shrink-0 rounded-full" />
-												<div class="min-w-0 flex-1 space-y-1.5">
-													<Skeleton class="h-3 w-32" />
-													<Skeleton class="h-2.5 w-20" />
-												</div>
+								{#if security.totpEnrolled}
+									<div class="border-t border-border/50"></div>
+									<div class="flex items-center justify-between py-2.5">
+										<div class="flex items-center gap-2.5">
+											<Key class="h-4 w-4 text-muted-foreground" />
+											<div>
+												<p class="text-sm font-medium text-foreground">Recovery Codes</p>
+												<p class="text-xs text-muted-foreground">
+													{security.recoveryCodesLeft === 1
+														? '1 code left'
+														: `${security.recoveryCodesLeft} codes left`}
+												</p>
 											</div>
-										{/each}
-									</div>
-								{:else if passkeys.length > 0}
-									<div class="mt-2 flex flex-col gap-2">
-										{#each passkeys as pk (pk.id)}
-											<div
-												class="flex items-center gap-2.5 rounded-xs border border-border/60 bg-background px-3 py-2"
-											>
-												<Fingerprint class="size-4 shrink-0 text-muted-foreground" />
-												<div class="min-w-0">
-													<p class="truncate text-sm text-foreground">{pk.name || 'Unnamed'}</p>
-													{#if pk.createdAt}
-														<p class="text-xs text-muted-foreground">
-															Added {new Date(pk.createdAt).toISOString().slice(0, 10)}
-														</p>
-													{/if}
-												</div>
-												<Button
-													variant="ghost"
-													size="sm"
-													class="ml-auto h-7 w-7 shrink-0 p-0 text-red-400 hover:text-red-300"
-													onclick={() => removePasskey(pk.id)}
-													disabled={removingPasskey === pk.id}
-												>
-													<Trash2 class="h-3 w-3" />
-												</Button>
-											</div>
-										{/each}
+										</div>
+										<Button
+											variant="outline"
+											size="sm"
+											class="h-7 gap-1.5 text-xs"
+											onclick={() => openCodeDialog('regenerate')}
+										>
+											<RefreshCw class="h-3 w-3" />
+											New codes
+										</Button>
 									</div>
 								{/if}
-							</div>
+
+								{#if security.passkeysAvailable}
+									<div class="border-t border-border/50"></div>
+									<div class="py-2.5">
+										<div class="flex items-center justify-between">
+											<div class="flex items-center gap-2.5">
+												<Fingerprint class="h-4 w-4 text-muted-foreground" />
+												<div>
+													<p class="text-sm font-medium text-foreground">Passkeys</p>
+													<p class="text-xs text-muted-foreground">
+														{security.passkeys.length > 0
+															? `${security.passkeys.length} registered`
+															: 'Not configured'}
+														{#if security.passkeyHostname}
+															· tied to
+															<span class="font-medium text-foreground"
+																>{security.passkeyHostname}</span
+															>
+														{/if}
+													</p>
+												</div>
+											</div>
+											<Button
+												variant="outline"
+												size="sm"
+												class="h-7 w-20 gap-1.5 text-xs"
+												onclick={() => (passkeyDialogOpen = true)}
+											>
+												<Plus class="h-3 w-3" />
+												Add
+											</Button>
+										</div>
+
+										{#if security.passkeys.length > 0}
+											<div class="mt-2 flex flex-col gap-2">
+												{#each security.passkeys as pk (pk.id)}
+													<div
+														class="flex items-center gap-2.5 rounded-xs border border-border/60 bg-background px-3 py-2"
+													>
+														<Fingerprint class="size-4 shrink-0 text-muted-foreground" />
+														<div class="min-w-0">
+															<p class="truncate text-sm text-foreground">{pk.name || 'Unnamed'}</p>
+															<p class="text-xs text-muted-foreground">
+																Added {formatDate(pk.created_at)}
+																{#if pk.last_used_at}
+																	· last used {formatDate(pk.last_used_at)}
+																{/if}
+															</p>
+														</div>
+														<Button
+															variant="ghost"
+															size="sm"
+															class="ml-auto h-7 w-7 shrink-0 p-0 text-red-400 hover:text-red-300"
+															aria-label={`Remove ${pk.name || 'passkey'}`}
+															onclick={() => removePasskey(pk.id)}
+															disabled={removingPasskey === pk.id}
+														>
+															<Trash2 class="h-3 w-3" />
+														</Button>
+													</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/if}
+							{/if}
 						</div>
 
 						<div class="rounded-xs border border-red-500/20 bg-red-500/5 p-4">
@@ -808,14 +587,15 @@
 									Session
 								</p>
 							</div>
-							<button
-								type="button"
-								class="flex w-full items-center justify-center gap-2 rounded-xs border border-red-500/20 bg-transparent px-4 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
-								onclick={signOut}
-							>
-								<LogOut class="size-4" />
-								Sign Out
-							</button>
+							<form method="POST" action="/logout">
+								<button
+									type="submit"
+									class="flex w-full items-center justify-center gap-2 rounded-xs border border-red-500/20 bg-transparent px-4 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+								>
+									<LogOut class="size-4" />
+									Sign Out
+								</button>
+							</form>
 						</div>
 					</Tabs.Content>
 
@@ -1042,129 +822,132 @@
 	</Dialog.Content>
 
 	{#if totpDialogOpen}
-		<TotpOnboardingDialog bind:open={totpDialogOpen} onComplete={loadTwoFactorStatus} />
+		<TotpOnboardingDialog
+			bind:open={totpDialogOpen}
+			username={user.username}
+			onComplete={loadSecurity}
+		/>
 	{/if}
-	<PasskeyOnboardingDialog bind:open={passkeyDialogOpen} onComplete={loadTwoFactorStatus} />
-	<PasswordVerificationDialog
-		bind:open={passwordVerificationOpen}
-		hasPassword={userHasPassword ?? false}
-		{hasPasskey}
-		{twoFactorEnabled}
-		{currentPassword}
-		{newPassword}
-		onVerified={onPasswordVerified}
+	<PasskeyOnboardingDialog
+		bind:open={passkeyDialogOpen}
+		hostname={security?.passkeyHostname ?? null}
+		onComplete={loadSecurity}
 	/>
-	<Dialog.Root bind:open={totpDisableDialogOpen}>
+	<Dialog.Root
+		bind:open={codeDialogOpen}
+		onOpenChange={(next) => {
+			// New recovery codes are shown once; require "Done" to close.
+			if (!next && regeneratedCodes.length > 0) codeDialogOpen = true;
+		}}
+	>
 		<Dialog.Content class="border-border bg-background sm:max-w-md">
 			<Dialog.Header>
-				<Dialog.Title>Disable Authenticator App</Dialog.Title>
+				<Dialog.Title>
+					{codeAction === 'disable' ? 'Disable authenticator app' : 'New recovery codes'}
+				</Dialog.Title>
 				<Dialog.Description>
-					Disabling authenticator app two-factor authentication requires your current password plus
-					a current authenticator code or backup code.
+					{#if regeneratedCodes.length > 0}
+						Your old recovery codes no longer work.
+					{:else if codeAction === 'disable'}
+						Enter a current authenticator code or a recovery code to turn off two-factor
+						authentication. Your recovery codes stop working too.
+					{:else}
+						Enter a current authenticator code or a recovery code. Your old recovery codes will stop
+						working.
+					{/if}
 				</Dialog.Description>
 			</Dialog.Header>
 
-			<form
-				class="flex flex-col gap-4 py-4"
-				onsubmit={(e) => {
-					e.preventDefault();
-					void disableTotp();
-				}}
-			>
-				<div class="flex flex-col gap-1.5">
-					<Label>Current Password</Label>
-					<Input
-						bind:value={totpDisablePassword}
-						type="password"
-						placeholder="********"
-						autocomplete="current-password"
+			{#if regeneratedCodes.length > 0}
+				<div class="py-2">
+					<RecoveryCodes
+						codes={regeneratedCodes}
+						username={user.username}
+						onDone={() => {
+							regeneratedCodes = [];
+							codeDialogOpen = false;
+						}}
 					/>
 				</div>
-
-				<div class="flex flex-col gap-1.5">
-					<Label>Verification Method</Label>
+			{:else}
+				<form
+					class="flex flex-col gap-4 py-4"
+					onsubmit={(e) => {
+						e.preventDefault();
+						void submitCode();
+					}}
+				>
 					<div class="flex rounded-xs border border-border bg-background/40 p-1">
-						<button
-							type="button"
-							class={[
-								'flex-1 rounded-xs px-3 py-1.5 text-xs font-medium transition-colors',
-								totpDisableMethod === 'totp'
-									? 'bg-muted text-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							]}
-							onclick={() => {
-								totpDisableMethod = 'totp';
-								totpDisableCode = '';
-								totpDisableError = '';
-							}}
-						>
-							Authenticator code
-						</button>
-						<button
-							type="button"
-							class={[
-								'flex-1 rounded-xs px-3 py-1.5 text-xs font-medium transition-colors',
-								totpDisableMethod === 'backupCode'
-									? 'bg-muted text-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							]}
-							onclick={() => {
-								totpDisableMethod = 'backupCode';
-								totpDisableCode = '';
-								totpDisableError = '';
-							}}
-						>
-							Backup code
-						</button>
+						{#each [['totp', 'Authenticator code'], ['recovery_code', 'Recovery code']] as [method, label] (method)}
+							<button
+								type="button"
+								class={[
+									'flex-1 rounded-xs px-3 py-1.5 text-xs font-medium transition-colors',
+									codeMethod === method
+										? 'bg-muted text-foreground'
+										: 'text-muted-foreground hover:text-foreground'
+								]}
+								onclick={() => {
+									codeMethod = method as CodeMethod;
+									codeValue = '';
+									codeError = '';
+								}}
+							>
+								{label}
+							</button>
+						{/each}
 					</div>
-				</div>
 
-				<div class="flex flex-col gap-1.5">
-					<Label>{totpDisableCodeLabel}</Label>
-					{#if totpDisableMethod === 'totp'}
-						<Input
-							bind:value={totpDisableCode}
-							inputmode="numeric"
-							pattern="[0-9]*"
-							placeholder="000000"
-							maxlength={6}
-							autocomplete="one-time-code"
-						/>
-					{:else}
-						<Input
-							bind:value={totpDisableCode}
-							type="text"
-							placeholder="Backup code"
-							autocomplete="off"
-						/>
-					{/if}
-					{#if totpDisableError}
-						<p class="text-xs text-red-400">{totpDisableError}</p>
-					{/if}
-				</div>
-
-				<Dialog.Footer>
-					<Button
-						variant="outline"
-						type="button"
-						onclick={() => (totpDisableDialogOpen = false)}
-						disabled={disablingTotp}
-					>
-						Cancel
-					</Button>
-					<Button
-						variant="destructive"
-						type="submit"
-						class="gap-1.5"
-						disabled={totpDisableSubmitDisabled}
-					>
-						{#if !disablingTotp}
-							<Minus class="h-3 w-3" />
+					<div class="flex flex-col gap-1.5">
+						<Label for="security-code">
+							{codeMethod === 'totp' ? 'Authenticator code' : 'Recovery code'}
+						</Label>
+						{#if codeMethod === 'totp'}
+							<Input
+								id="security-code"
+								bind:value={codeValue}
+								inputmode="numeric"
+								pattern="[0-9]*"
+								placeholder="000000"
+								maxlength={6}
+								autocomplete="one-time-code"
+							/>
+						{:else}
+							<Input
+								id="security-code"
+								bind:value={codeValue}
+								placeholder="xxxxx-xxxxx"
+								autocomplete="off"
+							/>
 						{/if}
-						{disablingTotp ? 'Disabling...' : 'Disable'}
-					</Button>
-				</Dialog.Footer>
-			</form>
+						{#if codeError}
+							<p class="text-xs text-red-400">{codeError}</p>
+						{/if}
+					</div>
+
+					<Dialog.Footer>
+						<Button
+							variant="outline"
+							type="button"
+							onclick={() => (codeDialogOpen = false)}
+							disabled={codeSubmitting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant={codeAction === 'disable' ? 'destructive' : 'default'}
+							type="submit"
+							class="gap-1.5"
+							disabled={codeSubmitting || !codeValid}
+						>
+							{#if codeSubmitting}
+								<Loader2 class="h-3 w-3 animate-spin" />
+							{/if}
+							{codeAction === 'disable' ? 'Disable' : 'Create new codes'}
+						</Button>
+					</Dialog.Footer>
+				</form>
+			{/if}
 		</Dialog.Content>
 	</Dialog.Root>
 </Dialog.Root>

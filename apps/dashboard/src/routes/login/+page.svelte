@@ -1,112 +1,95 @@
 <script lang="ts">
+	import { enhance, deserialize } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { authClient } from '$lib/auth-client';
 	import Loader2 from '~icons/lucide/loader-2';
 	import AlertCircle from '~icons/nucleo/alert-circle';
-	import CheckCircle2 from '~icons/nucleo/check-circle';
 	import Eye from '~icons/nucleo/eye';
 	import EyeOff from '~icons/nucleo/eye-off';
 	import Fingerprint from '~icons/nucleo/fingerprint';
-	import SiGithub from '@icons-pack/svelte-simple-icons/icons/SiGithub';
-	import type { PageData } from './$types';
+	import ShieldCheck from '~icons/nucleo/shield-check';
+	import type { ActionData, PageData } from './$types';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { dashboardBrand, pageTitle } from '$lib/branding';
-	type SignInDataWithTwoFactor = {
-		twoFactorRedirect?: boolean;
-		twoFactorMethods?: string[] | null;
-		redirect?: boolean;
-		url?: string;
-	};
+	import {
+		assertionToJson,
+		passkeysSupported,
+		requestOptionsFromJson,
+		webAuthnErrorMessage
+	} from '$lib/webauthn';
 
-	let { data }: { data: PageData } = $props();
-	const redirectTo = $derived(data.redirectTo ?? '/');
-	const verified = $derived(data.verified ?? false);
-	const registerHref = $derived(
-		redirectTo === '/' ? '/register' : `/register?redirectTo=${encodeURIComponent(redirectTo)}`
-	);
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let email = $state('');
-	let password = $state('');
 	let showPassword = $state(false);
-	let error = $state('');
 	let loading = $state(false);
 	let passkeyLoading = $state(false);
-	let socialLoading = $state<'github' | null>(null);
+	let passkeyError = $state('');
+	let useRecoveryCode = $state(false);
+	let browserSupportsPasskeys = $state(false);
 
-	async function signInWithSocial(provider: 'github') {
-		if (socialLoading) return;
-		error = '';
-		socialLoading = provider;
-		try {
-			const { error: err } = await authClient.signIn.social({ provider, callbackURL: redirectTo });
-			if (err) {
-				error = err.message ?? 'Unable to sign in.';
-				socialLoading = null;
-			}
-		} catch {
-			error = 'Unable to sign in.';
-			socialLoading = null;
-		}
-	}
+	$effect(() => {
+		browserSupportsPasskeys = passkeysSupported();
+	});
 
-	function twoFactorHref(method: 'passkey' | 'totp') {
-		const path = `/login/two-factor/${method}`;
-		return redirectTo === '/' ? path : `${path}?redirectTo=${encodeURIComponent(redirectTo)}`;
-	}
+	const error = $derived(passkeyError || (form && 'error' in form ? form.error : ''));
+	const username = $derived(form && 'username' in form ? (form.username as string) : '');
 
-	async function handleLogin() {
-		if (!email || !password) return;
-		error = '';
+	const submit: SubmitFunction = () => {
 		loading = true;
-
-		const res = await authClient.signIn.email({ email, password });
-
-		if (res.error) {
-			error = res.error.message ?? 'Invalid credentials';
+		passkeyError = '';
+		return async ({ update }) => {
+			await update();
 			loading = false;
-			return;
-		}
+		};
+	};
 
-		const loginData = res.data as SignInDataWithTwoFactor | null | undefined;
-
-		if (loginData?.redirect && loginData.url) {
-			goto(loginData.url);
-			return;
-		}
-
-		if (loginData?.twoFactorRedirect) {
-			const methods = loginData.twoFactorMethods;
-			const missingMethodsMeansTotp = !methods || methods.includes('totp');
-
-			if (missingMethodsMeansTotp) {
-				goto(twoFactorHref('totp'));
-				return;
-			}
-
-			if (methods.includes('passkey')) {
-				goto(twoFactorHref('passkey'));
-				return;
-			}
-		}
-
-		goto(redirectTo);
+	async function postAction(action: string, body: FormData) {
+		const response = await fetch(`?/${action}`, {
+			method: 'POST',
+			body,
+			headers: { 'x-sveltekit-action': 'true' }
+		});
+		return deserialize(await response.text());
 	}
 
-	async function handlePasskeySignIn() {
-		error = '';
+	async function signInWithPasskey() {
+		if (passkeyLoading) return;
+		passkeyError = '';
 		passkeyLoading = true;
+		try {
+			const begin = await postAction('passkeyBegin', new FormData());
+			if (begin.type !== 'success' || !begin.data?.options) {
+				passkeyError =
+					(begin.type === 'failure' && (begin.data?.error as string)) ||
+					'Unable to start passkey sign-in.';
+				return;
+			}
 
-		const { error: err } = await authClient.signIn.passkey({ autoFill: false });
+			const credential = (await navigator.credentials.get(
+				requestOptionsFromJson(begin.data.options as Parameters<typeof requestOptionsFromJson>[0])
+			)) as PublicKeyCredential | null;
+			if (!credential) {
+				passkeyError = 'No passkey was selected.';
+				return;
+			}
 
-		passkeyLoading = false;
-
-		if (err) {
-			error = err.message ?? 'Unable to sign in with passkey.';
-			return;
+			const body = new FormData();
+			body.set('credential', JSON.stringify(assertionToJson(credential)));
+			body.set('redirectTo', data.redirectTo);
+			const result = await postAction('passkeyFinish', body);
+			if (result.type === 'redirect') {
+				await goto(result.location, { invalidateAll: true });
+				return;
+			}
+			passkeyError =
+				(result.type === 'failure' && (result.data?.error as string)) ||
+				'Unable to sign in with passkey.';
+		} catch (err) {
+			passkeyError = webAuthnErrorMessage(err, 'Unable to sign in with passkey.');
+		} finally {
+			passkeyLoading = false;
 		}
-
-		goto(redirectTo);
 	}
 </script>
 
@@ -124,10 +107,23 @@
 		</div>
 
 		<div class="space-y-5">
-			<h1 class="text-center text-lg font-medium text-foreground">Sign in</h1>
+			{#if !data.tetraReachable}
+				<div
+					class="flex items-center gap-2 border border-red-700 bg-red-950 px-3 py-2 text-sm text-red-400"
+				>
+					<AlertCircle class="size-4 shrink-0" />
+					Dashboard cannot reach Tetra on this server.
+				</div>
+			{:else if data.setupRequired}
+				<p class="border border-border px-3 py-2 text-sm text-muted-foreground">
+					This server has not finished first-time setup. Complete setup with the code shown on the
+					server's console, then sign in here.
+				</p>
+			{/if}
 
 			{#if error}
 				<div
+					role="alert"
 					class="flex items-center gap-2 border border-red-700 bg-red-950 px-3 py-2 text-sm text-red-400"
 				>
 					<AlertCircle class="size-4 shrink-0" />
@@ -135,105 +131,147 @@
 				</div>
 			{/if}
 
-			{#if verified}
-				<div
-					class="flex items-center gap-2 border border-border bg-background px-3 py-2 text-sm text-muted-foreground"
-				>
-					<CheckCircle2 class="size-4 shrink-0 text-primary" />
-					Email verified! Please sign in.
+			{#if data.secondFactor}
+				<div class="flex flex-col items-center gap-3">
+					<div
+						class="flex h-12 w-12 items-center justify-center border border-border bg-background"
+					>
+						<ShieldCheck class="h-5 w-5 text-primary" />
+					</div>
+					<h1 class="text-lg font-medium text-foreground">Two-factor authentication</h1>
+					<p class="text-center text-sm text-muted-foreground">
+						{useRecoveryCode
+							? 'Enter one of your recovery codes. Each code works once.'
+							: 'Enter the code from your authenticator app.'}
+					</p>
 				</div>
-			{/if}
 
-			<form
-				onsubmit={(e) => {
-					e.preventDefault();
-					handleLogin();
-				}}
-				class="space-y-3"
-			>
-				<Input type="email" bind:value={email} placeholder="Email" aria-label="Email" required />
+				<form method="POST" action="?/secondFactor" use:enhance={submit} class="space-y-3">
+					<input type="hidden" name="redirectTo" value={data.redirectTo} />
+					<input type="hidden" name="method" value={useRecoveryCode ? 'recovery_code' : 'totp'} />
+					{#if useRecoveryCode}
+						<Input
+							name="code"
+							placeholder="xxxxx-xxxxx"
+							aria-label="Recovery code"
+							class="text-center font-mono"
+							autocomplete="off"
+							required
+						/>
+					{:else}
+						<Input
+							name="code"
+							placeholder="000000"
+							aria-label="Authentication code"
+							class="text-center font-mono tracking-widest"
+							autocomplete="one-time-code"
+							inputmode="numeric"
+							pattern="[0-9 ]*"
+							maxlength={7}
+							required
+						/>
+					{/if}
 
-				<div class="relative">
+					<Button type="submit" class="w-full" disabled={loading}>
+						{#if loading}
+							<Loader2 class="h-3.5 w-3.5 animate-spin" />
+						{:else}
+							Verify
+						{/if}
+					</Button>
+				</form>
+
+				<div class="flex items-center justify-between text-xs">
+					{#if data.secondFactor.methods.includes('recovery_code')}
+						<button
+							type="button"
+							class="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+							onclick={() => (useRecoveryCode = !useRecoveryCode)}
+						>
+							{useRecoveryCode ? 'Use authenticator app' : 'Use a recovery code'}
+						</button>
+					{/if}
+					<form method="POST" action="?/cancel" use:enhance>
+						<button
+							type="submit"
+							class="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+						>
+							Start over
+						</button>
+					</form>
+				</div>
+			{:else}
+				<h1 class="text-center text-lg font-medium text-foreground">Sign in</h1>
+
+				<form method="POST" action="?/password" use:enhance={submit} class="space-y-3">
+					<input type="hidden" name="redirectTo" value={data.redirectTo} />
 					<Input
-						type={showPassword ? 'text' : 'password'}
-						bind:value={password}
-						placeholder="Password"
-						aria-label="Password"
-						class="pr-10"
+						name="username"
+						value={username}
+						placeholder="Username"
+						aria-label="Username"
+						autocomplete="username"
+						autocapitalize="none"
+						spellcheck={false}
 						required
 					/>
-					<button
-						type="button"
-						aria-label={showPassword ? 'Hide password' : 'Show password'}
-						class="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-						onclick={() => (showPassword = !showPassword)}
+
+					<div class="relative">
+						<Input
+							name="password"
+							type={showPassword ? 'text' : 'password'}
+							placeholder="Password"
+							aria-label="Password"
+							autocomplete="current-password"
+							class="pr-10"
+							required
+						/>
+						<button
+							type="button"
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
+							class="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+							onclick={() => (showPassword = !showPassword)}
+						>
+							{#if showPassword}<EyeOff class="size-4" />{:else}<Eye class="size-4" />{/if}
+						</button>
+					</div>
+
+					<Button type="submit" class="w-full" disabled={loading}>
+						{#if loading}
+							<Loader2 class="h-3.5 w-3.5 animate-spin" />
+						{:else}
+							Sign in
+						{/if}
+					</Button>
+				</form>
+
+				{#if data.passkeysAvailable && browserSupportsPasskeys}
+					<div class="flex items-center gap-2">
+						<div class="h-px flex-1 bg-muted"></div>
+						<span class="text-[10px] text-muted-foreground">or</span>
+						<div class="h-px flex-1 bg-muted"></div>
+					</div>
+
+					<Button
+						variant="outline"
+						size="sm"
+						class="w-full gap-1.5"
+						disabled={passkeyLoading}
+						onclick={signInWithPasskey}
 					>
-						{#if showPassword}<EyeOff class="size-4" />{:else}<Eye class="size-4" />{/if}
-					</button>
-				</div>
-
-				<Button type="submit" class="w-full" disabled={loading}>
-					{#if loading}
-						<Loader2 class="h-3.5 w-3.5 animate-spin" />
-					{:else}
-						Sign in
-					{/if}
-				</Button>
-			</form>
-
-			<div class="flex justify-center">
-				<a
-					href="/forgot-password"
-					class="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-				>
-					Forgot password?
-				</a>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<div class="h-px flex-1 bg-muted"></div>
-				<span class="text-[10px] text-muted-foreground">or</span>
-				<div class="h-px flex-1 bg-muted"></div>
-			</div>
-
-			<Button
-				variant="outline"
-				size="sm"
-				class="w-full gap-1.5"
-				loading={socialLoading === 'github'}
-				disabled={socialLoading !== null}
-				onclick={() => signInWithSocial('github')}
-			>
-				{#if socialLoading !== 'github'}
-					<SiGithub class="h-3.5 w-3.5" color="currentColor" />
+						{#if passkeyLoading}
+							<Loader2 class="h-3.5 w-3.5 animate-spin" />
+						{:else}
+							<Fingerprint class="size-4" />
+							Sign in with passkey
+						{/if}
+					</Button>
 				{/if}
-				GitHub
-			</Button>
 
-			<Button
-				variant="outline"
-				size="sm"
-				class="w-full gap-1.5"
-				disabled={passkeyLoading}
-				onclick={handlePasskeySignIn}
-			>
-				{#if passkeyLoading}
-					<Loader2 class="h-3.5 w-3.5 animate-spin" />
-				{:else}
-					<Fingerprint class="size-4" />
-					Sign in with passkey
-				{/if}
-			</Button>
-
-			<p class="text-center text-xs text-muted-foreground">
-				No account?
-				<a
-					href={registerHref}
-					class="text-red-700 underline underline-offset-2 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200"
-				>
-					Create one
-				</a>
-			</p>
+				<p class="text-center text-xs text-muted-foreground">
+					Sign in with your account on this server.
+				</p>
+			{/if}
 		</div>
 	</div>
 </main>

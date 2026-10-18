@@ -9,10 +9,7 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { admin, jwt, oidcProvider, organization, twoFactor } from 'better-auth/plugins';
-import { passkey } from '@better-auth/passkey';
-
-import { ac, organizationRoles } from './src/lib/auth/organization-permissions';
+import { jwt, oidcProvider } from 'better-auth/plugins';
 
 // An in-memory database: the CLI only reads the schema and never queries.
 const db = drizzle(':memory:');
@@ -21,21 +18,14 @@ export default betterAuth({
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
 	user: {
 		additionalFields: {
-			isAdmin: {
-				type: 'boolean',
-				input: false,
-				required: true,
-				defaultValue: false
-			},
-			billingExempt: {
-				type: 'boolean',
-				input: false,
-				required: true,
-				defaultValue: false
+			username: {
+				type: 'string',
+				input: true,
+				required: false,
+				defaultValue: ''
 			}
 		}
 	},
-	emailAndPassword: { enabled: true },
 	plugins: [
 		jwt({ disableSettingJwtHeader: true }),
 		oidcProvider({
@@ -43,37 +33,6 @@ export default betterAuth({
 			loginPage: '/login',
 			consentPage: '/sso/consent',
 			useJWTPlugin: true
-		}),
-		admin({ defaultRole: 'user' }),
-		twoFactor(),
-		passkey(),
-		organization({
-			ac,
-			roles: organizationRoles,
-			schema: {
-				organization: {
-					additionalFields: {
-						billingExempt: {
-							type: 'boolean',
-							input: false,
-							required: true,
-							defaultValue: false
-						},
-						disabled: {
-							type: 'boolean',
-							input: false,
-							required: true,
-							defaultValue: false
-						},
-						deletedAt: {
-							type: 'number',
-							bigint: true,
-							input: false,
-							required: false
-						}
-					}
-				}
-			}
 		})
 	]
 });

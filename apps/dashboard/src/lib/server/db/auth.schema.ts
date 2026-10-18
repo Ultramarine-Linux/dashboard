@@ -14,12 +14,6 @@ export const user = sqliteTable('user', {
 		.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
-	role: text('role'),
-	banned: integer('banned', { mode: 'boolean' }).default(false),
-	banReason: text('ban_reason'),
-	banExpires: integer('ban_expires', { mode: 'timestamp_ms' }),
-	twoFactorEnabled: integer('two_factor_enabled', { mode: 'boolean' }).default(false),
-	isAdmin: integer('is_admin', { mode: 'boolean' }).default(false).notNull(),
 	username: text('username')
 });
 
@@ -39,8 +33,7 @@ export const session = sqliteTable(
 		userAgent: text('user_agent'),
 		userId: text('user_id')
 			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		impersonatedBy: text('impersonated_by')
+			.references(() => user.id, { onDelete: 'cascade' })
 	},
 	(table) => [index('session_user_id_idx').on(table.userId)]
 );
@@ -87,25 +80,6 @@ export const verification = sqliteTable(
 			.notNull()
 	},
 	(table) => [index('verification_identifier_idx').on(table.identifier)]
-);
-
-export const twoFactor = sqliteTable(
-	'two_factor',
-	{
-		id: text('id').primaryKey(),
-		secret: text('secret').notNull(),
-		backupCodes: text('backup_codes').notNull(),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		verified: integer('verified', { mode: 'boolean' }).default(true),
-		failedVerificationCount: integer('failed_verification_count').default(0),
-		lockedUntil: integer('locked_until', { mode: 'timestamp_ms' })
-	},
-	(table) => [
-		index('two_factor_secret_idx').on(table.secret),
-		index('two_factor_user_id_idx').on(table.userId)
-	]
 );
 
 export const jwks = sqliteTable('jwks', {
@@ -180,34 +154,9 @@ export const oauthConsent = sqliteTable(
 	]
 );
 
-export const passkey = sqliteTable(
-	'passkey',
-	{
-		id: text('id').primaryKey(),
-		name: text('name'),
-		publicKey: text('public_key').notNull(),
-		userId: text('user_id')
-			.notNull()
-			.references(() => user.id, { onDelete: 'cascade' }),
-		credentialID: text('credential_id').notNull(),
-		counter: integer('counter').notNull(),
-		deviceType: text('device_type').notNull(),
-		backedUp: integer('backed_up', { mode: 'boolean' }).notNull(),
-		transports: text('transports'),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' }),
-		aaguid: text('aaguid')
-	},
-	(table) => [
-		index('passkey_user_id_idx').on(table.userId),
-		index('passkey_credential_id_idx').on(table.credentialID)
-	]
-);
-
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
 	accounts: many(account),
-	twoFactors: many(twoFactor),
-	passkeys: many(passkey),
 	oauthApplications: many(oauthApplication),
 	oauthAccessTokens: many(oauthAccessToken),
 	oauthConsents: many(oauthConsent)
@@ -219,14 +168,6 @@ export const sessionRelations = relations(session, ({ one }) => ({
 
 export const accountRelations = relations(account, ({ one }) => ({
 	user: one(user, { fields: [account.userId], references: [user.id] })
-}));
-
-export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
-	user: one(user, { fields: [twoFactor.userId], references: [user.id] })
-}));
-
-export const passkeyRelations = relations(passkey, ({ one }) => ({
-	user: one(user, { fields: [passkey.userId], references: [user.id] })
 }));
 
 export const oauthApplicationRelations = relations(oauthApplication, ({ one, many }) => ({

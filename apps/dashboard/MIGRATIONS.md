@@ -12,6 +12,10 @@ that stops reading the table or column, then remove it in the release after.
 New columns must be nullable or have a default, so the previous release can
 still insert rows without knowing about them.
 
+Before the first tagged release, tables and columns that no code reads may be
+dropped in a new migration immediately, because there is no release to roll
+back to. From the first release on, drops wait one release.
+
 ## Why
 
 A server must be able to roll back to the previous release without losing
@@ -35,4 +39,9 @@ migrating and relies on the rule above.
 
 1. Change `src/lib/server/db/schema.ts`.
 2. Run `pnpm db:generate` and commit the generated SQL and `drizzle/meta`.
-3. Never edit or delete a migration that has shipped.
+3. Never edit or delete a migration that has landed. Databases that already
+   applied it would keep the old schema and quietly differ from fresh installs.
+4. Migrations run with foreign key enforcement off (SQLite ignores the setting
+   inside the migration transaction), so table rebuilds do not cascade
+   deletes. Dashboard runs `PRAGMA foreign_key_check` afterwards and refuses to
+   start if a migration left violations.

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
@@ -8,7 +9,7 @@
 		listManagedHostReverseProxySites,
 		reloadManagedHostReverseProxy,
 		writeManagedHostReverseProxySite,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostReverseProxySite
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
@@ -21,7 +22,7 @@
 	import Globe from '~icons/nucleo/globe';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();
@@ -34,16 +35,12 @@
 	let reloading = $state(false);
 	let deletingDomain = $state('');
 	let error = $state('');
-	let loadedHostId = $state<string | null>(null);
 	let editingDomain = $state<string | null>(null);
 	let formOpen = $state(false);
 	let form = $state({ domain: '', upstream: '', tls: true });
-	let adminPassword = $state('');
 
 	$effect(() => {
-		if (loadedHostId === host.id) return;
-		loadedHostId = host.id;
-		loadSites();
+		untrack(() => loadSites());
 	});
 
 	function resetForm() {
@@ -86,19 +83,16 @@
 		try {
 			if (editingDomain && editingDomain !== form.domain) {
 				await deleteManagedHostReverseProxySite({
-					domain: editingDomain,
-					adminPassword
+					domain: editingDomain
 				});
 			}
 			const saved = await writeManagedHostReverseProxySite({
-				...form,
-				adminPassword
+				...form
 			});
 			sites = [
 				saved,
 				...sites.filter((site) => site.domain !== saved.domain && site.domain !== editingDomain)
 			].sort((left, right) => left.domain.localeCompare(right.domain));
-			adminPassword = '';
 			resetForm();
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to save reverse proxy site.');
@@ -111,7 +105,7 @@
 		if (deletingDomain) return;
 		const ok = await confirmDestructive({
 			title: 'Delete reverse proxy site',
-			description: `This will remove the route for ${site.domain} from ${host.displayName}.`,
+			description: `This will remove the route for ${site.domain} from ${host.hostname ?? 'this server'}.`,
 			confirmWord: site.domain,
 			confirmLabel: 'Delete route'
 		});
@@ -121,8 +115,7 @@
 		error = '';
 		try {
 			await deleteManagedHostReverseProxySite({
-				domain: site.domain,
-				adminPassword
+				domain: site.domain
 			});
 			sites = sites.filter((entry) => entry.domain !== site.domain);
 		} catch (err) {
@@ -137,8 +130,7 @@
 		reloading = true;
 		error = '';
 		try {
-			await reloadManagedHostReverseProxy({ adminPassword });
-			adminPassword = '';
+			await reloadManagedHostReverseProxy();
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to reload reverse proxy.');
 		} finally {
@@ -225,16 +217,6 @@
 						<Switch bind:checked={form.tls} />
 						<span class="text-sm text-foreground">Enable automatic HTTPS</span>
 					</div>
-					<label class="space-y-1.5 text-xs font-medium text-muted-foreground lg:col-span-2">
-						Administrator password
-						<Input
-							type="password"
-							bind:value={adminPassword}
-							autocomplete="current-password"
-							placeholder="Required for privileged operations"
-						/>
-						<span class="block font-normal">Used only for this request; it is not stored.</span>
-					</label>
 					<div class="flex items-center justify-end gap-2 lg:col-span-2">
 						<Button type="button" variant="outline" onclick={resetForm}>Cancel</Button>
 						<Button type="submit" loading={saving}

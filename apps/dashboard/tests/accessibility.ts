@@ -11,10 +11,8 @@ export const activeBrand = 'ultramarine';
 
 export const pages = [
 	{ label: 'login', path: '/login' },
-	{ label: 'login verified state', path: '/login?verified=1' },
-	{ label: 'register', path: '/register' },
-	{ label: 'signup redirect', path: '/signup' },
-	{ label: 'server overview', path: '/' },
+	{ label: 'services', path: '/' },
+	{ label: 'server overview', path: '/overview' },
 	{ label: 'server podman', path: '/podman' },
 	{ label: 'server podman container', path: '/podman/demo-web' },
 	{ label: 'server quadlets', path: '/quadlets' },

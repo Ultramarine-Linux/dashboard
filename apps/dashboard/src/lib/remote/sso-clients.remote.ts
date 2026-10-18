@@ -1,8 +1,8 @@
-import { command, getRequestEvent, query } from '$app/server';
+import { command, query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
 import { count, desc, eq } from 'drizzle-orm';
-import { requireAdmin } from '$lib/server/auth-context';
+import { requireAdmin } from '$lib/server/session';
 import { initDrizzle } from '$lib/server/db';
 import { oauthAccessToken, oauthApplication, oauthConsent } from '$lib/server/db/schema';
 import { ulid } from '$lib/server/id';
@@ -33,13 +33,8 @@ export type SsoClientWithSecret = {
 };
 
 async function requireCurrentAdmin() {
-	const event = getRequestEvent();
-	if (!event?.locals.user) error(401, 'Authentication required');
-
-	const db = initDrizzle();
-	await requireAdmin(db, event.locals.user.id);
-
-	return { db, userId: event.locals.user.id };
+	const user = requireAdmin();
+	return { db: initDrizzle(), userId: user.id };
 }
 
 function splitRedirectUrls(value: string | string[]): string[] {

@@ -33,9 +33,11 @@ export default defineConfig({
 	timeout: 180 * 1_000,
 	webServer: [
 		{
-			command: `pnpm run build && ACCESSIBILITY_FIXTURES=1 UM_DASHBOARD_DB_PATH=${databasePath} pnpm exec vite preview --host 127.0.0.1 --port 4173`,
+			// Fixture mode logs every visitor in as an administrator, so it only runs
+			// on the dev server; production builds refuse ACCESSIBILITY_FIXTURES.
+			command: `ACCESSIBILITY_FIXTURES=1 UM_DASHBOARD_DB_PATH=${databasePath} pnpm exec vite dev --host 127.0.0.1 --port 4173 --strictPort`,
 			reuseExistingServer: !isCI,
-			// The timeout of the build and preview startup before the accessibility tests.
+			// The timeout of the dev server startup before the accessibility tests.
 			timeout: 120 * 1_000,
 			url: 'http://127.0.0.1:4173/login'
 		}

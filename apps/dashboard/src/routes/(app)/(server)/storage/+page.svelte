@@ -1,21 +1,21 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		getManagedHostStorage,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostStorageResult
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
 	import Loader2 from '~icons/lucide/loader-2';
 	import RefreshCw from '~icons/lucide/refresh-cw';
 
-	type PageData = { host: ManagedHost };
+	type PageData = { host: HostSummary };
 	let { data }: { data: PageData } = $props();
 	const host = $derived(data.host);
 	let result = $state<ManagedHostStorageResult>({ mounts: [], partitions: [], zfs: null });
 	let loading = $state(false);
 	let error = $state('');
-	let loadedHostId = $state<string | null>(null);
 
 	function record(value: unknown): Record<string, unknown> {
 		return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -33,9 +33,7 @@
 	}
 
 	$effect(() => {
-		if (loadedHostId === host.id) return;
-		loadedHostId = host.id;
-		refresh();
+		untrack(() => refresh());
 	});
 
 	async function refresh() {

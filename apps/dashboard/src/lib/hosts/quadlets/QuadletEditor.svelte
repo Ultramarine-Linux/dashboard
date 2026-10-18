@@ -7,7 +7,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import {
 		saveManagedHostQuadlet,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostQuadletCompanionFile,
 		type ManagedHostQuadletDetail,
 		type ManagedHostQuadletScope
@@ -29,7 +29,7 @@
 	};
 
 	type Props = {
-		host: ManagedHost;
+		host: HostSummary;
 		detail?: ManagedHostQuadletDetail | null;
 		initialScope?: ManagedHostQuadletScope;
 	};

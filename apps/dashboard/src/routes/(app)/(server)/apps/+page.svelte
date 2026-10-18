@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import {
 		listManagedHostApps,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostAppListItem,
 		type ManagedHostAppStatus,
 		type ManagedHostQuadletScope
@@ -17,7 +17,7 @@
 	import RefreshCw from '~icons/lucide/refresh-cw';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();

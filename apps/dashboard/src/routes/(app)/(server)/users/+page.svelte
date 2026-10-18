@@ -1,22 +1,20 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Switch } from '$lib/components/ui/switch';
 	import {
 		createManagedHostUser,
 		listManagedHostUsers,
-		regenerateManagedHostUserInvitation,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostUser
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
-	import Copy from '~icons/lucide/copy';
 	import Loader2 from '~icons/lucide/loader-2';
 	import RefreshCw from '~icons/lucide/refresh-cw';
 	import UserPlus from '~icons/lucide/user-plus';
 
-	type PageData = { host: ManagedHost };
+	type PageData = { host: HostSummary };
 	let { data }: { data: PageData } = $props();
 	const host = $derived(data.host);
 	let users = $state<ManagedHostUser[]>([]);
@@ -26,15 +24,9 @@
 	let username = $state('');
 	let shell = $state('/bin/bash');
 	let home = $state('');
-	let createDashboardUser = $state(false);
-	let email = $state('');
-	let invitationLink = $state('');
-	let loadedHostId = $state<string | null>(null);
 
 	$effect(() => {
-		if (loadedHostId === host.id) return;
-		loadedHostId = host.id;
-		refresh();
+		untrack(() => refresh());
 	});
 
 	async function refresh() {
@@ -54,43 +46,20 @@
 		if (creating) return;
 		creating = true;
 		error = '';
-		invitationLink = '';
 		try {
-			const result = await createManagedHostUser({
+			await createManagedHostUser({
 				username,
 				shell: shell.trim() || undefined,
-				home: home.trim() || undefined,
-				createDashboardUser,
-				email: createDashboardUser ? email.trim() : undefined
+				home: home.trim() || undefined
 			});
-			invitationLink = result.invitationUrl ?? '';
 			username = '';
 			home = '';
-			if (!result.invitationUrl) await refresh();
+			await refresh();
 		} catch (err) {
 			error = getErrorMessage(err, 'Failed to create host user.');
 		} finally {
 			creating = false;
 		}
-	}
-
-	async function regenerateInvitation() {
-		if (!username.trim() || !email.trim()) return;
-		error = '';
-		try {
-			const result = await regenerateManagedHostUserInvitation({
-				username: username.trim(),
-				email: email.trim()
-			});
-			invitationLink = result.invitationUrl;
-		} catch (err) {
-			error = getErrorMessage(err, 'Failed to regenerate invitation.');
-		}
-	}
-
-	async function copyInvitation() {
-		if (!invitationLink) return;
-		await navigator.clipboard.writeText(invitationLink);
 	}
 </script>
 
@@ -98,7 +67,8 @@
 	<div class="border-b border-border px-5 py-4">
 		<h1 class="text-base font-semibold text-foreground">Host Users</h1>
 		<p class="mt-1 text-xs text-muted-foreground">
-			Manage local accounts on {host.displayName}. Host mutations require an elevated Tetra agent.
+			Manage local accounts on {host.hostname ?? 'this server'}. Anyone with an account and a
+			password can sign in to the dashboard; Tetra decides what each account may see.
 		</p>
 	</div>
 
@@ -151,7 +121,8 @@
 			<div>
 				<h2 class="text-sm font-semibold text-foreground">Create host user</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Optionally issue a dashboard invite for the same person.
+					Set a password on the console with <code class="font-mono">passwd</code> before the account
+					can sign in.
 				</p>
 			</div>
 			<div class="space-y-2">
@@ -172,44 +143,11 @@
 					placeholder="/home/alice"
 				/>
 			</div>
-			<div class="flex items-center justify-between gap-3 rounded-md border border-border p-3">
-				<Label for="dashboard-user">Create dashboard user too</Label><Switch
-					id="dashboard-user"
-					checked={createDashboardUser}
-					onCheckedChange={(checked) => (createDashboardUser = checked)}
-				/>
-			</div>
-			{#if createDashboardUser}<div class="space-y-2">
-					<Label for="email">Invitation email</Label><Input
-						id="email"
-						type="email"
-						bind:value={email}
-						required
-					/>
-				</div>{/if}
-			<Button
-				type="submit"
-				class="w-full"
-				disabled={creating || !username.trim() || (createDashboardUser && !email.trim())}
+			<Button type="submit" class="w-full" disabled={creating || !username.trim()}
 				>{#if creating}<Loader2 class="size-4 animate-spin" />{:else}<UserPlus
 						class="size-4"
 					/>{/if}Create user</Button
 			>
-			{#if invitationLink}
-				<div class="space-y-2 rounded-md border border-primary/30 bg-primary/5 p-3">
-					<p class="text-xs font-medium text-foreground">
-						Copy this invitation link now. Regenerating it revokes the previous link.
-					</p>
-					<Input value={invitationLink} readonly />
-					<div class="flex gap-2">
-						<Button type="button" size="sm" variant="outline" onclick={copyInvitation}
-							><Copy class="size-3" />Copy</Button
-						><Button type="button" size="sm" variant="outline" onclick={regenerateInvitation}
-							>Regenerate</Button
-						>
-					</div>
-				</div>
-			{/if}
 		</form>
 	</div>
 
