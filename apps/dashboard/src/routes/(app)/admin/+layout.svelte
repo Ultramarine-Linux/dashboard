@@ -6,14 +6,12 @@
 	import { AdminState, type AdminLayoutData } from '$lib/state/admin.svelte';
 	import Flag from '~icons/nucleo/flag';
 	import Key from '~icons/nucleo/key';
-	import UserCog from '~icons/nucleo/user-cog';
 
 	let { data, children }: { data: AdminLayoutData; children: Snippet } = $props();
 	const admin = new AdminState(untrack(() => data));
 	$effect(() => admin.sync(data));
 
 	const tabs = $derived([
-		{ href: '/admin/users', label: 'Users', icon: UserCog, count: admin.adminCounts.users },
 		{ href: '/admin/sso', label: 'SSO', icon: Key, count: admin.adminCounts.ssoClients },
 		{
 			href: '/admin/features',

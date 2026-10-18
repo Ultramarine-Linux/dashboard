@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
@@ -6,7 +7,7 @@
 	import {
 		listManagedHostPodman,
 		runManagedHostPodmanContainerAction,
-		type ManagedHost
+		type HostSummary
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
 	import Loader2 from '~icons/lucide/loader-2';
@@ -15,7 +16,7 @@
 	type PodmanResource = 'containers' | 'images' | 'volumes' | 'networks';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();
@@ -26,7 +27,6 @@
 	let podmanLoading = $state(false);
 	let podmanError = $state('');
 	let podmanActionName = $state('');
-	let loadedHostId = $state<string | null>(null);
 
 	const podmanResources: { id: PodmanResource; label: string }[] = [
 		{ id: 'containers', label: 'Containers' },
@@ -60,9 +60,7 @@
 	}
 
 	$effect(() => {
-		if (loadedHostId === host.id) return;
-		loadedHostId = host.id;
-		refreshPodman();
+		untrack(() => refreshPodman());
 	});
 
 	async function refreshPodman(resource: PodmanResource = podmanResource) {
@@ -86,7 +84,7 @@
 		if (action === 'remove') {
 			const ok = await confirmDestructive({
 				title: 'Remove container',
-				description: `This will remove ${name} from ${host.displayName}.`,
+				description: `This will remove ${name} from ${host.hostname ?? 'this server'}.`,
 				confirmWord: name,
 				confirmLabel: 'Remove container'
 			});

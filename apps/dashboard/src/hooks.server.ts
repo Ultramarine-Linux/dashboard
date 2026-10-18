@@ -1,152 +1,102 @@
-import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
+import { error, redirect, type Handle, type RequestEvent, type ServerInit } from '@sveltejs/kit';
 import { building } from '$app/environment';
-import { getCachedAuthSession, hasAuthSessionCookie } from '$lib/server/auth-lite';
 import { initDatabase } from '$lib/server/db';
-import { instrument, timingLog } from '$lib/server/observability';
+import { instrument } from '$lib/server/observability';
+import { accessibilityFixtureEnabled } from '$lib/server/accessibility-fixtures';
+import { canAccessRoute, routeAccess } from '$lib/permissions';
+import { clearSessionCookie, readSessionToken } from '$lib/server/session';
 import {
-	accessibilityFixtureEnabled,
-	accessibilityFixtureSession,
-	accessibilityFixtureUser
-} from '$lib/server/accessibility-fixtures';
+	ACCESSIBILITY_FIXTURE_TOKEN,
+	checkTetraConfiguration,
+	getTetra,
+	isTetraError
+} from '$lib/server/tetra';
 
-const publicRoutes = [
-	'/health',
-	'/login',
-	'/register',
-	'/signup',
-	'/forgot-password',
-	'/reset-password',
-	'/sso/consent',
-	'/api/'
-];
-const authPages = ['/login', '/register', '/signup', '/forgot-password', '/reset-password'];
-const setupRoutes = ['/setup'];
-
-const moduleLoadedAt = performance.now();
-let isFirstRequestOnIsolate = true;
-
-async function runFullAuth(
-	event: Parameters<Handle>[0]['event'],
-	resolve: Parameters<Handle>[0]['resolve'],
-	requestAttrs: Record<string, string | number | boolean | undefined>
-) {
-	const [{ initAuth }, { svelteKitHandler }] = await instrument(
-		'auth.full.import',
-		() => Promise.all([import('$lib/server/auth'), import('better-auth/svelte-kit')]),
-		requestAttrs
-	);
-
-	const auth = await instrument('auth.init', async () => initAuth(), requestAttrs);
-	const session = await instrument(
-		'auth.getSession',
-		() => auth.api.getSession({ headers: event.request.headers }),
-		requestAttrs
-	);
-
-	if (session) {
-		event.locals.session = session.session;
-		event.locals.user = session.user;
-	}
-
-	const isPublic = publicRoutes.some((route) => event.url.pathname.startsWith(route));
-
-	if (!session && !isPublic) {
-		throw redirect(303, '/login');
-	}
-
-	if (session && authPages.some((route) => event.url.pathname.startsWith(route))) {
-		throw redirect(303, '/');
-	}
-
-	if (session && !setupRoutes.some((route) => event.url.pathname.startsWith(route))) {
-		const { isServerSetupComplete } = await import('$lib/server/setup/state');
-		if (!(await isServerSetupComplete())) {
-			throw redirect(303, '/setup');
-		}
-	}
-
-	return await instrument(
-		'sveltekit.handler',
-		() => svelteKitHandler({ event, resolve, auth, building }),
-		requestAttrs
-	);
+function isOidcEndpoint(pathname: string) {
+	return pathname === '/api/auth' || pathname.startsWith('/api/auth/');
 }
 
-const handleBetterAuth: Handle = async ({ event, resolve }) => {
-	const coldStart = isFirstRequestOnIsolate;
-	isFirstRequestOnIsolate = false;
-	const requestCf = (event.request as Request & { cf?: { colo?: string } }).cf;
-	const requestAttrs = {
-		'http.request.method': event.request.method,
-		'url.pathname': event.url.pathname,
-		'cf.colo': requestCf?.colo,
-		'cf.placement': event.request.headers.get('cf-placement') ?? undefined,
-		'cf.ray': event.request.headers.get('cf-ray') ?? undefined,
-		'worker.cold_start': coldStart,
-		'worker.module_age_ms': Math.round(performance.now() - moduleLoadedAt)
-	};
-
-	timingLog('request.handle.enter', requestAttrs);
+/**
+ * Load the caller's Tetra session. Tetra re-checks the account on every
+ * request, so identity and permissions are never cached past this request.
+ * Returns false when Tetra cannot be reached.
+ */
+async function loadSession(event: RequestEvent): Promise<boolean> {
+	const token =
+		accessibilityFixtureEnabled && event.url.pathname !== '/login'
+			? ACCESSIBILITY_FIXTURE_TOKEN
+			: readSessionToken(event.cookies);
+	if (!token) return true;
 
 	try {
-		if (
-			accessibilityFixtureEnabled &&
-			!authPages.some((route) => event.url.pathname.startsWith(route))
-		) {
-			event.locals.session = accessibilityFixtureSession;
-			event.locals.user = accessibilityFixtureUser;
-
-			return await instrument('sveltekit.resolve', () => resolve(event), requestAttrs);
-		}
-
-		return await instrument(
-			'request.handle',
-			async () => {
-				const isAuthEndpoint =
-					event.url.pathname === '/api/auth' || event.url.pathname.startsWith('/api/auth/');
-				if (event.url.pathname.startsWith('/api/internal/')) {
-					timingLog('request.auth.bypassInternal', requestAttrs);
-					return await instrument('sveltekit.resolve', () => resolve(event), requestAttrs);
-				}
-
-				const isPublic = publicRoutes.some((route) => event.url.pathname.startsWith(route));
-				if (!isAuthEndpoint && isPublic && !hasAuthSessionCookie(event.request)) {
-					timingLog('request.auth.publicNoSession', requestAttrs);
-					return await instrument('sveltekit.resolve', () => resolve(event), requestAttrs);
-				}
-
-				const cached = isAuthEndpoint ? null : await getCachedAuthSession(event.request);
-
-				if (!cached) {
-					return await runFullAuth(event, resolve, requestAttrs);
-				}
-
-				event.locals.session = cached.session;
-				event.locals.user = cached.user;
-
-				if (authPages.some((route) => event.url.pathname.startsWith(route))) {
-					throw redirect(303, '/');
-				}
-
-				if (!setupRoutes.some((route) => event.url.pathname.startsWith(route))) {
-					const { isServerSetupComplete } = await import('$lib/server/setup/state');
-					if (!(await isServerSetupComplete())) {
-						throw redirect(303, '/setup');
-					}
-				}
-
-				return await instrument('sveltekit.resolve', () => resolve(event), requestAttrs);
-			},
-			requestAttrs
+		const info = await instrument('tetra.session.info', () =>
+			getTetra().call('session.info', {}, token)
 		);
-	} finally {
-		timingLog('request.handle.exit', requestAttrs);
+		if (info.session.kind !== 'user' || !info.user) {
+			clearSessionCookie(event.cookies);
+			return true;
+		}
+		event.locals.tetraToken = token;
+		event.locals.session = info.session;
+		event.locals.permissions = info.permissions ?? {};
+		event.locals.user = {
+			id: String(info.user.uid),
+			uid: info.user.uid,
+			username: info.user.username,
+			name: info.user.username,
+			admin: info.user.admin
+		};
+		return true;
+	} catch (cause) {
+		if (isTetraError(cause, 'unauthenticated') || isTetraError(cause, 'wrong_client')) {
+			clearSessionCookie(event.cookies);
+			return true;
+		}
+		if (isTetraError(cause, 'unavailable')) {
+			console.error('[tetra]', cause.message);
+			return false;
+		}
+		throw cause;
 	}
+}
+
+const handleSession: Handle = async ({ event, resolve }) => {
+	const { pathname } = event.url;
+
+	// Better Auth only serves the OIDC provider for apps; logins go to Tetra.
+	if (isOidcEndpoint(pathname)) {
+		const [{ initAuth }, { svelteKitHandler }] = await Promise.all([
+			import('$lib/server/auth'),
+			import('better-auth/svelte-kit')
+		]);
+		return svelteKitHandler({ event, resolve, auth: initAuth(), building });
+	}
+
+	const reachable = await loadSession(event);
+	const access = routeAccess(pathname);
+
+	if (access !== 'public' && !event.locals.user) {
+		if (!reachable) error(503, 'Dashboard cannot reach Tetra on this server.');
+		const redirectTo = `${pathname}${event.url.search}`;
+		redirect(
+			303,
+			redirectTo === '/' ? '/login' : `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+		);
+	}
+
+	if (event.locals.user && pathname === '/login') redirect(303, '/');
+
+	if (!canAccessRoute(pathname, event.locals.permissions)) {
+		error(403, 'You do not have permission to view this page.');
+	}
+
+	return resolve(event);
 };
 
 export const init: ServerInit = async () => {
 	if (building) return;
+	checkTetraConfiguration();
 	await initDatabase();
 };
 
-export const handle: Handle = handleBetterAuth;
+export const handle: Handle = handleSession;

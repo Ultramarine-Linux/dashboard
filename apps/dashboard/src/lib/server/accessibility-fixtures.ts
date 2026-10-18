@@ -1,44 +1,22 @@
+import { dev } from '$app/environment';
 import type { FeatureFlags } from '$lib/feature-flags';
 
-export const accessibilityFixtureEnabled = process.env['ACCESSIBILITY_FIXTURES'] === '1';
-
-const now = new Date('2026-01-01T00:00:00.000Z');
-
-export const accessibilityFixtureUser = {
-	id: 'accessibility-user',
-	name: 'Accessibility Tester',
-	email: 'accessibility@example.com',
-	emailVerified: true,
-	image: null,
-	createdAt: now,
-	updatedAt: now,
-	role: 'admin',
-	isAdmin: true
-};
-
-export const accessibilityFixtureSession = {
-	id: 'accessibility-session',
-	userId: accessibilityFixtureUser.id,
-	token: 'accessibility-session-token',
-	expiresAt: new Date('2027-01-01T00:00:00.000Z'),
-	createdAt: now,
-	updatedAt: now,
-	ipAddress: null,
-	userAgent: null
-};
+/**
+ * Fixture mode logs every visitor in as an administrator, so it only exists
+ * in development. A production build with `ACCESSIBILITY_FIXTURES` set refuses
+ * to start (see `resolveTetraMode`); this check is a second guard.
+ */
+export const accessibilityFixtureEnabled = dev && process.env['ACCESSIBILITY_FIXTURES'] === '1';
 
 export const accessibilityFixtureFeatureFlags: FeatureFlags = {
 	apps: true
 };
 
-export const accessibilityFixtureLocalHost = {
-	id: 'accessibility-host',
-	displayName: 'a11y-host-01',
-	connectionMode: 'direct_http' as const,
-	connectionState: 'online' as const,
-	agentUrl: 'http://127.0.0.1:7777',
-	lastSeenAt: now.getTime(),
-	agentVersion: 'fixture',
+/**
+ * The fixtures log in through the Tetra mock as its first administrator
+ * (see `getTetra`), so identity and permissions come from there.
+ */
+export const accessibilityFixtureHost = {
 	hostname: 'a11y-host-01',
 	os: 'Ultramarine Linux',
 	arch: 'x86_64',
@@ -83,8 +61,5 @@ export const accessibilityFixtureLocalHost = {
 				actions: ['capabilities', 'plan', 'list', 'get', 'create', 'update', 'remove']
 			}
 		]
-	},
-	lastError: null,
-	createdAt: now.getTime(),
-	updatedAt: now.getTime()
+	}
 };

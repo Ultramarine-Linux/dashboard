@@ -8,7 +8,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import {
 		saveManagedHostQuadlet,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
@@ -30,7 +30,7 @@
 	} from '$lib/hosts/quadlets/recipes';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();

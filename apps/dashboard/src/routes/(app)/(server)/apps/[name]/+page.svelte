@@ -19,7 +19,7 @@
 		readManagedHostAppFile,
 		removeManagedHostApp,
 		updateManagedHostApp,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostAppDetail,
 		type ManagedHostAppService,
 		type ManagedHostAppStatus,
@@ -36,7 +36,7 @@
 	import AppValuesForm from '$lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	type LogPanel = {

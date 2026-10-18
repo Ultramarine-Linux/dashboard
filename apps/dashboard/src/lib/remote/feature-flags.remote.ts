@@ -1,8 +1,6 @@
-import { command, getRequestEvent } from '$app/server';
-import { error } from '@sveltejs/kit';
+import { command } from '$app/server';
 import { type } from 'arktype';
-import { requireAdmin } from '$lib/server/auth-context';
-import { initDrizzle } from '$lib/server/db';
+import { requireAdmin } from '$lib/server/session';
 import { setFeatureFlag } from '$lib/server/feature-flags';
 
 const updateFeatureFlagParams = type({
@@ -11,11 +9,7 @@ const updateFeatureFlagParams = type({
 });
 
 export const updateFeatureFlag = command(updateFeatureFlagParams, async (params) => {
-	const event = getRequestEvent();
-
-	if (!event?.locals.user) error(401, 'Authentication required');
-
-	await requireAdmin(initDrizzle(), event.locals.user.id);
+	requireAdmin();
 	const featureFlags = await setFeatureFlag(params.flag, params.enabled);
 
 	return { featureFlags };

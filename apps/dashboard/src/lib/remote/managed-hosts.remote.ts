@@ -1,29 +1,11 @@
-import { command, getRequestEvent, query } from '$app/server';
+import { command, query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
-import { and, asc, eq } from 'drizzle-orm';
-import { initDrizzle } from '$lib/server/db';
-import { requireAdmin } from '$lib/server/auth-context';
-import {
-	createInvitation,
-	invitationUrl,
-	normalizeInvitationEmail,
-	revokeActiveInvitations
-} from '$lib/server/invitations';
-import { getRuntimeEnv } from '$lib/server/env';
-import { readFile } from 'node:fs/promises';
-import { ulid } from '$lib/server/id';
-import { hostUserMappings, managedHosts } from '$lib/server/db/schema';
-
-import {
-	createTetraClient,
-	DirectWebSocketTetraClient,
-	type AgentResponse
-} from '$lib/server/tetra/client';
-import { generateControllerKeypair } from '$lib/server/tetra/controller-keys';
+import { requireAdmin, requireUser, tetraCall } from '$lib/server/session';
+import { isTetraError } from '$lib/server/tetra';
 import {
 	accessibilityFixtureEnabled,
-	accessibilityFixtureLocalHost
+	accessibilityFixtureHost
 } from '$lib/server/accessibility-fixtures';
 import { getAppRecipe } from '$lib/apps/catalog';
 import { isValidAppName } from '$lib/apps/params';
@@ -37,21 +19,21 @@ import {
 	type HostServiceState
 } from '$lib/apps/types';
 
-export type ManagedHost = {
-	id: string;
-	displayName: string;
-	connectionMode: 'direct_http' | 'direct_wss';
-	connectionState: 'online' | 'offline' | 'unknown';
-	agentUrl: string | null;
-	lastSeenAt: number | null;
-	agentVersion: string | null;
+/** A module action's outcome, as the pages expect it. */
+export type AgentResponse = {
+	id?: string;
+	ok: boolean;
+	payload?: unknown;
+	error?: string;
+};
+
+/** What the dashboard shows about this server, read live from Tetra. */
+export type HostSummary = {
 	hostname: string | null;
 	os: string | null;
 	arch: string | null;
+	/** The `agent.capabilities` payload: Tetra's module list. */
 	capabilities: Record<string, unknown> | null;
-	lastError: string | null;
-	createdAt: number;
-	updatedAt: number;
 };
 
 export type ManagedHostUser = {
@@ -193,18 +175,6 @@ export type ManagedHostAppRemoveResult = {
 	deletedUnits: string[];
 };
 
-function requireUser() {
-	const event = getRequestEvent();
-	if (!event?.locals.user) error(401, 'Authentication required');
-	return event.locals.user;
-}
-
-async function requireHostAdmin() {
-	const currentUser = requireUser();
-	await requireAdmin(initDrizzle(), currentUser.id);
-	return currentUser;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -231,76 +201,6 @@ function getSystemOs(system: Record<string, unknown> | null | undefined, fallbac
 		getStringField(system, ['id', 'os']) ??
 		fallback
 	);
-}
-
-function mapHost(row: typeof managedHosts.$inferSelect): ManagedHost {
-	return {
-		id: row.id,
-		displayName: row.displayName,
-		connectionMode: row.connectionMode === 'direct_wss' ? 'direct_wss' : 'direct_http',
-		connectionState: row.connectionState,
-		agentUrl: row.agentUrl,
-		lastSeenAt: row.lastSeenAt,
-		agentVersion: row.agentVersion,
-		hostname: row.hostname,
-		os: row.os,
-		arch: row.arch,
-		capabilities: row.capabilities,
-		lastError: row.lastError,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt
-	};
-}
-
-/**
- * The dashboard manages only the machine it runs on, so the connection to
- * the local Tetra agent is a single `managed_hosts` row created during setup.
- */
-async function findLocalHost(db: ReturnType<typeof initDrizzle>) {
-	return db.query.managedHosts.findFirst({
-		orderBy: [asc(managedHosts.createdAt)]
-	});
-}
-
-async function loadLocalHost() {
-	requireUser();
-	const db = initDrizzle();
-	const host = await findLocalHost(db);
-
-	if (!host) error(503, 'Dashboard is not connected to Tetra on this machine.');
-
-	return { db, host };
-}
-
-async function refreshHostCapabilities(host: typeof managedHosts.$inferSelect) {
-	const client = createTetraClient({
-		connectionMode: host.connectionMode,
-		agentUrl: host.agentUrl,
-		bearerToken: host.bearerToken,
-		controllerPublicKey: host.controllerPublicKey,
-		controllerPrivateKeyEncrypted: host.controllerPrivateKeyEncrypted,
-		hostPublicKey: host.hostPublicKey,
-		tlsCaCertificate: host.tlsCaCertificate
-	});
-
-	await client.health();
-	const capabilities = await client.capabilities();
-	let system: AgentResponse | null = null;
-
-	try {
-		system = await client.dispatch({
-			module: 'settings',
-			action: 'get_system',
-			payload: {}
-		});
-	} catch {
-		system = null;
-	}
-
-	return {
-		capabilities: isRecord(capabilities.payload) ? capabilities.payload : null,
-		system: isRecord(system?.payload) ? system.payload : null
-	};
 }
 
 function mapPodmanResponse(response: AgentResponse): ManagedHostPodmanResult {
@@ -638,77 +538,26 @@ function companionFilenameForEditor(filename: string, bundleName: string) {
 	return filename.startsWith(prefix) ? filename.slice(prefix.length) : filename;
 }
 
-async function dispatchHostCommand(
-	host: typeof managedHosts.$inferSelect,
-	command: { module: string; action: string; payload: Record<string, unknown> | null },
-	password?: string
-) {
-	const event = getRequestEvent();
-	const user = event?.locals.user;
-	let tetraUser: string | null = null;
-	let hasExplicitHostMapping = false;
-
-	if (user) {
-		const db = initDrizzle();
-		const [mapping] = await db
-			.select()
-			.from(hostUserMappings)
-			.where(and(eq(hostUserMappings.userId, user.id), eq(hostUserMappings.hostId, host.id)))
-			.limit(1);
-		hasExplicitHostMapping = Boolean(mapping?.hostUsername?.trim());
-		tetraUser = mapping?.hostUsername ?? user.username ?? user.name ?? null;
-	}
-
-	if (password && !hasExplicitHostMapping) {
-		throw new Error(
-			'Link your Dashboard account to a local host user before requesting elevation.'
-		);
-	}
-
-	const client = createTetraClient({
-		connectionMode: host.connectionMode,
-		agentUrl: host.agentUrl,
-		bearerToken: host.bearerToken,
-		controllerPublicKey: host.controllerPublicKey,
-		controllerPrivateKeyEncrypted: host.controllerPrivateKeyEncrypted,
-		hostPublicKey: host.hostPublicKey,
-		tlsCaCertificate: host.tlsCaCertificate,
-		user: tetraUser
-	});
+/**
+ * Run a module action as the signed-in user. Tetra authorizes it against the
+ * user's session token; a failed action comes back as `ok: false`.
+ */
+async function dispatchHostCommand(command: {
+	module: string;
+	action: string;
+	payload: Record<string, unknown> | null;
+}): Promise<AgentResponse> {
 	try {
-		if (password && client.dispatchElevated)
-			return await client.dispatchElevated(command, password);
-		return await client.dispatch(command);
+		const payload = await tetraCall('module.dispatch', {
+			module: command.module,
+			action: command.action,
+			payload: command.payload ?? {}
+		});
+		return { ok: true, payload };
 	} catch (cause) {
-		const message = cause instanceof Error ? cause.message : 'Tetra command failed';
-		if (message === 'Incorrect password.') {
-			error(
-				401,
-				'The host password was incorrect. Enter the Linux password for the mapped host user.'
-			);
-		}
-		if (message.includes('mapped host user')) {
-			error(400, message);
-		}
+		if (isTetraError(cause, 'action_failed')) return { ok: false, error: cause.message };
 		throw cause;
 	}
-}
-
-async function markHostDispatchResult(
-	db: ReturnType<typeof initDrizzle>,
-	host: typeof managedHosts.$inferSelect,
-	response: AgentResponse
-) {
-	const now = Date.now();
-	await db
-		.update(managedHosts)
-		.set({
-			connectionState: 'online',
-			lastSeenAt: now,
-			lastError: response.ok ? null : response.error || null,
-			updatedAt: now
-		})
-		.where(eq(managedHosts.id, host.id));
 }
 
 function mapManagedHostUsers(response: AgentResponse): ManagedHostUser[] {
@@ -737,187 +586,24 @@ function mapManagedHostUsers(response: AgentResponse): ManagedHostUser[] {
 		.sort((left, right) => left.name.localeCompare(right.name));
 }
 
-const localTetraParams = type({ displayName: 'string' });
-
-async function insertLocalHost(
-	db: ReturnType<typeof initDrizzle>,
-	displayName: string,
-	agentUrl: string
-) {
-	const controllerKey = generateControllerKeypair();
-	const [host] = await db
-		.insert(managedHosts)
-		.values({
-			displayName,
-			connectionState: 'unknown',
-			agentUrl,
-			controllerKeyId: `controller-${ulid()}`,
-			controllerPublicKey: controllerKey.publicKey,
-			controllerPrivateKeyEncrypted: controllerKey.privateKeyEncrypted
-		})
-		.returning();
-
-	return host;
-}
-
-/**
- * Enroll the dashboard's controller key with Tetra. Returns an error message
- * instead of throwing so discovery can try the next endpoint.
- */
-async function enrollLocalHost(
-	db: ReturnType<typeof initDrizzle>,
-	host: typeof managedHosts.$inferSelect,
-	enrollmentToken: string,
-	tlsCaCertificate: string
-): Promise<{ host: typeof managedHosts.$inferSelect } | { error: string }> {
-	if (!host.agentUrl || !host.controllerPublicKey || !host.controllerPrivateKeyEncrypted) {
-		return { error: 'Local host does not have an agent URL or controller key material' };
-	}
-
-	let hostPublicKey: string;
-	try {
-		const client = new DirectWebSocketTetraClient(
-			host.agentUrl,
-			host.controllerPrivateKeyEncrypted,
-			host.controllerPublicKey,
-			host.hostPublicKey,
-			tlsCaCertificate
-		);
-		hostPublicKey = await client.enroll(enrollmentToken);
-	} catch (err) {
-		return { error: err instanceof Error ? err.message : 'Tetra enrollment failed' };
-	}
-
-	const [updated] = await db
-		.update(managedHosts)
-		.set({
-			connectionMode: 'direct_wss',
-			hostPublicKey,
-			tlsCaCertificate,
-			connectionState: 'unknown',
-			lastError: null,
-			updatedAt: Date.now()
-		})
-		.where(eq(managedHosts.id, host.id))
-		.returning();
-	return { host: updated };
-}
-
-/**
- * Connect the dashboard to the Tetra agent on this machine by enrolling the
- * first reachable local endpoint, using credentials explicitly provided by the
- * runtime environment. We never scan arbitrary files or networks, and unset
- * credential paths disable this. There is only ever one local host row.
- */
-export const enrollLocalTetra = command(
-	localTetraParams,
-	async (params): Promise<ManagedHost | null> => {
-		requireUser();
-		const db = initDrizzle();
-		const existing = await findLocalHost(db);
-		if (existing?.connectionMode === 'direct_wss' && existing.hostPublicKey) {
-			console.info('[tetra] using existing enrolled local host', existing.agentUrl);
-			return mapHost(existing);
-		}
-
-		const runtime = getRuntimeEnv();
-		console.info('[tetra] local detection requested', {
-			endpointFile: runtime.TETRA_ENROLLMENT_TOKEN_FILE,
-			caFile: runtime.TETRA_TLS_CA_CERTIFICATE_FILE,
-			endpoints: runtime.TETRA_LOCAL_ENDPOINTS
-		});
-		if (!runtime.TETRA_ENROLLMENT_TOKEN_FILE || !runtime.TETRA_TLS_CA_CERTIFICATE_FILE) {
-			throw new Error('Local Tetra credentials are not configured in Dashboard.');
-		}
-
-		let enrollmentToken: string;
-		let tlsCaCertificate: string;
-		try {
-			[enrollmentToken, tlsCaCertificate] = await Promise.all([
-				readFile(runtime.TETRA_ENROLLMENT_TOKEN_FILE, 'utf8'),
-				readFile(runtime.TETRA_TLS_CA_CERTIFICATE_FILE, 'utf8')
-			]);
-		} catch (cause) {
-			console.warn('[tetra] local detection skipped: unable to read credentials', cause);
-			throw new Error('Dashboard cannot read the local Tetra token or CA certificate.');
-		}
-		const token =
-			enrollmentToken
-				.split(/\r?\n/)
-				.find((line) => line.startsWith('TETRA_ENROLLMENT_TOKEN='))
-				?.slice('TETRA_ENROLLMENT_TOKEN='.length)
-				.trim() || enrollmentToken.trim();
-		if (!token || !tlsCaCertificate.trim()) {
-			throw new Error('The local Tetra enrollment token or CA certificate is empty.');
-		}
-
-		// A row that never finished enrolling holds no usable trust; replace it.
-		if (existing) await db.delete(managedHosts).where(eq(managedHosts.id, existing.id));
-
-		const displayName = params.displayName.trim() || 'Local host';
-		const endpoints = (
-			runtime.TETRA_LOCAL_ENDPOINTS ??
-			'wss://tetra:7780,wss://host.containers.internal:7781,wss://host.containers.internal:7780,wss://127.0.0.1:7780'
-		)
-			.split(',')
-			.map((value) => value.trim())
-			.filter(Boolean);
-		const failures: string[] = [];
-		console.info('[tetra] trying local endpoints', endpoints);
-		for (const agentUrl of endpoints) {
-			try {
-				const host = await insertLocalHost(db, displayName, agentUrl);
-				const result = await enrollLocalHost(db, host, token, tlsCaCertificate.trim());
-				if ('host' in result) {
-					console.info('[tetra] enrolled local host', agentUrl);
-					return mapHost(result.host);
-				}
-
-				failures.push(`${agentUrl}: ${result.error}`);
-				await db.delete(managedHosts).where(eq(managedHosts.id, host.id));
-			} catch (cause) {
-				const message = cause instanceof Error ? cause.message : 'unknown enrollment error';
-				failures.push(`${agentUrl}: ${message}`);
-			}
-		}
-		if (failures.length > 0) {
-			throw new Error(`Local Tetra enrollment failed. ${failures.join(' | ')}`);
-		}
-		return null;
-	}
-);
-
-export const getLocalHost = query(async (): Promise<ManagedHost | null> => {
-	requireUser();
-	if (accessibilityFixtureEnabled) return accessibilityFixtureLocalHost;
-
-	const host = await findLocalHost(initDrizzle());
-	return host ? mapHost(host) : null;
-});
-
 export const listManagedHostUsers = command(async (): Promise<ManagedHostUser[]> => {
-	await requireHostAdmin();
-	const { db, host } = await loadLocalHost();
-	const response = await dispatchHostCommand(host, {
+	requireAdmin();
+	const response = await dispatchHostCommand({
 		module: 'users',
 		action: 'list',
 		payload: {}
 	});
-	await markHostDispatchResult(db, host, response);
 	return mapManagedHostUsers(response);
 });
 
 const createHostUserParams = type({
 	username: 'string',
 	shell: 'string?',
-	home: 'string?',
-	createDashboardUser: 'boolean',
-	email: 'string?'
+	home: 'string?'
 });
 
 export const createManagedHostUser = command(createHostUserParams, async (params) => {
-	const currentUser = await requireHostAdmin();
-	const { db, host } = await loadLocalHost();
+	requireAdmin();
 	const username = params.username.trim();
 	if (!/^[a-z_][a-z0-9_-]{0,30}$/.test(username)) {
 		error(
@@ -925,18 +611,15 @@ export const createManagedHostUser = command(createHostUserParams, async (params
 			'Host usernames must start with a lowercase letter or underscore and contain only lowercase letters, numbers, underscores, or hyphens.'
 		);
 	}
-	if (params.createDashboardUser && !params.email?.trim()) {
-		error(400, 'An email address is required when creating a dashboard user.');
-	}
 
-	const status = await dispatchHostCommand(host, {
+	const status = await dispatchHostCommand({
 		module: 'users',
 		action: 'status',
 		payload: { name: username }
 	});
 	if (status.ok) error(409, 'A host user with that username already exists.');
 
-	const response = await dispatchHostCommand(host, {
+	const response = await dispatchHostCommand({
 		module: 'users',
 		action: 'create',
 		payload: {
@@ -945,88 +628,33 @@ export const createManagedHostUser = command(createHostUserParams, async (params
 			home: params.home?.trim() || undefined
 		}
 	});
-	await markHostDispatchResult(db, host, response);
 	if (!response.ok) throw new Error(response.error || 'Failed to create host user');
+});
 
-	if (!params.createDashboardUser) return { invitationUrl: null };
-
-	const email = normalizeInvitationEmail(params.email!);
-	await revokeActiveInvitations(host.id, username);
-	const invitation = await createInvitation({
-		email,
-		displayName: username,
-		hostId: host.id,
-		hostUsername: username,
-		hostShell: params.shell,
-		createdByUserId: currentUser.id
+async function getSystem(): Promise<Record<string, unknown> | null> {
+	const response = await dispatchHostCommand({
+		module: 'settings',
+		action: 'get_system',
+		payload: {}
 	});
+	return response.ok && isRecord(response.payload) ? response.payload : null;
+}
+
+/** The server's name, OS and modules. Any signed-in user may read them. */
+export const getHostSummary = query(async (): Promise<HostSummary> => {
+	requireUser();
+	if (accessibilityFixtureEnabled) return accessibilityFixtureHost;
+
+	const [system, capabilities] = await Promise.all([
+		getSystem(),
+		dispatchHostCommand({ module: 'agent', action: 'capabilities', payload: {} })
+	]);
 	return {
-		invitationUrl: invitationUrl(getRuntimeEnv().ORIGIN, invitation.token),
-		expiresAt: invitation.expiresAt
+		hostname: getStringField(system, ['hostname', 'static_hostname', 'staticHostname']),
+		os: getSystemOs(system, null),
+		arch: getStringField(system, ['arch']),
+		capabilities: capabilities.ok && isRecord(capabilities.payload) ? capabilities.payload : null
 	};
-});
-
-const regenerateHostUserInvitationParams = type({
-	username: 'string',
-	email: 'string'
-});
-export const regenerateManagedHostUserInvitation = command(
-	regenerateHostUserInvitationParams,
-	async (params) => {
-		const currentUser = await requireHostAdmin();
-		const { host } = await loadLocalHost();
-		const username = params.username.trim();
-		const email = normalizeInvitationEmail(params.email);
-		await revokeActiveInvitations(host.id, username);
-		const invitation = await createInvitation({
-			email,
-			displayName: username,
-			hostId: host.id,
-			hostUsername: username,
-			createdByUserId: currentUser.id
-		});
-		return {
-			invitationUrl: invitationUrl(getRuntimeEnv().ORIGIN, invitation.token),
-			expiresAt: invitation.expiresAt
-		};
-	}
-);
-
-export const refreshManagedHostCapabilities = command(async (): Promise<ManagedHost> => {
-	const { db, host } = await loadLocalHost();
-
-	try {
-		const result = await refreshHostCapabilities(host);
-		const now = Date.now();
-		const [updated] = await db
-			.update(managedHosts)
-			.set({
-				connectionState: 'online',
-				lastSeenAt: now,
-				capabilities: result.capabilities,
-				os: getSystemOs(result.system, host.os),
-				arch: typeof result.system?.arch === 'string' ? result.system.arch : host.arch,
-				lastError: null,
-				updatedAt: now
-			})
-			.where(eq(managedHosts.id, host.id))
-			.returning();
-
-		return mapHost(updated);
-	} catch (err) {
-		const now = Date.now();
-		const [updated] = await db
-			.update(managedHosts)
-			.set({
-				connectionState: 'offline',
-				lastError: err instanceof Error ? err.message : 'Failed to refresh host capabilities',
-				updatedAt: now
-			})
-			.where(eq(managedHosts.id, host.id))
-			.returning();
-
-		return mapHost(updated);
-	}
 });
 
 const dispatchParams = type({
@@ -1041,12 +669,10 @@ function responsePayload(response: AgentResponse, message: string) {
 }
 
 export const getManagedHostStorage = command(async (): Promise<ManagedHostStorageResult> => {
-	const { db, host } = await loadLocalHost();
 	const [listResponse, zfsResponse] = await Promise.all([
-		dispatchHostCommand(host, { module: 'storage', action: 'list', payload: {} }),
-		dispatchHostCommand(host, { module: 'storage', action: 'zfs', payload: {} })
+		dispatchHostCommand({ module: 'storage', action: 'list', payload: {} }),
+		dispatchHostCommand({ module: 'storage', action: 'zfs', payload: {} })
 	]);
-	await markHostDispatchResult(db, host, listResponse);
 	const list = responsePayload(listResponse, 'Failed to load storage inventory.');
 	const zfs = zfsResponse.ok && isRecord(zfsResponse.payload) ? zfsResponse.payload : null;
 	return {
@@ -1057,13 +683,11 @@ export const getManagedHostStorage = command(async (): Promise<ManagedHostStorag
 });
 
 export const getManagedHostNetwork = command(async (): Promise<ManagedHostNetworkResult> => {
-	const { db, host } = await loadLocalHost();
 	const responses = await Promise.all([
-		dispatchHostCommand(host, { module: 'network', action: 'interfaces', payload: {} }),
-		dispatchHostCommand(host, { module: 'network', action: 'dns', payload: {} }),
-		dispatchHostCommand(host, { module: 'network', action: 'routes', payload: {} })
+		dispatchHostCommand({ module: 'network', action: 'interfaces', payload: {} }),
+		dispatchHostCommand({ module: 'network', action: 'dns', payload: {} }),
+		dispatchHostCommand({ module: 'network', action: 'routes', payload: {} })
 	]);
-	await markHostDispatchResult(db, host, responses[0]);
 	const interfaces = responsePayload(responses[0], 'Failed to load network interfaces.');
 	const dns = responsePayload(responses[1], 'Failed to load DNS configuration.');
 	const routes = responsePayload(responses[2], 'Failed to load network routes.');
@@ -1074,8 +698,6 @@ export const getManagedHostNetwork = command(async (): Promise<ManagedHostNetwor
 	};
 });
 export const dispatchManagedHostCommand = command(dispatchParams, async (params) => {
-	const { db, host } = await loadLocalHost();
-
 	let payload: Record<string, unknown>;
 	try {
 		const parsed = JSON.parse(params.payloadJson);
@@ -1084,13 +706,11 @@ export const dispatchManagedHostCommand = command(dispatchParams, async (params)
 		error(400, 'Payload must be valid JSON');
 	}
 
-	const response = await dispatchHostCommand(host, {
+	const response = await dispatchHostCommand({
 		module: params.module.trim(),
 		action: params.action.trim(),
 		payload
 	});
-
-	await markHostDispatchResult(db, host, response);
 
 	return response;
 });
@@ -1108,14 +728,11 @@ export const listManagedHostPodman = command(
 		const resource = params.resource as ManagedHostPodmanResource;
 		if (accessibilityFixtureEnabled) return fixturePodmanResult(resource);
 
-		const { db, host } = await loadLocalHost();
-
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'podman',
 			action: resource,
 			payload: null
 		});
-		await markHostDispatchResult(db, host, response);
 		return mapPodmanResponse(response);
 	}
 );
@@ -1127,9 +744,7 @@ const podmanLogsParams = type({
 export const getManagedHostPodmanLogs = command(podmanLogsParams, async (params) => {
 	if (accessibilityFixtureEnabled) return fixturePodmanContainerDetail(params.name).logs;
 
-	const { db, host } = await loadLocalHost();
-
-	const response = await dispatchHostCommand(host, {
+	const response = await dispatchHostCommand({
 		module: 'podman',
 		action: 'logs',
 		payload: {
@@ -1137,7 +752,6 @@ export const getManagedHostPodmanLogs = command(podmanLogsParams, async (params)
 			lines: Math.max(1, Math.min(1000, Math.trunc(params.lines)))
 		}
 	});
-	await markHostDispatchResult(db, host, response);
 
 	if (!response.ok) throw new Error(response.error || 'Failed to load container logs');
 	const payload = isRecord(response.payload) ? response.payload : {};
@@ -1150,24 +764,20 @@ export const getManagedHostPodmanContainer = command(
 		const lines = Math.max(1, Math.min(1000, Math.trunc(params.lines)));
 		if (accessibilityFixtureEnabled) return fixturePodmanContainerDetail(params.name);
 
-		const { db, host } = await loadLocalHost();
-
-		const inspectResponse = await dispatchHostCommand(host, {
+		const inspectResponse = await dispatchHostCommand({
 			module: 'podman',
 			action: 'inspect',
 			payload: { name: params.name }
 		});
-		await markHostDispatchResult(db, host, inspectResponse);
 		if (!inspectResponse.ok) {
 			throw new Error(inspectResponse.error || 'Failed to inspect container');
 		}
 
-		const logsResponse = await dispatchHostCommand(host, {
+		const logsResponse = await dispatchHostCommand({
 			module: 'podman',
 			action: 'logs',
 			payload: { name: params.name, lines }
 		});
-		await markHostDispatchResult(db, host, logsResponse);
 		if (!logsResponse.ok) {
 			throw new Error(logsResponse.error || 'Failed to load container logs');
 		}
@@ -1199,14 +809,11 @@ export const runManagedHostPodmanContainerAction = command(podmanActionParams, a
 		} satisfies AgentResponse;
 	}
 
-	const { db, host } = await loadLocalHost();
-
-	const response = await dispatchHostCommand(host, {
+	const response = await dispatchHostCommand({
 		module: 'podman',
 		action: params.action,
 		payload: { name: params.name }
 	});
-	await markHostDispatchResult(db, host, response);
 
 	if (!response.ok) throw new Error(response.error || 'Podman container action failed');
 	return response;
@@ -1215,21 +822,18 @@ export const runManagedHostPodmanContainerAction = command(podmanActionParams, a
 const reverseProxySiteParams = type({
 	domain: 'string',
 	upstream: 'string',
-	tls: 'boolean',
-	adminPassword: 'string?'
+	tls: 'boolean'
 });
 
 export const listManagedHostReverseProxySites = command(
 	async (): Promise<ManagedHostReverseProxyList> => {
 		if (accessibilityFixtureEnabled) return fixtureReverseProxyList();
 
-		const { db, host } = await loadLocalHost();
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'reverse_proxy',
 			action: 'list',
 			payload: {}
 		});
-		await markHostDispatchResult(db, host, response);
 		return mapReverseProxyList(response);
 	}
 );
@@ -1241,22 +845,16 @@ export const writeManagedHostReverseProxySite = command(
 			return { filename: `${params.domain}.caddy`, path: null, ...params };
 		}
 
-		const { db, host } = await loadLocalHost();
-		const response = await dispatchHostCommand(
-			host,
-			{
-				module: 'reverse_proxy',
-				action: 'write',
-				payload: {
-					domain: params.domain,
-					upstream: params.upstream,
-					tls: params.tls,
-					reload: true
-				}
-			},
-			params.adminPassword
-		);
-		await markHostDispatchResult(db, host, response);
+		const response = await dispatchHostCommand({
+			module: 'reverse_proxy',
+			action: 'write',
+			payload: {
+				domain: params.domain,
+				upstream: params.upstream,
+				tls: params.tls,
+				reload: true
+			}
+		});
 		if (!response.ok) throw new Error(response.error || 'Failed to save reverse proxy site');
 		const payload = isRecord(response.payload) ? response.payload : {};
 		const site = mapReverseProxySite(payload.site);
@@ -1270,49 +868,33 @@ export const writeManagedHostReverseProxySite = command(
 );
 
 const reverseProxyDeleteParams = type({
-	domain: 'string',
-	adminPassword: 'string?'
+	domain: 'string'
 });
 export const deleteManagedHostReverseProxySite = command(
 	reverseProxyDeleteParams,
 	async (params) => {
 		if (accessibilityFixtureEnabled) return;
 
-		const { db, host } = await loadLocalHost();
-		const response = await dispatchHostCommand(
-			host,
-			{
-				module: 'reverse_proxy',
-				action: 'delete',
-				payload: { domain: params.domain, reload: true }
-			},
-			params.adminPassword
-		);
-		await markHostDispatchResult(db, host, response);
+		const response = await dispatchHostCommand({
+			module: 'reverse_proxy',
+			action: 'delete',
+			payload: { domain: params.domain, reload: true }
+		});
 		if (!response.ok) throw new Error(response.error || 'Failed to delete reverse proxy site');
 	}
 );
 
-export const reloadManagedHostReverseProxy = command(
-	type({ adminPassword: 'string?' }),
-	async (params) => {
-		if (accessibilityFixtureEnabled) return { ok: true };
+export const reloadManagedHostReverseProxy = command(async () => {
+	if (accessibilityFixtureEnabled) return { ok: true };
 
-		const { db, host } = await loadLocalHost();
-		const response = await dispatchHostCommand(
-			host,
-			{
-				module: 'reverse_proxy',
-				action: 'reload',
-				payload: {}
-			},
-			params.adminPassword
-		);
-		await markHostDispatchResult(db, host, response);
-		if (!response.ok) throw new Error(response.error || 'Failed to reload Caddy');
-		return response;
-	}
-);
+	const response = await dispatchHostCommand({
+		module: 'reverse_proxy',
+		action: 'reload',
+		payload: {}
+	});
+	if (!response.ok) throw new Error(response.error || 'Failed to reload Caddy');
+	return response;
+});
 
 const quadletScopeValues = ['user', 'system'] as const;
 
@@ -1378,14 +960,11 @@ export const listManagedHostQuadlets = command(
 			};
 		}
 
-		const { db, host } = await loadLocalHost();
-
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'quadlets',
 			action: 'list_files',
 			payload: { scope }
 		});
-		await markHostDispatchResult(db, host, response);
 		return mapQuadletList(response);
 	}
 );
@@ -1403,22 +982,18 @@ export const getManagedHostQuadlet = command(
 		if (!filename) error(400, 'Quadlet filename is required');
 		if (accessibilityFixtureEnabled) return fixtureQuadletDetail(filename, scope);
 
-		const { db, host } = await loadLocalHost();
-
-		const listResponse = await dispatchHostCommand(host, {
+		const listResponse = await dispatchHostCommand({
 			module: 'quadlets',
 			action: 'list_files',
 			payload: { scope }
 		});
-		await markHostDispatchResult(db, host, listResponse);
 		const list = mapQuadletList(listResponse);
 
-		const readResponse = await dispatchHostCommand(host, {
+		const readResponse = await dispatchHostCommand({
 			module: 'quadlets',
 			action: 'read',
 			payload: { scope, filename }
 		});
-		await markHostDispatchResult(db, host, readResponse);
 		const quadlet = mapQuadletRead(readResponse, filename);
 		const bundleName = quadletBundleName(filename);
 
@@ -1426,12 +1001,11 @@ export const getManagedHostQuadlet = command(
 		for (const file of list.files.filter(
 			(item) => !item.quadlet && item.filename.startsWith(`${bundleName}/`)
 		)) {
-			const fileResponse = await dispatchHostCommand(host, {
+			const fileResponse = await dispatchHostCommand({
 				module: 'quadlets',
 				action: 'read',
 				payload: { scope, filename: file.filename, companion: true }
 			});
-			await markHostDispatchResult(db, host, fileResponse);
 			companionFiles.push({
 				filename: companionFilenameForEditor(file.filename, bundleName),
 				contents: mapQuadletRead(fileResponse, file.filename).contents
@@ -1490,9 +1064,7 @@ export const saveManagedHostQuadlet = command(quadletSaveParams, async (params) 
 		} satisfies AgentResponse;
 	}
 
-	const { db, host } = await loadLocalHost();
-
-	const response = await dispatchHostCommand(host, {
+	const response = await dispatchHostCommand({
 		module: 'quadlets',
 		action: 'install',
 		payload: {
@@ -1501,7 +1073,6 @@ export const saveManagedHostQuadlet = command(quadletSaveParams, async (params) 
 			files
 		}
 	});
-	await markHostDispatchResult(db, host, response);
 
 	if (!response.ok) throw new Error(response.error || 'Failed to save Quadlet bundle');
 	return response;
@@ -1629,16 +1200,13 @@ function mapAppServices(
 }
 
 async function dispatchAppServiceStates(
-	db: ReturnType<typeof initDrizzle>,
-	host: typeof managedHosts.$inferSelect,
 	scope: ManagedHostQuadletScope
 ): Promise<HostServiceState[] | null> {
-	const response = await dispatchHostCommand(host, {
+	const response = await dispatchHostCommand({
 		module: 'services',
 		action: 'list',
 		payload: { scope }
 	});
-	await markHostDispatchResult(db, host, response);
 	// Service state is best-effort: an app list/detail still renders with
 	// `unknown` status when the services module is unavailable.
 	if (!response.ok) return null;
@@ -1685,17 +1253,14 @@ export const listManagedHostApps = command(
 		const scope = normalizeQuadletScope(params.scope);
 		if (accessibilityFixtureEnabled) return [fixtureAppListItem(scope)];
 
-		const { db, host } = await loadLocalHost();
-
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'apps',
 			action: 'list',
 			payload: { scope }
 		});
-		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to list apps');
 		const apps = parseAppSummaries(response.payload);
-		const states = await dispatchAppServiceStates(db, host, scope);
+		const states = await dispatchAppServiceStates(scope);
 
 		return apps.map((app) => {
 			const { services, status } = mapAppServices(app.services, states);
@@ -1726,18 +1291,15 @@ export const getManagedHostApp = command(
 		const scope = normalizeQuadletScope(params.scope);
 		if (accessibilityFixtureEnabled) return fixtureAppDetail(scope);
 
-		const { db, host } = await loadLocalHost();
-
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'apps',
 			action: 'get',
 			payload: { name: params.name, scope }
 		});
-		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to load app');
 		const detail = parseAppDetailResponse(response.payload);
 		if (!detail) error(502, 'App detail response was invalid');
-		const states = await dispatchAppServiceStates(db, host, scope);
+		const states = await dispatchAppServiceStates(scope);
 		const { services, status } = mapAppServices(detail.services, states);
 
 		return {
@@ -1756,8 +1318,7 @@ const appCreateParams = type({
 	scope: 'string',
 	name: 'string',
 	recipeId: 'string',
-	valuesJson: 'string',
-	adminPassword: 'string?'
+	valuesJson: 'string'
 });
 
 export const createManagedHostApp = command(
@@ -1777,29 +1338,20 @@ export const createManagedHostApp = command(
 		if (!recipe) error(400, 'Unknown recipe');
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
-		if (!params.adminPassword?.trim())
-			error(400, 'Administrator password is required for app creation');
+		requireAdmin();
 
-		await requireHostAdmin();
-		const { db, host } = await loadLocalHost();
-
-		const response = await dispatchHostCommand(
-			host,
-			{
-				module: 'apps',
-				action: 'create',
-				payload: {
-					name,
-					scope,
-					recipe: recipe.recipeYaml,
-					templates: recipe.templates,
-					values,
-					converge: true
-				}
-			},
-			params.adminPassword
-		);
-		await markHostDispatchResult(db, host, response);
+		const response = await dispatchHostCommand({
+			module: 'apps',
+			action: 'create',
+			payload: {
+				name,
+				scope,
+				recipe: recipe.recipeYaml,
+				templates: recipe.templates,
+				values,
+				converge: true
+			}
+		});
 		if (!response.ok) throw new Error(response.error || 'Failed to create app');
 		return mapAppWriteResult(response.payload);
 	}
@@ -1825,15 +1377,13 @@ export const updateManagedHostApp = command(
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
 
-		await requireHostAdmin();
-		const { db, host } = await loadLocalHost();
+		requireAdmin();
 
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'apps',
 			action: 'update',
 			payload: { name, scope, values, converge: true }
 		});
-		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to update app');
 		return mapAppWriteResult(response.payload);
 	}
@@ -1863,15 +1413,13 @@ export const removeManagedHostApp = command(
 			};
 		}
 
-		await requireHostAdmin();
-		const { db, host } = await loadLocalHost();
+		requireAdmin();
 
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'apps',
 			action: 'remove',
 			payload: { name, scope, converge: true }
 		});
-		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to remove app');
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return {
@@ -1902,13 +1450,11 @@ export const getManagedHostAppServiceLogs = command(
 		}
 		if (accessibilityFixtureEnabled) return fixtureAppServiceLogs;
 
-		const { db, host } = await loadLocalHost();
-		const appResponse = await dispatchHostCommand(host, {
+		const appResponse = await dispatchHostCommand({
 			module: 'apps',
 			action: 'get',
 			payload: { name, scope }
 		});
-		await markHostDispatchResult(db, host, appResponse);
 		if (!appResponse.ok) throw new Error(appResponse.error || 'Failed to load app');
 		const app = parseAppDetailResponse(appResponse.payload);
 		if (!app) error(502, 'App detail response was invalid');
@@ -1916,7 +1462,7 @@ export const getManagedHostAppServiceLogs = command(
 			error(404, 'Service is not part of this app');
 		}
 
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'services',
 			action: 'logs',
 			payload: {
@@ -1925,7 +1471,6 @@ export const getManagedHostAppServiceLogs = command(
 				lines: Math.max(1, Math.min(1000, Math.trunc(params.lines)))
 			}
 		});
-		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to load service logs');
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return typeof payload.stdout === 'string' ? payload.stdout : '';
@@ -1953,18 +1498,15 @@ export const readManagedHostAppFile = command(
 			return { filename: params.filename, contents: '<h1>Hello from demo-web</h1>\n' };
 		}
 
-		const { db, host } = await loadLocalHost();
-
 		// Resolve the app manifest first so callers can only read companion files
 		// recorded by that app. The agent protects traversal, but this additional
 		// ownership check prevents arbitrary bundle files (including app.json)
 		// from being exposed through the dashboard action.
-		const detailResponse = await dispatchHostCommand(host, {
+		const detailResponse = await dispatchHostCommand({
 			module: 'apps',
 			action: 'get',
 			payload: { name, scope }
 		});
-		await markHostDispatchResult(db, host, detailResponse);
 		if (!detailResponse.ok) throw new Error(detailResponse.error || 'Failed to load app');
 		const detail = parseAppDetailResponse(detailResponse.payload);
 		if (!detail) error(502, 'App detail response was invalid');
@@ -1973,12 +1515,11 @@ export const readManagedHostAppFile = command(
 
 		// App companion files live under `<app>/<filename>` in the Quadlet
 		// files base dir (see `quadlets.rs` `Read`).
-		const response = await dispatchHostCommand(host, {
+		const response = await dispatchHostCommand({
 			module: 'quadlets',
 			action: 'read',
 			payload: { scope, filename: `${name}/${params.filename}`, companion: true }
 		});
-		await markHostDispatchResult(db, host, response);
 		if (!response.ok) throw new Error(response.error || 'Failed to read app file');
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return {
@@ -1987,54 +1528,3 @@ export const readManagedHostAppFile = command(
 		};
 	}
 );
-
-export const getHostUserMapping = query(async () => {
-	requireUser();
-	if (accessibilityFixtureEnabled) return null;
-
-	const currentUser = requireUser();
-	const db = initDrizzle();
-	const host = await findLocalHost(db);
-	if (!host) return null;
-	const [mapping] = await db
-		.select({ hostUsername: hostUserMappings.hostUsername })
-		.from(hostUserMappings)
-		.where(and(eq(hostUserMappings.userId, currentUser.id), eq(hostUserMappings.hostId, host.id)))
-		.limit(1);
-	return mapping?.hostUsername ?? null;
-});
-
-const setHostUserMappingParams = type({ hostUsername: 'string' });
-export const setHostUserMapping = command(setHostUserMappingParams, async (params) => {
-	requireUser();
-	if (accessibilityFixtureEnabled) return;
-
-	const currentUser = requireUser();
-	const { db, host } = await loadLocalHost();
-	const hostUsername = params.hostUsername.trim() || null;
-
-	const existing = await db
-		.select({ id: hostUserMappings.id })
-		.from(hostUserMappings)
-		.where(and(eq(hostUserMappings.userId, currentUser.id), eq(hostUserMappings.hostId, host.id)))
-		.limit(1);
-
-	if (hostUsername) {
-		if (existing.length > 0) {
-			await db
-				.update(hostUserMappings)
-				.set({ hostUsername, updatedAt: Date.now() })
-				.where(eq(hostUserMappings.id, existing[0].id));
-		} else {
-			await db.insert(hostUserMappings).values({
-				id: ulid(),
-				userId: currentUser.id,
-				hostId: host.id,
-				hostUsername,
-				updatedAt: Date.now()
-			});
-		}
-	} else if (existing.length > 0) {
-		await db.delete(hostUserMappings).where(eq(hostUserMappings.id, existing[0].id));
-	}
-});

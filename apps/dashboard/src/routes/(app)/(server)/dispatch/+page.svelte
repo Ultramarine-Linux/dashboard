@@ -3,14 +3,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { dispatchManagedHostCommand, type ManagedHost } from '$lib/remote/managed-hosts.remote';
+	import { dispatchManagedHostCommand, type HostSummary } from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Send from '~icons/lucide/send';
 	import { parseHostCapabilities } from '$lib/hosts/capabilities';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();

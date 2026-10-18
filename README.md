@@ -9,6 +9,12 @@ Dashboard for Ultramarine Server management. This app is intended to run self-ho
 2. For local application work, configure the environment values below. Dashboard creates and migrates its SQLite database on startup.
 3. `pnpm --filter ultramarine-dashboard-app dev`
 
+Without a Tetra build that has the session API, run with `TETRA_MOCK=1` to use
+an in-memory Tetra (development only). It has the accounts `admin`/`admin`
+(administrator) and `user`/`user` (TOTP enrolled with the secret
+`JBSWY3DPEHPK3PXP`, or recovery code `aaaaa-11111`). Passkeys work on
+`http://localhost`; the mock does not check passkey signatures.
+
 Details, one-time machine setup, and caveats: [dev/README.md](dev/README.md)
 
 For UI-only work on macOS or without the local database/backend stack, use the
@@ -17,8 +23,15 @@ fixture mode documented in [dev/README.md](dev/README.md#fixture-ui-mode).
 ## Managed applications
 
 Dashboard manages only the server it runs on, through the local Tetra agent.
-It connects to Tetra during first-run setup (or from the **Connect to Tetra**
-prompt if setup was finished without it).
+It talks to Tetra over the Unix socket `/run/tetra/tetra.sock`, and Tetra
+identifies it by the socket's peer UID, so there is nothing to enroll.
+
+Accounts are the server's system accounts. Tetra checks the password (PAM),
+then a TOTP or recovery code if the account has one, or a passkey, and issues a
+session token that Dashboard keeps in an httpOnly cookie and sends with every
+call. Tetra authorizes every action; Dashboard only hides pages Tetra says the
+user cannot see, and answers 403 for them. First-time setup happens in the
+server OOBE, not in Dashboard.
 
 Dashboard can cook and manage recipe-backed applications on this server. The
 application catalog and application routes live under
@@ -32,9 +45,6 @@ create, inspect, update, or remove an application.
 ```sh
 pnpm --filter ultramarine-dashboard-app build
 ORIGIN=http://localhost:3000 \
-EMAIL_FROM_ADDRESS=no-reply@localhost \
-EMAIL_FROM_NAME="Ultramarine Server" \
-EMAIL_REPLY_TO=support@localhost \
 node apps/dashboard/build
 ```
 
@@ -48,11 +58,10 @@ Dashboard stores its state in SQLite (WAL mode) at `/var/lib/ultramarine-dashboa
 
 `BETTER_AUTH_SECRET` is generated automatically on first boot when it is not supplied. Dashboard writes it to a mutable, owner-only state file: `/var/lib/ultramarine-dashboard/better-auth-secret` in production, or `~/.local/state/ultramarine-dashboard/better-auth-secret` in development. Set `BETTER_AUTH_SECRET` to use a deployment-managed secret, or `BETTER_AUTH_SECRET_FILE` to use a specific owner-only secret file. Use `UM_DASHBOARD_STATE_DIR` to change the generated-secret state directory.
 
-- `EMAIL_FROM_ADDRESS`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO` — email identity values.
-
-Email verification is disabled by default. Set `EMAIL_VERIFICATION_REQUIRED=true` once setup includes a configured mail provider.
-
 Optional:
 
-- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+- `TETRA_SOCKET_PATH` — Tetra's socket, if not `/run/tetra/tetra.sock`.
+- `TETRA_MOCK=1` — use the in-memory Tetra mock in `pnpm dev`. A production build refuses to start while `TETRA_MOCK` is set to anything, because the mock accepts any registered passkey without checking it.
+- `ACCESSIBILITY_FIXTURES=1` — fixture mode for the accessibility suite, which logs every visitor in as an administrator. It only works on the dev server; a production build refuses to start while it is set to anything.
+- `ADDRESS_HEADER=X-Forwarded-For` — so Tetra sees the browser's address behind Caddy.
 - `INTERNAL_CRON_SECRET`

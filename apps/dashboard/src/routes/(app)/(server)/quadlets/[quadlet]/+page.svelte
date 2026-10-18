@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import {
 		getManagedHostQuadlet,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostQuadletDetail,
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
@@ -11,7 +11,7 @@
 	import QuadletEditor from '$lib/hosts/quadlets/QuadletEditor.svelte';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();

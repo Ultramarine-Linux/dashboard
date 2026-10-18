@@ -12,12 +12,11 @@
 	} from '$lib/apps/params';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import { Label } from '$lib/components/ui/label';
 	import Icon from '$lib/components/icon.svelte';
 	import {
 		createManagedHostApp,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostAppWriteResult,
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
@@ -28,7 +27,7 @@
 	import AppValuesForm from '$lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();
@@ -43,9 +42,6 @@
 	let values = $state<AppValueMap>({});
 	let saving = $state(false);
 	let actionError = $state('');
-	let adminPassword = $state('');
-	let elevationError = $state('');
-	let elevationDialogOpen = $state(false);
 	let result = $state<ManagedHostAppWriteResult | null>(null);
 
 	const recipe = $derived(selectedRecipeId ? getAppRecipe(selectedRecipeId) : null);
@@ -108,16 +104,8 @@
 		actionError = '';
 	}
 
-	function cook() {
+	async function cook() {
 		if (saving || !recipe || errors.length > 0 || !nameValid) return;
-		actionError = '';
-		elevationError = '';
-		adminPassword = '';
-		elevationDialogOpen = true;
-	}
-
-	async function submitElevatedCook() {
-		if (saving || !recipe || !adminPassword.trim()) return;
 		saving = true;
 		actionError = '';
 		try {
@@ -125,14 +113,11 @@
 				scope,
 				name: appName,
 				recipeId: recipe.id,
-				valuesJson: JSON.stringify(valuesForSubmit(recipe, values)),
-				adminPassword
+				valuesJson: JSON.stringify(valuesForSubmit(recipe, values))
 			});
-			elevationDialogOpen = false;
 		} catch (err) {
-			elevationError = getErrorMessage(err, 'Failed to authorize app creation.');
+			actionError = getErrorMessage(err, 'Failed to create the app.');
 		} finally {
-			adminPassword = '';
 			saving = false;
 		}
 	}
@@ -291,45 +276,3 @@
 		{/if}
 	</div>
 </section>
-
-<Dialog.Root bind:open={elevationDialogOpen}>
-	<Dialog.Content class="border-border bg-background sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>Administrator elevation required</Dialog.Title>
-			<Dialog.Description>
-				Enter the host administrator password to cook this app. It is used only for this request.
-			</Dialog.Description>
-		</Dialog.Header>
-		<form
-			class="space-y-4 pt-4"
-			onsubmit={(event) => {
-				event.preventDefault();
-				void submitElevatedCook();
-			}}
-		>
-			<Input
-				type="password"
-				bind:value={adminPassword}
-				autocomplete="current-password"
-				placeholder="Administrator password"
-				autofocus
-			/>
-			{#if elevationError}
-				<p role="alert" class="text-sm text-destructive">{elevationError}</p>
-			{/if}
-			<Dialog.Footer>
-				<Button
-					type="button"
-					variant="outline"
-					onclick={() => (elevationDialogOpen = false)}
-					disabled={saving}
-				>
-					Cancel
-				</Button>
-				<Button type="submit" disabled={saving || !adminPassword.trim()}>
-					{saving ? 'Authorizing...' : 'Authorize and cook'}
-				</Button>
-			</Dialog.Footer>
-		</form>
-	</Dialog.Content>
-</Dialog.Root>

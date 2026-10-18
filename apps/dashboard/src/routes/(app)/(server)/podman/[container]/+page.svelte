@@ -6,7 +6,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import {
 		getManagedHostPodmanContainer,
-		type ManagedHost,
+		type HostSummary,
 		type ManagedHostPodmanContainerDetail
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
@@ -17,7 +17,7 @@
 	import { tick } from 'svelte';
 
 	type PageData = {
-		host: ManagedHost;
+		host: HostSummary;
 	};
 
 	let { data }: { data: PageData } = $props();

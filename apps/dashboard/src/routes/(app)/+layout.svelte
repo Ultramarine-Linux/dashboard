@@ -12,14 +12,14 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as Command from '$lib/components/ui/command';
 	import * as Sheet from '$lib/components/ui/sheet';
-	import { authClient } from '$lib/auth-client';
 	import { dashboardBrand, pageTitle } from '$lib/branding';
 	import type { FeatureFlags } from '$lib/feature-flags';
 	import type { IconComponent } from '$lib';
-	import { hostTabHref, hostTabs } from '$lib/hosts/host-detail';
+	import { hostTabHref, visibleHostTabs } from '$lib/hosts/host-detail';
 	import ArrowRight from '~icons/lucide/arrow-right';
-	import Check from '~icons/lucide/check';
+	import AlertTriangle from '~icons/nucleo/alert-triangle';
 	import Key from '~icons/nucleo/key';
+	import Lock from '~icons/nucleo/lock';
 	import Menu from '~icons/lucide/menu';
 	import Search from '~icons/nucleo/search';
 	import Server from '~icons/nucleo/server';
@@ -43,12 +43,8 @@
 	}
 
 	const userSettings = new UserSettingsState();
-	let profileName = $state('');
 
 	const user = $derived(data.user);
-	$effect(() => {
-		profileName = user?.name ?? '';
-	});
 
 	function openUserSettings(tab: UserSettingsTab = 'profile') {
 		userSettings.show(tab);
@@ -74,15 +70,17 @@
 		action?: () => void | Promise<void>;
 	};
 	const navigateCommands = $derived.by(() =>
-		hostTabs
-			.filter((tab) => tab.id !== 'apps' || featureFlags.apps)
-			.map((tab): CommandEntry => ({ icon: tab.icon, label: tab.label, href: hostTabHref(tab.id) }))
+		visibleHostTabs(data.permissions, featureFlags).map((tab): CommandEntry => ({
+			icon: tab.icon,
+			label: tab.label,
+			href: hostTabHref(tab.id)
+		}))
 	);
 	const accountCommands: CommandEntry[] = [
 		{ icon: User, label: 'Profile', action: () => openUserSettings('profile') },
 		{ icon: Key, label: 'SSH Keys', action: () => openUserSettings('keys') },
 		{ icon: Key, label: 'API Tokens', action: () => openUserSettings('api') },
-		{ icon: Key, label: 'Change Password', action: () => openUserSettings('security') }
+		{ icon: Lock, label: 'Security', action: () => openUserSettings('security') }
 	];
 
 	function matchesCommandSearch(values: (string | null | undefined)[]) {
@@ -170,18 +168,36 @@
 				<button class="flex items-center gap-2" type="button" onclick={() => openUserSettings()}>
 					<div class="hidden min-w-0 text-right sm:block">
 						<p class="truncate text-sm leading-tight font-medium text-foreground">
-							{profileName || user?.email}
+							{user?.username}
 						</p>
-						<p class="truncate text-xs leading-tight text-muted-foreground">{user?.email}</p>
+						<p class="truncate text-xs leading-tight text-muted-foreground">
+							{user?.admin ? 'Administrator' : 'User'}
+						</p>
 					</div>
 					<Avatar.Root class="h-8 w-8 shrink-0 border border-border">
 						<Avatar.Fallback class="bg-muted text-xs text-foreground">
-							{(profileName || user?.email || '?').slice(0, 2).toUpperCase()}
+							{(user?.username || '?').slice(0, 2).toUpperCase()}
 						</Avatar.Fallback>
 					</Avatar.Root>
 				</button>
 			</div>
 		</header>
+
+		{#if data.newerDatabase}
+			<div
+				role="alert"
+				class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
+			>
+				<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+				<p>
+					The dashboard database is from a newer version of Dashboard (schema {data.newerDatabase
+						.dbVersion}; this version knows {data.newerDatabase.appVersion}), and no snapshot from
+					this version was found to restore. Dashboard is running on it without migrating, so some
+					features may not work. Upgrade Dashboard again, or restore a snapshot as described in
+					MIGRATIONS.md.
+				</p>
+			</div>
+		{/if}
 
 		<div class="flex flex-1 overflow-hidden">
 			{#if navItems.length > 0}
@@ -233,12 +249,7 @@
 		</Sheet.Content>
 	</Sheet.Root>
 
-	<UserSettingsDialog
-		bind:open={userSettings.open}
-		bind:activeTab={userSettings.tab}
-		bind:profileName
-		{user}
-	/>
+	<UserSettingsDialog bind:open={userSettings.open} bind:activeTab={userSettings.tab} {user} />
 	<ConfirmDialog />
 
 	<Command.Dialog bind:open={commandOpen}>
