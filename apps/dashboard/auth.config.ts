@@ -8,18 +8,17 @@
 
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { admin, jwt, oidcProvider, organization, twoFactor } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 
 import { ac, organizationRoles } from './src/lib/auth/organization-permissions';
 
-// Drizzle doesn't open a connection until the first query, so this is
-// safe for CLI-only usage where no queries are ever executed.
-const db = drizzle('postgresql://user:pass@localhost:5432/placeholder');
+// An in-memory database: the CLI only reads the schema and never queries.
+const db = drizzle(':memory:');
 
 export default betterAuth({
-	database: drizzleAdapter(db, { provider: 'pg' }),
+	database: drizzleAdapter(db, { provider: 'sqlite' }),
 	user: {
 		additionalFields: {
 			isAdmin: {

@@ -1,126 +1,93 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import type { RequestEvent } from '@sveltejs/kit';
+import Sqlite from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { mkdirSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { dev } from '$app/environment';
+import { env as privateEnv } from '$env/dynamic/private';
 import * as schema from './schema';
-import { getRequestEvent } from '$app/server';
-import { getRuntimeEnv } from '$lib/server/env';
-import { instrument, summarizeStatement, timingLog } from '$lib/server/observability';
+import { MIGRATIONS_TABLE, prepareDatabaseForMigration } from './snapshots';
+import { resolveStateDir } from '$lib/server/runtime-secret';
+import { timingLog } from '$lib/server/observability';
 
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
 
-let devPool: Pool | null = null;
-let devDb: Database | null = null;
+const DATABASE_FILE_NAME = 'dashboard.db';
 
-function createPool(connectionString: string) {
+let sqlite: Sqlite.Database | null = null;
+let db: Database | null = null;
+let initializing: Promise<Database> | null = null;
+
+/**
+ * `UM_DASHBOARD_DB_PATH` wins; otherwise the database lives in the dashboard
+ * state directory (`/var/lib/ultramarine-dashboard/dashboard.db` in production).
+ */
+export function resolveDatabasePath() {
+	const configured = privateEnv.UM_DASHBOARD_DB_PATH?.trim();
+	if (configured) return resolve(configured);
+	return join(
+		resolveStateDir({ stateDir: privateEnv.UM_DASHBOARD_STATE_DIR, development: dev }),
+		DATABASE_FILE_NAME
+	);
+}
+
+function resolveMigrationsFolder() {
+	return resolve(privateEnv.UM_DASHBOARD_MIGRATIONS_DIR?.trim() || 'drizzle');
+}
+
+export function openSqlite(path: string) {
+	const connection = new Sqlite(path);
+	connection.pragma('journal_mode = WAL');
+	connection.pragma('synchronous = NORMAL');
+	connection.pragma('busy_timeout = 5000');
+	connection.pragma('foreign_keys = ON');
+	return connection;
+}
+
+async function initialize(): Promise<Database> {
 	const started = performance.now();
-	const url = new URL(connectionString);
-	const useSystemSsl = url.searchParams.get('sslrootcert') === 'system';
-	url.searchParams.delete('sslrootcert');
+	const dbPath = resolveDatabasePath();
+	const migrationsFolder = resolveMigrationsFolder();
+	mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
 
-	timingLog('db.createPool.start', {
-		'db.connection_source': 'direct',
-		'db.ssl_system': useSystemSsl
-	});
+	const prepared = await prepareDatabaseForMigration({ dbPath, migrationsFolder });
 
-	const pool = new Pool({
-		connectionString: url.toString(),
-		max: 5,
-		...(useSystemSsl ? { ssl: { rejectUnauthorized: true } } : {})
-	});
-	pool.on('error', (error) => {
-		console.error('Unexpected error on idle PostgreSQL client', error);
-	});
-
-	timingLog('db.createPool.end', {
-		duration_ms: Math.round((performance.now() - started) * 100) / 100
-	});
-
-	return withQueryTracing(pool);
-}
-
-function withQueryTracing(pool: Pool): Pool {
-	const runQuery = pool.query.bind(pool) as (...args: unknown[]) => unknown;
-
-	pool.query = function instrumentedQuery(...args: unknown[]) {
-		if (typeof args[args.length - 1] === 'function') return runQuery(...args);
-
-		const first = args[0];
-		const statement =
-			typeof first === 'string' ? first : (first as { text?: string } | undefined)?.text;
-
-		return instrument('db.query', () => runQuery(...args) as Promise<unknown>, {
-			'db.statement': summarizeStatement(statement)
-		});
-	} as typeof pool.query;
-
-	return pool;
-}
-
-function resolveConnectionString() {
-	const { DATABASE_URL } = getRuntimeEnv();
-
-	if (!DATABASE_URL) {
-		throw new Error('No database connection string is available. Set DATABASE_URL.');
+	const connection = openSqlite(dbPath);
+	const database = drizzle(connection, { schema });
+	if (prepared.action !== 'newer-without-snapshot') {
+		migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE });
 	}
 
-	return DATABASE_URL;
+	sqlite = connection;
+	db = database;
+	timingLog('db.initialize.end', {
+		'db.path': dbPath,
+		'db.prepare_action': prepared.action,
+		duration_ms: Math.round((performance.now() - started) * 100) / 100
+	});
+	return database;
+}
+
+/**
+ * Open, snapshot and migrate the database. Called once from the server `init`
+ * hook so migrations finish before the first request.
+ */
+export function initDatabase(): Promise<Database> {
+	initializing ??= initialize().catch((error) => {
+		initializing = null;
+		throw error;
+	});
+	return initializing;
 }
 
 export function initDrizzle(): Database {
-	const started = performance.now();
-	const event = getRequestEvent();
-
-	if (event.locals.db) {
-		timingLog('db.initDrizzle.reuse', {
-			duration_ms: Math.round((performance.now() - started) * 100) / 100
-		});
-		return event.locals.db;
-	}
-
-	timingLog('db.initDrizzle.start', { 'app.dev': dev });
-
-	if (dev) {
-		devDb ??= drizzle((devPool ??= createPool(resolveConnectionString())), { schema });
-		event.locals.db = devDb;
-		timingLog('db.initDrizzle.end', {
-			'app.dev': dev,
-			duration_ms: Math.round((performance.now() - started) * 100) / 100
-		});
-		return devDb;
-	}
-
-	const pool = createPool(resolveConnectionString());
-	const db = drizzle(pool, { schema });
-	event.locals.dbPool = pool;
-	event.locals.db = db;
-
-	timingLog('db.initDrizzle.end', {
-		'app.dev': dev,
-		duration_ms: Math.round((performance.now() - started) * 100) / 100
-	});
-
+	if (!db) throw new Error('The database is not initialized yet.');
 	return db;
 }
 
-export function closeRequestDb(event: RequestEvent) {
-	const pool = event.locals.dbPool;
-	if (!pool) {
-		timingLog('db.closeRequestDb.skip');
-		return;
-	}
-
-	event.locals.dbPool = undefined;
-	event.locals.db = undefined;
-
-	timingLog('db.closeRequestDb.end.start');
-	const backgroundTasks = event.locals.backgroundTasks ?? [];
-	event.locals.backgroundTasks = undefined;
-	const ending = Promise.allSettled(backgroundTasks)
-		.then(() => instrument('db.pool.end', () => pool.end()))
-		.catch((error) => {
-			console.error('Error closing PostgreSQL pool', error);
-		});
-
-	void ending;
+export function closeDatabase() {
+	sqlite?.close();
+	sqlite = null;
+	db = null;
+	initializing = null;
 }

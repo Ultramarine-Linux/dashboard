@@ -14,31 +14,15 @@ export const pages = [
 	{ label: 'login verified state', path: '/login?verified=1' },
 	{ label: 'register', path: '/register' },
 	{ label: 'signup redirect', path: '/signup' },
-	{ label: 'project dashboard', path: '/' },
-	{ label: 'host overview', path: '/hosts' },
-	{ label: 'host registration', path: '/hosts/create' },
-	{ label: 'host detail', path: '/hosts/accessibility-host' },
-	{ label: 'host podman', path: '/hosts/accessibility-host/podman' },
-	{
-		label: 'host podman container',
-		path: '/hosts/accessibility-host/podman/demo-web'
-	},
-	{
-		label: 'host quadlets',
-		path: '/hosts/accessibility-host/quadlets'
-	},
-	{
-		label: 'host quadlet detail',
-		path: '/hosts/accessibility-host/quadlets/demo-web.container'
-	},
-	{
-		label: 'host quadlet create',
-		path: '/hosts/accessibility-host/quadlets/create'
-	},
-
-	{ label: 'host apps', path: '/hosts/accessibility-host/apps' },
-	{ label: 'host app cook', path: '/hosts/accessibility-host/apps/create' },
-	{ label: 'host app detail', path: '/hosts/accessibility-host/apps/demo-web' }
+	{ label: 'server overview', path: '/' },
+	{ label: 'server podman', path: '/podman' },
+	{ label: 'server podman container', path: '/podman/demo-web' },
+	{ label: 'server quadlets', path: '/quadlets' },
+	{ label: 'server quadlet detail', path: '/quadlets/demo-web.container' },
+	{ label: 'server quadlet create', path: '/quadlets/create' },
+	{ label: 'server apps', path: '/apps' },
+	{ label: 'server app cook', path: '/apps/create' },
+	{ label: 'server app detail', path: '/apps/demo-web' }
 ];
 
 export const test = base.extend<AxeFixture>({

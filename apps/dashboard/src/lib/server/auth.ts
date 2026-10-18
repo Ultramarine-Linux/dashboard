@@ -174,7 +174,7 @@ function buildAuth() {
 		appName: dashboardBrand.title,
 		baseURL,
 		secret: env.BETTER_AUTH_SECRET,
-		database: drizzleAdapter(db, { provider: 'pg' }),
+		database: drizzleAdapter(db, { provider: 'sqlite' }),
 		advanced: {
 			database: {
 				generateId: () => ulid()

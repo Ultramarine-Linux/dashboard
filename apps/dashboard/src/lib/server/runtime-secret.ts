@@ -62,7 +62,7 @@ export function resolveBetterAuthSecret(options: {
 	}
 }
 
-function resolveStateDir(options: { stateDir?: string; development: boolean }) {
+export function resolveStateDir(options: { stateDir?: string; development: boolean }) {
 	const configured = options.stateDir?.trim();
 	if (configured) return configured;
 	if (options.development) return join(homedir(), '.local', 'state', 'ultramarine-dashboard');

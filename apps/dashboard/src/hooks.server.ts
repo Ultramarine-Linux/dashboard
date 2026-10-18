@@ -1,7 +1,7 @@
-import { redirect, type Handle } from '@sveltejs/kit';
+import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { getCachedAuthSession, hasAuthSessionCookie } from '$lib/server/auth-lite';
-import { closeRequestDb } from '$lib/server/db';
+import { initDatabase } from '$lib/server/db';
 import { instrument, timingLog } from '$lib/server/observability';
 import {
 	accessibilityFixtureEnabled,
@@ -140,10 +140,13 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 			requestAttrs
 		);
 	} finally {
-		timingLog('request.closeRequestDb.schedule', requestAttrs);
-		closeRequestDb(event);
 		timingLog('request.handle.exit', requestAttrs);
 	}
+};
+
+export const init: ServerInit = async () => {
+	if (building) return;
+	await initDatabase();
 };
 
 export const handle: Handle = handleBetterAuth;

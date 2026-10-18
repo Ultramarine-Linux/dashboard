@@ -5,7 +5,6 @@ import { resolveBetterAuthSecret } from '$lib/server/runtime-secret';
 export type RuntimeEnv = {
 	ORIGIN: string;
 	BETTER_AUTH_SECRET: string;
-	DATABASE_URL: string;
 	EMAIL_FROM_ADDRESS: string;
 	EMAIL_FROM_NAME: string;
 	EMAIL_REPLY_TO: string;
@@ -50,7 +49,6 @@ export function getRuntimeEnv(): RuntimeEnv {
 	return {
 		ORIGIN: required('ORIGIN', privateEnv.ORIGIN),
 		BETTER_AUTH_SECRET: getBetterAuthSecret(),
-		DATABASE_URL: required('DATABASE_URL', privateEnv.DATABASE_URL),
 		EMAIL_FROM_ADDRESS: required('EMAIL_FROM_ADDRESS', privateEnv.EMAIL_FROM_ADDRESS),
 		EMAIL_FROM_NAME: required('EMAIL_FROM_NAME', privateEnv.EMAIL_FROM_NAME),
 		EMAIL_REPLY_TO: required('EMAIL_REPLY_TO', privateEnv.EMAIL_REPLY_TO),

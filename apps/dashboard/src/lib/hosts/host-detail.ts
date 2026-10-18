@@ -35,3 +35,18 @@ export const hostTabs: {
 	{ id: 'network', label: 'Network', icon: Network },
 	{ id: 'dispatch', label: 'Dispatch', icon: Send }
 ];
+
+export type HostTabHref =
+	| '/'
+	| '/apps'
+	| '/podman'
+	| '/quadlets'
+	| '/proxy'
+	| '/users'
+	| '/storage'
+	| '/network'
+	| '/dispatch';
+
+export function hostTabHref(tab: HostTab): HostTabHref {
+	return tab === 'overview' ? '/' : `/${tab}`;
+}

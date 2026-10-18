@@ -6,7 +6,7 @@ import { initDrizzle } from '$lib/server/db';
 import { setFeatureFlag } from '$lib/server/feature-flags';
 
 const updateFeatureFlagParams = type({
-	flag: "'managedHosts' | 'apps'",
+	flag: "'apps'",
 	enabled: 'boolean'
 });
 

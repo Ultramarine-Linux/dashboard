@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import Icons from 'unplugin-icons/vite';
 import { FileSystemIconLoader } from 'unplugin-icons/loaders';
 
@@ -23,5 +23,9 @@ export default defineConfig({
 	],
 	ssr: {
 		external: ['postcss']
+	},
+	test: {
+		include: ['src/**/*.test.ts'],
+		environment: 'node'
 	}
 });

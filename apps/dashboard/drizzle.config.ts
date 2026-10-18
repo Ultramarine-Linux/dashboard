@@ -1,20 +1,13 @@
 import { defineConfig } from 'drizzle-kit';
 
-const url = process.env.DATABASE_URL;
-
-function getDbCredentials(connectionString: string) {
-	const parsedUrl = new URL(connectionString);
-	parsedUrl.searchParams.delete('sslrootcert');
-	parsedUrl.searchParams.delete('sslcert');
-	parsedUrl.searchParams.delete('sslkey');
-
-	return { url: parsedUrl.toString() };
-}
-
+// Used by the db:* scripts. The app itself snapshots and migrates the
+// database on startup (src/lib/server/db).
 export default defineConfig({
 	schema: './src/lib/server/db/schema.ts',
-	dialect: 'postgresql',
-	...(url ? { dbCredentials: getDbCredentials(url) } : {}),
+	dialect: 'sqlite',
+	dbCredentials: {
+		url: process.env.UM_DASHBOARD_DB_PATH ?? '/var/lib/ultramarine-dashboard/dashboard.db'
+	},
 	verbose: true,
 	strict: true
 });

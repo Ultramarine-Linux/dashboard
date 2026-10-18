@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const isCI = !!process.env['CI'];
+const databasePath = join(tmpdir(), 'ultramarine-dashboard-accessibility', 'dashboard.db');
 
 export default defineConfig({
 	forbidOnly: isCI,
@@ -30,8 +33,7 @@ export default defineConfig({
 	timeout: 180 * 1_000,
 	webServer: [
 		{
-			command:
-				'pnpm run build && ACCESSIBILITY_FIXTURES=1 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres pnpm exec vite preview --host 127.0.0.1 --port 4173',
+			command: `pnpm run build && ACCESSIBILITY_FIXTURES=1 UM_DASHBOARD_DB_PATH=${databasePath} pnpm exec vite preview --host 127.0.0.1 --port 4173`,
 			reuseExistingServer: !isCI,
 			// The timeout of the build and preview startup before the accessibility tests.
 			timeout: 120 * 1_000,

@@ -16,6 +16,7 @@
 	import { dashboardBrand, pageTitle } from '$lib/branding';
 	import type { FeatureFlags } from '$lib/feature-flags';
 	import type { IconComponent } from '$lib';
+	import { hostTabHref, hostTabs } from '$lib/hosts/host-detail';
 	import ArrowRight from '~icons/lucide/arrow-right';
 	import Check from '~icons/lucide/check';
 	import Key from '~icons/nucleo/key';
@@ -31,13 +32,13 @@
 	let commandSearch = $state('');
 	const featureFlags = $derived((data.featureFlags ?? {}) as FeatureFlags);
 
-	const navItems = $derived.by(() => {
-		const items: { icon: IconComponent; label: string; href: string }[] = [];
-		if (featureFlags.managedHosts) items.push({ icon: Server, label: 'Hosts', href: '/hosts' });
-		return items;
-	});
+	const navItems: { icon: IconComponent; label: string; href: string }[] = [
+		{ icon: Server, label: 'Server', href: '/' }
+	];
 
-	function isActive(href: string) {
+	function isActive(href: string): boolean {
+		// Every view outside /admin belongs to this server.
+		if (href === '/') return !isActive('/admin');
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
 	}
 
@@ -72,11 +73,11 @@
 		href?: string;
 		action?: () => void | Promise<void>;
 	};
-	const navigateCommands = $derived.by(() => {
-		const commands: CommandEntry[] = [];
-		if (featureFlags.managedHosts) commands.push({ icon: Server, label: 'Hosts', href: '/hosts' });
-		return commands;
-	});
+	const navigateCommands = $derived.by(() =>
+		hostTabs
+			.filter((tab) => tab.id !== 'apps' || featureFlags.apps)
+			.map((tab): CommandEntry => ({ icon: tab.icon, label: tab.label, href: hostTabHref(tab.id) }))
+	);
 	const accountCommands: CommandEntry[] = [
 		{ icon: User, label: 'Profile', action: () => openUserSettings('profile') },
 		{ icon: Key, label: 'SSH Keys', action: () => openUserSettings('keys') },
@@ -139,7 +140,7 @@
 						<Menu class="h-4 w-4" />
 					</button>
 				{/if}
-				<a href="/hosts" class="flex shrink-0 items-center gap-2">
+				<a href="/" class="flex shrink-0 items-center gap-2">
 					<img src={dashboardBrand.logo} alt="" class="h-5 w-5" />
 					<span class="text-sm font-semibold tracking-tight text-foreground"
 						>{dashboardBrand.name}</span

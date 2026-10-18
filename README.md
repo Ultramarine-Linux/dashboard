@@ -6,7 +6,7 @@ Dashboard for Ultramarine Server management. This app is intended to run self-ho
 
 1. `pnpm install`
    For a full Linux integration test, follow [`dev/README.md`](dev/README.md).
-2. For local application work, configure the environment values below and run `pnpm --filter ultramarine-dashboard-app db:migrate`.
+2. For local application work, configure the environment values below. Dashboard creates and migrates its SQLite database on startup.
 3. `pnpm --filter ultramarine-dashboard-app dev`
 
 Details, one-time machine setup, and caveats: [dev/README.md](dev/README.md)
@@ -16,20 +16,22 @@ fixture mode documented in [dev/README.md](dev/README.md#fixture-ui-mode).
 
 ## Managed applications
 
-Dashboard can cook and manage recipe-backed applications on enrolled Tetra hosts. Hosts can start enrollment from the command line with `tetra enroll`; an authenticated Dashboard user approves the printed device code at `/tetra/device`.
-The application catalog and host application routes are part of the Dashboard app
-under `apps/dashboard/src/lib/apps` and
-`apps/dashboard/src/routes/(app)/hosts/[id]/apps`. Applications are deployed as
-Quadlet resources, so the target host must have the required Tetra, Podman, and
-systemd/Quadlet support available. Enroll a host first, then open **Hosts → Apps**
-to create, inspect, update, or remove an application.
+Dashboard manages only the server it runs on, through the local Tetra agent.
+It connects to Tetra during first-run setup (or from the **Connect to Tetra**
+prompt if setup was finished without it).
+
+Dashboard can cook and manage recipe-backed applications on this server. The
+application catalog and application routes live under
+`apps/dashboard/src/lib/apps` and `apps/dashboard/src/routes/(app)/(server)/apps`.
+Applications are deployed as Quadlet resources, so the server must have the
+required Tetra, Podman, and systemd/Quadlet support available. Open **Apps** to
+create, inspect, update, or remove an application.
 
 ## Build and run
 
 ```sh
 pnpm --filter ultramarine-dashboard-app build
 ORIGIN=http://localhost:3000 \
-DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres \
 EMAIL_FROM_ADDRESS=no-reply@localhost \
 EMAIL_FROM_NAME="Ultramarine Server" \
 EMAIL_REPLY_TO=support@localhost \
@@ -41,7 +43,8 @@ node apps/dashboard/build
 Required:
 
 - `ORIGIN` — public dashboard origin.
-- `DATABASE_URL` — PostgreSQL connection URL.
+
+Dashboard stores its state in SQLite (WAL mode) at `/var/lib/ultramarine-dashboard/dashboard.db` in production, or `~/.local/state/ultramarine-dashboard/dashboard.db` in development. `UM_DASHBOARD_STATE_DIR` moves it along with the other state files; `UM_DASHBOARD_DB_PATH` sets the database file directly. Before migrating on startup, Dashboard snapshots the database; see [`apps/dashboard/MIGRATIONS.md`](apps/dashboard/MIGRATIONS.md).
 
 `BETTER_AUTH_SECRET` is generated automatically on first boot when it is not supplied. Dashboard writes it to a mutable, owner-only state file: `/var/lib/ultramarine-dashboard/better-auth-secret` in production, or `~/.local/state/ultramarine-dashboard/better-auth-secret` in development. Set `BETTER_AUTH_SECRET` to use a deployment-managed secret, or `BETTER_AUTH_SECRET_FILE` to use a specific owner-only secret file. Use `UM_DASHBOARD_STATE_DIR` to change the generated-secret state directory.
 
