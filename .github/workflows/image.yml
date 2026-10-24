@@ -1,6 +1,6 @@
 name: Image
 
-# Builds apps/dashboard/Containerfile for amd64 and arm64 (native runners) and
+# Builds dashboard/Containerfile for amd64 and arm64 (native runners) and
 # publishes a signed multi-arch image to ghcr.io/ultramarine-linux/dashboard,
 # the registry the Ultramarine-Linux/bootc images use, with the shared
 # FyraLabs/actions Docker workflow. Tags: `main` from main, `vX.Y.Z` and
@@ -25,7 +25,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - '.npmrc'
-      - 'apps/dashboard/**'
+      - 'dashboard/**'
   pull_request:
     paths:
       - '.github/workflows/image.yml'
@@ -35,7 +35,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - '.npmrc'
-      - 'apps/dashboard/**'
+      - 'dashboard/**'
   workflow_dispatch:
 
 permissions:
@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build
-        run: podman build -f apps/dashboard/Containerfile -t localhost/dashboard:smoke .
+        run: podman build -f dashboard/Containerfile -t localhost/dashboard:smoke .
 
       - name: Smoke test
         run: .github/scripts/smoke-image.sh localhost/dashboard:smoke
@@ -86,7 +86,7 @@ jobs:
       # push filter above.
       publish: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))) }}
       context: .
-      dockerfile: apps/dashboard/Containerfile
+      dockerfile: dashboard/Containerfile
       image_name: ultramarine-linux/dashboard
     permissions:
       contents: read

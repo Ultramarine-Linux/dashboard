@@ -35,7 +35,7 @@ server OOBE, not in Dashboard.
 
 Dashboard can cook and manage recipe-backed applications on this server. The
 application catalog and application routes live under
-`apps/dashboard/src/lib/apps` and `apps/dashboard/src/routes/(app)/(server)/apps`.
+`dashboard/src/lib/apps` and `dashboard/src/routes/(app)/(server)/apps`.
 Applications are deployed as Quadlet resources, so the server must have the
 required Tetra, Podman, and systemd/Quadlet support available. Open **Apps** to
 create, inspect, update, or remove an application.
@@ -44,7 +44,7 @@ create, inspect, update, or remove an application.
 
 ```sh
 pnpm --filter ultramarine-dashboard build
-cd apps/dashboard  # migrations are read from ./drizzle
+cd dashboard  # migrations are read from ./drizzle
 # A production build keeps its state in /var/lib/ultramarine-dashboard; use a
 # private scratch directory instead.
 UM_DASHBOARD_STATE_DIR=$(mktemp -d) PORT=3972 ORIGIN=http://localhost:3972 node build
@@ -57,11 +57,11 @@ checks that failed, and logs why. Update checks use it.
 ### Container image
 
 On a server, Dashboard runs from the production image built by
-[`apps/dashboard/Containerfile`](apps/dashboard/Containerfile), from the
+[`dashboard/Containerfile`](dashboard/Containerfile), from the
 repository root:
 
 ```sh
-podman build -f apps/dashboard/Containerfile -t dashboard .
+podman build -f dashboard/Containerfile -t dashboard .
 ```
 
 It is a distroless Node.js image that runs as a non-root user and listens on
@@ -145,12 +145,12 @@ without an OS update. `main` images are for testing only.
 
 The image sets `HOST=0.0.0.0`, `PORT=3972`, `PROTOCOL_HEADER=x-forwarded-proto`,
 `SHUTDOWN_TIMEOUT=5` and `UM_DASHBOARD_STATE_DIR=/var/lib/ultramarine-dashboard`,
-and starts through `apps/dashboard/serve.js`, which drops a blank `ORIGIN`
+and starts through `dashboard/serve.js`, which drops a blank `ORIGIN`
 that adapter-node would refuse. On SIGTERM, Dashboard
 waits up to `SHUTDOWN_TIMEOUT` seconds for requests in flight, then closes its
 Tetra connection and exits, within Podman's 10-second stop timeout.
 
-Dashboard stores its state in SQLite (WAL mode) at `/var/lib/ultramarine-dashboard/dashboard.db` in production, or `~/.local/state/ultramarine-dashboard/dashboard.db` in development. `UM_DASHBOARD_STATE_DIR` moves it along with the other state files; `UM_DASHBOARD_DB_PATH` sets the database file directly. Before migrating on startup, Dashboard snapshots the database; see [`apps/dashboard/MIGRATIONS.md`](apps/dashboard/MIGRATIONS.md).
+Dashboard stores its state in SQLite (WAL mode) at `/var/lib/ultramarine-dashboard/dashboard.db` in production, or `~/.local/state/ultramarine-dashboard/dashboard.db` in development. `UM_DASHBOARD_STATE_DIR` moves it along with the other state files; `UM_DASHBOARD_DB_PATH` sets the database file directly. Before migrating on startup, Dashboard snapshots the database; see [`dashboard/MIGRATIONS.md`](dashboard/MIGRATIONS.md).
 
 `BETTER_AUTH_SECRET` is generated automatically on first boot when it is not supplied. Dashboard writes it to a mutable, owner-only state file: `/var/lib/ultramarine-dashboard/better-auth-secret` in production, or `~/.local/state/ultramarine-dashboard/better-auth-secret` in development. Set `BETTER_AUTH_SECRET` to use a deployment-managed secret, or `BETTER_AUTH_SECRET_FILE` to use a specific owner-only secret file. Use `UM_DASHBOARD_STATE_DIR` to change the generated-secret state directory.
 
