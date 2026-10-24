@@ -46,7 +46,6 @@ export class AdminSsoState {
 			this.newSsoClientSecret = result.clientSecret ?? null;
 			this.ssoClients = [result.client, ...this.ssoClients];
 			await invalidate('app:sso-clients');
-			await invalidate('app:admin-counts');
 			toast.success('SSO client created');
 			return result.client;
 		} catch (err) {
@@ -99,7 +98,6 @@ export class AdminSsoState {
 			await deleteSsoClient({ id });
 			this.ssoClients = this.ssoClients.filter((client) => client.id !== id);
 			await invalidate('app:sso-clients');
-			await invalidate('app:admin-counts');
 			toast.success('SSO client deleted');
 		} catch (err) {
 			this.ssoClientError = getErrorMessage(err, 'Failed to delete SSO client');

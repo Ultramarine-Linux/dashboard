@@ -22,6 +22,8 @@
 		activating: 'warning',
 		deactivating: 'warning',
 		restarting: 'warning',
+		'auto-restart': 'warning',
+		reloading: 'warning',
 		degraded: 'warning',
 		pending: 'warning',
 		unhealthy: 'danger',
@@ -57,7 +59,7 @@
 			dot: 'bg-muted-foreground/70'
 		},
 		info: {
-			badge: 'border-primary/25 bg-primary/10 text-primary dark:text-accent-200',
+			badge: 'border-primary/25 bg-primary/10 text-primary',
 			dot: 'bg-primary'
 		},
 		warning: {

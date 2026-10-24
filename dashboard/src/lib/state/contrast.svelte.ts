@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { MediaQuery } from 'svelte/reactivity';
 
 /**
@@ -21,8 +22,16 @@ function isContrastPreference(value: unknown): value is ContrastPreference {
 	return value === 'auto' || value === 'on' || value === 'off';
 }
 
+/** Whether high contrast is in effect for a stored preference and system setting. */
+export function resolveContrast(stored: string | null, systemPrefersMore: boolean): boolean {
+	const preference = isContrastPreference(stored) ? stored : 'auto';
+	return preference === 'on' || (preference === 'auto' && systemPrefersMore);
+}
+
 function readPreference(): ContrastPreference {
-	if (typeof localStorage === 'undefined') return 'auto';
+	// Never on the server: this state is a module singleton shared by every
+	// request, and Node 25+ exposes a process-wide `localStorage`.
+	if (!browser) return 'auto';
 	try {
 		const stored = localStorage.getItem(contrastPreferenceStorageKey);
 		return isContrastPreference(stored) ? stored : 'auto';
@@ -43,7 +52,7 @@ class ContrastState {
 
 	/** Whether high contrast is actually in effect. */
 	get enabled() {
-		return this.preference === 'on' || (this.preference === 'auto' && this.#system.current);
+		return resolveContrast(this.preference, this.#system.current);
 	}
 
 	setPreference(preference: ContrastPreference) {

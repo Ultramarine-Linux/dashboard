@@ -4,6 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+// The repository root (this file is dashboard/scripts/). Before the move out of
+// apps/ this resolved to apps/, so older plans live in apps/.local/backports.
 const root = resolve(new URL('../..', import.meta.url).pathname);
 const upstreamRemote =
 	process.env.UPSTREAM_DASHBOARD_REMOTE ?? 'https://github.com/FyraStack/dashboard.git';

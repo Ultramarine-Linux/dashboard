@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import UserSettingsDialog from '$lib/components/dialogs/user-settings-dialog.svelte';
 	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import {
@@ -15,8 +16,12 @@
 	import { dashboardBrand, pageTitle } from '$lib/branding';
 	import type { FeatureFlags } from '$lib/feature-flags';
 	import type { IconComponent } from '$lib';
-	import { hostTabGroups, hostTabHref, visibleHostTabs } from '$lib/hosts/host-detail';
-	import type { HostSummary } from '$lib/remote/managed-hosts.remote';
+	import {
+		hostTabGroups,
+		hostTabHref,
+		visibleHostTabs,
+		type HostTabHref
+	} from '$lib/hosts/host-detail';
 	import ArrowRight from '~icons/lucide/arrow-right';
 	import ChevronRight from '~icons/lucide/chevron-right';
 	import Loader2 from '~icons/lucide/loader-2';
@@ -36,7 +41,8 @@
 	let commandSearch = $state('');
 	const featureFlags = $derived((data.featureFlags ?? {}) as FeatureFlags);
 
-	type NavItem = { icon: IconComponent; label: string; href: string };
+	type NavHref = HostTabHref | '/admin/sso' | '/admin/features';
+	type NavItem = { icon: IconComponent; label: string; href: NavHref };
 	type NavGroup = { label: string; items: NavItem[] };
 
 	const hostTabsForUser = $derived(visibleHostTabs(data.permissions, featureFlags));
@@ -71,7 +77,8 @@
 		return null;
 	});
 
-	const host = $derived((page.data as { host?: HostSummary }).host ?? null);
+	// Loaded best-effort by the shell, so it is available on every page.
+	const host = $derived(data.host);
 	let refreshingHost = $state(false);
 
 	async function refreshHost() {
@@ -108,7 +115,7 @@
 	type CommandEntry = {
 		icon: IconComponent;
 		label: string;
-		href?: string;
+		href?: NavHref;
 		action?: () => void | Promise<void>;
 	};
 	const navigateCommands = $derived.by(() =>
@@ -154,7 +161,7 @@
 
 	function runCommand(command: CommandEntry) {
 		commandOpen = false;
-		if (command.href) void goto(command.href as any);
+		if (command.href) void goto(resolve(command.href));
 		else void command.action?.();
 	}
 </script>
@@ -178,7 +185,7 @@
 				{#each group.items as item (item.href)}
 					{@const active = isActive(item.href)}
 					<a
-						href={item.href}
+						href={resolve(item.href)}
 						aria-current={active ? 'page' : undefined}
 						onclick={() => onNavigate?.()}
 						class="group/nav relative flex h-8 items-center gap-2.5 px-2 text-sm transition-colors {active
@@ -246,7 +253,7 @@
 			class="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar lg:flex"
 			aria-label="Sidebar"
 		>
-			<a href="/" class="flex h-14 shrink-0 items-center gap-2.5 px-5">
+			<a href={resolve('/')} class="flex h-14 shrink-0 items-center gap-2.5 px-5">
 				<img src={dashboardBrand.logo} alt="" class="size-6" />
 				<span class="text-sm font-semibold tracking-tight text-foreground"
 					>{dashboardBrand.name}</span
@@ -274,7 +281,7 @@
 					>
 						<Menu class="size-4" />
 					</button>
-					<a href="/" class="flex shrink-0 items-center lg:hidden">
+					<a href={resolve('/')} class="flex shrink-0 items-center lg:hidden">
 						<img src={dashboardBrand.logo} alt={dashboardBrand.name} class="size-6" />
 					</a>
 					{#if activeNav}

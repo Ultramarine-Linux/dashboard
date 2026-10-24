@@ -64,7 +64,7 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-auto bg-background">
-	<div class="border-b border-border px-5 py-4">
+	<div class="border-b border-border p-4 sm:p-6">
 		<h1 class="text-xl font-semibold tracking-tight text-foreground">Host Users</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
 			Manage local accounts on {host.hostname ?? 'this server'}. Anyone with an account and a
@@ -72,7 +72,7 @@
 		</p>
 	</div>
 
-	<div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+	<div class="grid gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		<section class="min-w-0 space-y-3">
 			<div class="flex items-center justify-between gap-3">
 				<div>

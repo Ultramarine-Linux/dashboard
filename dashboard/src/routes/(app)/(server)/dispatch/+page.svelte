@@ -65,8 +65,8 @@
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div>
-		<h2 class="text-sm font-semibold text-foreground">Dispatch Command</h2>
-		<p class="mt-1 text-xs text-muted-foreground">
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">Dispatch Command</h1>
+		<p class="mt-1 text-sm text-muted-foreground">
 			Send a Tetra command envelope through the dashboard server.
 		</p>
 	</div>

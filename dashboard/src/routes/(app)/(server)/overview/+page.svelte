@@ -37,7 +37,7 @@
 	tabindex="0"
 >
 	<div class="grid border-b border-border bg-background lg:grid-cols-[320px_1fr]">
-		<section class="border-b border-border p-5 lg:border-r lg:border-b-0">
+		<section class="border-b border-border p-4 sm:p-6 lg:border-r lg:border-b-0">
 			<h1 class="text-xl font-semibold tracking-tight text-foreground">Host Details</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
 				This server, as reported by Tetra over its local socket.
@@ -53,7 +53,7 @@
 			</div>
 		</section>
 
-		<section class="p-5">
+		<section class="p-4 sm:p-6">
 			<div class="flex items-center justify-between gap-4">
 				<div>
 					<h2 class="text-sm font-semibold text-foreground">Capabilities</h2>
