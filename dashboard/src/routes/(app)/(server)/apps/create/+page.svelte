@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { formatNumber, t, tn } from '#lib/i18n/index.js';
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { appRecipes, getAppRecipe, type AppRecipe } from '#lib/apps/catalog.js';
+	import { recipeKey, type AppRecipe, type RecipeCatalogKind } from '#lib/apps/catalog.js';
 	import {
 		defaultRecipeValues,
 		isValidAppName,
@@ -11,6 +11,7 @@
 		valuesForSubmit,
 		type AppValueMap
 	} from '#lib/apps/params.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
@@ -21,14 +22,26 @@
 		type ManagedHostAppWriteResult,
 		type ManagedHostQuadletScope
 	} from '#lib/remote/managed-hosts.remote.js';
+	import { refreshRecipeCatalogs } from '#lib/remote/recipe-catalogs.remote.js';
 	import { getErrorMessage } from '#lib/utils.js';
 	import Loader2 from '~icons/lucide/loader-2';
+	import RefreshCw from '~icons/lucide/refresh-cw';
 	import { parseHostCapabilities } from '#lib/hosts/capabilities.js';
 	import AppCookResult from '#lib/hosts/apps/AppCookResult.svelte';
 	import AppValuesForm from '#lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
 		host: HostSummary;
+		isAdmin?: boolean;
+		recipes: AppRecipe[];
+		catalogs: {
+			id: string;
+			name: string;
+			kind: RecipeCatalogKind;
+			available: boolean;
+			failed: boolean;
+			lastError: string | null;
+		}[];
 	};
 
 	let { data }: { data: PageData } = $props();
@@ -36,7 +49,7 @@
 	const scope = $derived<ManagedHostQuadletScope>(
 		page.url.searchParams.get('scope') === 'system' ? 'system' : 'user'
 	);
-	let selectedRecipeId = $state<string | null>(null);
+	let selectedKey = $state<string | null>(null);
 	let recipeSearch = $state('');
 	let appName = $state('');
 	let appIdTouched = $state(false);
@@ -45,17 +58,37 @@
 	let actionError = $state('');
 	let result = $state<ManagedHostAppWriteResult | null>(null);
 
-	const recipe = $derived(selectedRecipeId ? getAppRecipe(selectedRecipeId) : null);
+	let refreshing = $state(false);
+	let refreshError = $state('');
+
+	const recipe = $derived(
+		selectedKey ? (data.recipes.find((option) => recipeKey(option) === selectedKey) ?? null) : null
+	);
 	const filteredRecipes = $derived(
-		appRecipes.filter((option) => {
+		data.recipes.filter((option) => {
 			const query = recipeSearch.trim().toLowerCase();
 			return (
 				!query ||
 				option.name.toLowerCase().includes(query) ||
 				option.description.toLowerCase().includes(query) ||
-				option.category.toLowerCase().includes(query)
+				option.categoryName.toLowerCase().includes(query)
 			);
 		})
+	);
+	// One section per catalog, in the server's order (Fyra Labs first).
+	const recipeGroups = $derived(
+		data.catalogs
+			.map((catalog) => ({
+				catalog,
+				recipes: filteredRecipes.filter((option) => option.catalogId === catalog.id)
+			}))
+			.filter((group) => group.recipes.length > 0)
+	);
+	const unreachableCatalogs = $derived(
+		data.catalogs.filter((catalog) => catalog.failed && !catalog.available)
+	);
+	const staleCatalogs = $derived(
+		data.isAdmin ? data.catalogs.filter((catalog) => catalog.failed && catalog.available) : []
 	);
 	const errors = $derived(recipe ? validateRecipeValues(recipe, values) : []);
 	const nameValid = $derived(isValidAppName(appName));
@@ -75,9 +108,30 @@
 		return recipeAccentColors[id] ?? '#9ca3af';
 	}
 
+	function tierLabel(option: AppRecipe) {
+		if (option.tier === 'official') return t('apps.tierOfficial');
+		if (option.tier === 'community') return t('apps.tierCommunity');
+		return option.catalogName;
+	}
+
+	async function refreshCatalogs() {
+		if (refreshing) return;
+		refreshing = true;
+		refreshError = '';
+		try {
+			await refreshRecipeCatalogs({});
+			await invalidate('app:recipes');
+		} catch (err) {
+			refreshError = getErrorMessage(err, t('apps.refreshCatalogsFailed'));
+		} finally {
+			refreshing = false;
+		}
+	}
+
 	function selectRecipe(next: AppRecipe) {
-		selectedRecipeId = selectedRecipeId === next.id ? null : next.id;
-		if (selectedRecipeId === null) return;
+		const key = recipeKey(next);
+		selectedKey = selectedKey === key ? null : key;
+		if (selectedKey === null) return;
 		appName = normalizeAppId(next.id);
 		appIdTouched = false;
 		values = defaultRecipeValues(next);
@@ -100,7 +154,7 @@
 	}
 
 	function resetCook() {
-		selectedRecipeId = null;
+		selectedKey = null;
 		result = null;
 		actionError = '';
 	}
@@ -113,6 +167,7 @@
 			result = await createManagedHostApp({
 				scope,
 				name: appName,
+				catalogId: recipe.catalogId,
 				recipeId: recipe.id,
 				valuesJson: JSON.stringify(valuesForSubmit(recipe, values))
 			});
@@ -152,42 +207,117 @@
 					aria-label={t('apps.searchRecipesLabel')}
 				/>
 			</div>
-			{#if filteredRecipes.length > 0}
-				<div class="mt-3 grid gap-px bg-border md:grid-cols-2">
-					{#each filteredRecipes as option (option.id)}
-						<button
-							type="button"
-							class="relative flex min-w-0 gap-3 overflow-hidden bg-background p-4 text-left transition-colors hover:bg-muted/30 {selectedRecipeId ===
-							option.id
-								? 'ring-2 ring-primary ring-inset'
-								: ''}"
-							onclick={() => selectRecipe(option)}
+			{#if unreachableCatalogs.length > 0 || staleCatalogs.length > 0 || refreshError}
+				<div class="mt-3 space-y-2" role="status">
+					{#each unreachableCatalogs as catalog (catalog.id)}
+						<div
+							class="border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
 						>
-							<div
-								class="pointer-events-none absolute inset-0 opacity-[0.05]"
-								style={`background: linear-gradient(135deg, ${recipeAccentColor(option.id)} 0%, transparent 60%)`}
-							></div>
-							<div
-								class="relative flex size-10 shrink-0 items-center justify-center rounded border border-border bg-muted/40 text-primary"
-							>
-								<Icon name={option.icon ?? option.id} class="size-6" title={option.name} />
-							</div>
-							<div class="relative min-w-0 flex-1">
-								<div class="flex items-center gap-2">
-									<span class="truncate text-sm font-semibold text-foreground">{option.name}</span>
-									<span class="shrink-0 text-[10px] text-muted-foreground">v{option.version}</span>
-								</div>
-								<p class="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
-									{option.description}
-								</p>
-								<p
-									class="mt-2 text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
-								>
-									{option.category}
-								</p>
-							</div>
-						</button>
+							<p>{t('apps.catalogUnreachable', { name: catalog.name })}</p>
+							{#if catalog.lastError}
+								<p class="mt-1 font-mono break-all opacity-80">{catalog.lastError}</p>
+							{/if}
+						</div>
 					{/each}
+					{#each staleCatalogs as catalog (catalog.id)}
+						<p class="text-xs text-muted-foreground">
+							{t('apps.catalogStale', { name: catalog.name })}
+						</p>
+					{/each}
+					{#if refreshError}
+						<p class="text-xs text-destructive">{refreshError}</p>
+					{/if}
+					{#if data.isAdmin}
+						<div class="flex flex-wrap items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								class="gap-2"
+								onclick={refreshCatalogs}
+								disabled={refreshing}
+							>
+								{#if refreshing}
+									<Loader2 class="size-3.5 animate-spin" />
+								{:else}
+									<RefreshCw class="size-3.5" />
+								{/if}
+								{t('apps.refreshCatalogs')}
+							</Button>
+							<a
+								href="/admin/recipes"
+								class="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+							>
+								{t('apps.manageCatalogs')}
+							</a>
+						</div>
+					{/if}
+				</div>
+			{/if}
+			{#if recipeGroups.length > 0}
+				{#each recipeGroups as group (group.catalog.id)}
+					{#if data.catalogs.length > 1}
+						<h3
+							class="mt-4 flex items-center gap-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+						>
+							{group.catalog.name}
+							{#if group.catalog.kind === 'custom'}
+								<Badge variant="outline" class="text-[10px] normal-case">
+									{t('apps.customCatalog')}
+								</Badge>
+							{/if}
+						</h3>
+					{/if}
+					<div class="mt-3 grid gap-px bg-border md:grid-cols-2">
+						{#each group.recipes as option (recipeKey(option))}
+							<button
+								type="button"
+								class="relative flex min-w-0 gap-3 overflow-hidden bg-background p-4 text-left transition-colors hover:bg-muted/30 {selectedKey ===
+								recipeKey(option)
+									? 'ring-2 ring-primary ring-inset'
+									: ''}"
+								aria-pressed={selectedKey === recipeKey(option)}
+								onclick={() => selectRecipe(option)}
+							>
+								<div
+									class="pointer-events-none absolute inset-0 opacity-[0.05]"
+									style={`background: linear-gradient(135deg, ${recipeAccentColor(option.id)} 0%, transparent 60%)`}
+								></div>
+								<div
+									class="relative flex size-10 shrink-0 items-center justify-center rounded border border-border bg-muted/40 text-primary"
+								>
+									<Icon name={option.icon ?? option.id} class="size-6" title={option.name} />
+								</div>
+								<div class="relative min-w-0 flex-1">
+									<div class="flex items-center gap-2">
+										<span class="truncate text-sm font-semibold text-foreground">{option.name}</span
+										>
+										<span class="shrink-0 text-[10px] text-muted-foreground">v{option.version}</span
+										>
+									</div>
+									<p class="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+										{option.description}
+									</p>
+									<div class="mt-2 flex flex-wrap items-center gap-2">
+										<span
+											class="text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
+										>
+											{option.categoryName}
+										</span>
+										<Badge
+											variant={option.tier === 'official' ? 'secondary' : 'outline'}
+											class="max-w-40 truncate text-[10px]"
+										>
+											{tierLabel(option)}
+										</Badge>
+									</div>
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/each}
+			{:else if data.recipes.length === 0}
+				<div class="py-8 text-center text-xs text-muted-foreground">
+					{t('apps.noRecipes')}
 				</div>
 			{:else}
 				<div class="py-8 text-center text-xs text-muted-foreground">

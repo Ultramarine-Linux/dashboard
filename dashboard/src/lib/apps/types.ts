@@ -11,8 +11,19 @@ export type HostAppRecipeSource =
 	| { source: 'inline'; recipe: string; templates: Record<string, string> }
 	| { source: 'file'; recipe_path: string; templates_dir?: string | null };
 
+/**
+ * `RecipeSource` — the catalog claim and verified bundle digest Tetra keeps
+ * for an app. Apps cooked before Tetra recorded it have none.
+ */
+export type HostAppSource = {
+	catalog: 'official' | 'community' | 'custom';
+	url: string | null;
+	sha256: string;
+};
+
 /** `AppManifest` — stored by the agent at `<bundle>/app.json`. */
 export type HostAppManifest = {
+	source?: HostAppSource | null;
 	version: number;
 	name: string;
 	scope: HostAppScope;
@@ -123,6 +134,18 @@ function parseRecipeSource(value: unknown): HostAppRecipeSource | null {
 	return null;
 }
 
+function parseSource(value: unknown): HostAppSource | null {
+	if (!isRecord(value)) return null;
+	const sha256 = asString(value['sha256']);
+	if (sha256 === null) return null;
+	const catalog = value['catalog'];
+	return {
+		catalog: catalog === 'official' || catalog === 'community' ? catalog : 'custom',
+		url: asString(value['url']),
+		sha256
+	};
+}
+
 /** Defensive parse of an `AppManifest` (agent response or stored fixture). */
 export function parseAppManifest(value: unknown): HostAppManifest | null {
 	if (!isRecord(value)) return null;
@@ -132,6 +155,7 @@ export function parseAppManifest(value: unknown): HostAppManifest | null {
 	if (name === null || recipeId === null || recipe === null) return null;
 	const values = isRecord(value['values']) ? value['values'] : {};
 	return {
+		source: parseSource(value['source']),
 		version: asNumber(value['version']) ?? 1,
 		name,
 		scope: value['scope'] === 'system' ? 'system' : 'user',

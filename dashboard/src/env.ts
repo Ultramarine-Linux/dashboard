@@ -17,5 +17,8 @@ export const variables = defineEnvVars({
 	ACCESSIBILITY_FIXTURES: { schema: (input) => input },
 	TETRA_SOCKET_PATH: { schema: (input) => input },
 	UM_DASHBOARD_DB_PATH: { schema: (input) => input },
-	UM_DASHBOARD_MIGRATIONS_DIR: { schema: (input) => input }
+	UM_DASHBOARD_MIGRATIONS_DIR: { schema: (input) => input },
+	RECIPES_URL: { schema: (input) => input },
+	RECIPES_REFRESH_INTERVAL: { schema: (input) => input },
+	UM_DASHBOARD_RECIPES_SEED_DIR: { schema: (input) => input }
 });

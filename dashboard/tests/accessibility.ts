@@ -20,7 +20,8 @@ export const pages = [
 	{ label: 'server quadlet create', path: '/quadlets/create' },
 	{ label: 'server apps', path: '/apps' },
 	{ label: 'server app cook', path: '/apps/create' },
-	{ label: 'server app detail', path: '/apps/demo-web' }
+	{ label: 'server app detail', path: '/apps/demo-web' },
+	{ label: 'admin recipe catalogs', path: '/admin/recipes' }
 ];
 
 export const test = base.extend<AxeFixture>({

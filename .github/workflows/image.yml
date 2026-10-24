@@ -76,18 +76,18 @@ jobs:
 
   docker:
     needs: smoke-build
-    # Pinned: this job can push and sign the image. Bump deliberately.
-    uses: FyraLabs/actions/.github/workflows/docker.yml@51d6b104753065880d3735f4e98672e331bab925 # main, 2026-10-22
+    uses: FyraLabs/actions/.github/workflows/docker.yml@d52e087213e43c06fa29d906bcd9dfb755dcd6b0 # main, 2026-10-24
     with:
-      # Only main and release tags publish. A dispatch on another branch only
-      # builds: a branch named like a version would otherwise get a tag that
-      # update.rhai takes for a release.
-      # Release tags exclude prereleases here too, since a dispatch skips the
-      # push filter above.
       publish: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))) }}
       context: .
       dockerfile: dashboard/Containerfile
       image_name: ultramarine-linux/dashboard
+      # Published images must carry the recipe catalog seed; builds that don't
+      # publish may go without it (see dashboard/Containerfile). The revision
+      # changes every run, so buildx's GHA cache never reuses an old seed.
+      build_args: |
+        RECIPES_SEED=${{ (github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')))) && 'required' || 'optional' }}
+        RECIPES_SEED_REVISION=${{ github.run_id }}-${{ github.run_attempt }}
     permissions:
       contents: read
       packages: write
@@ -95,48 +95,41 @@ jobs:
       id-token: write
     # It only uses GITHUB_TOKEN, which a called workflow gets anyway.
 
-  # The shared workflow has no outputs, so read the digest of the tag it pushed.
+  # Report the digest the shared workflow signed and published.
   digest:
     name: Digest
     needs: docker
     if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))) }}
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: read
+    permissions: {}
     outputs:
-      digest: ${{ steps.digest.outputs.digest }}
       ref: ${{ steps.digest.outputs.ref }}
     steps:
-      - name: Resolve digest
+      - name: Report digest
         id: digest
         env:
-          USERNAME: ${{ github.actor }}
-          PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ needs.docker.outputs.digest }}
         run: |
-          printf '%s\n' "$PASSWORD" | skopeo login -u "$USERNAME" --password-stdin ghcr.io
+          test -n "$DIGEST" || { echo "the docker workflow reported no digest" >&2; exit 1; }
           # docker/metadata-action's tag for this ref (branch or git tag).
           tag=${GITHUB_REF_NAME//\//-}
-          # The index (multi-arch) digest, as the shared workflow signs it.
-          digest=sha256:$(skopeo inspect --raw "docker://${IMAGE}:${tag}" | sha256sum | cut -d' ' -f1)
 
-          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
-          echo "ref=${IMAGE}@${digest}" >> "$GITHUB_OUTPUT"
+          echo "ref=${IMAGE}@${DIGEST}" >> "$GITHUB_OUTPUT"
           {
             echo "### Dashboard image"
             echo
             echo "| | |"
             echo "| --- | --- |"
             echo "| Image | \`${IMAGE}:${tag}\` |"
-            echo "| Digest | \`${digest}\` |"
+            echo "| Digest | \`${DIGEST}\` |"
             echo
             echo "Pin it in ultramarine-server-dashboard (Ultramarine-Linux/packages):"
             echo
             echo '```'
-            echo "%global dashboard_digest ${digest}"
+            echo "%global dashboard_digest ${DIGEST}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=Dashboard image::${IMAGE}@${digest}"
+          echo "::notice title=Dashboard image::${IMAGE}@${DIGEST}"
 
   # The same checks on the image as published (built by the shared workflow's
   # buildx rather than podman), by digest.

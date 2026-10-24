@@ -2,7 +2,6 @@
 	import { formatDateTime, t, tn } from '#lib/i18n/index.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getAppRecipe } from '#lib/apps/catalog.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import SegmentedControl from '#lib/components/segmented-control.svelte';
 	import StatusBadge from '#lib/components/status-badge.svelte';
@@ -137,7 +136,7 @@
 							</span>
 						</div>
 						<p class="mt-1 text-xs text-muted-foreground">
-							{getAppRecipe(app.recipeId)?.name ?? app.recipeId} · v{app.recipeVersion}
+							{app.recipeName ?? app.recipeId} · v{app.recipeVersion}
 						</p>
 						<p class="mt-1 text-xs text-muted-foreground">
 							{tn('apps.services', app.services.length)}

@@ -15,6 +15,44 @@ ARG NODE_MAJOR=24
 # the native module must link against the same glibc.
 ARG BUILD_IMAGE=docker.io/library/node:${NODE_MAJOR}-trixie-slim
 ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs${NODE_MAJOR}-debian13:nonroot
+# The Fyra Labs recipe catalog: seeded at build time (see below) and the
+# image's default RECIPES_URL.
+ARG RECIPES_URL=https://recipes.fyralabs.com/v1
+
+# Seed the Fyra Labs recipe catalog, so a fresh install offers recipes before
+# it can reach the network: a plain mirror of RECIPES_URL (`index.json` and
+# the bundles it lists). Nothing is verified here. At first start Dashboard
+# imports the seed through the same digest checks as a download, then keeps
+# the catalog up to date from RECIPES_URL. RECIPES_SEED: `required` fails the
+# build when the catalog can't be fetched, `optional` (for offline local
+# builds) builds without it, and `off` skips it.
+FROM docker.io/library/debian:trixie-slim AS recipes
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends ca-certificates curl jq \
+	&& rm -rf /var/lib/apt/lists/*
+ARG RECIPES_URL
+ARG RECIPES_SEED=optional
+# Changes on every CI run, so a cached layer never stands in for a fresh seed.
+ARG RECIPES_SEED_REVISION
+RUN set -eu; \
+	seed() ( \
+		set -eu; \
+		mkdir -p /recipes-seed/fyra && cd /recipes-seed/fyra; \
+		get() { curl -fsSL --proto '=https,http' --retry 3 --max-time 60 --create-dirs -o "$1" "${RECIPES_URL%/}/$1"; }; \
+		get index.json; \
+		jq -r '.recipes[].bundle' index.json | while IFS= read -r bundle; do \
+			case "$bundle" in /*|*..*|'') echo "unsafe bundle path: $bundle" >&2; exit 1 ;; esac; \
+			get "$bundle"; \
+		done \
+	); \
+	mkdir -p /recipes-seed; \
+	case "$RECIPES_SEED" in \
+		off) ;; \
+		required) seed ;; \
+		optional) seed || { echo "warning: building without a seeded recipe catalog" >&2; rm -rf /recipes-seed/fyra; } ;; \
+		*) echo "RECIPES_SEED must be required, optional or off" >&2; exit 1 ;; \
+	esac; \
+	chmod -R a+rX /recipes-seed
 
 FROM ${BUILD_IMAGE} AS build
 
@@ -53,6 +91,7 @@ RUN mkdir -p /state/ultramarine-dashboard \
 	&& chown 65532:65532 /state/ultramarine-dashboard
 
 FROM ${RUNTIME_IMAGE}
+ARG RECIPES_URL
 
 # For local builds. The Image workflow's build replaces these with labels
 # docker/metadata-action derives from the repository.
@@ -70,6 +109,7 @@ COPY --from=build /src/dashboard/build ./build
 COPY --from=build /src/dashboard/serve.js ./serve.js
 # Dashboard applies these on startup and /health checks them.
 COPY --from=build /src/dashboard/drizzle ./drizzle
+COPY --from=recipes /recipes-seed ./recipes-seed
 COPY --from=build --chown=65532:65532 /state/ /var/lib/
 
 # Listen on every interface inside the container so the published port works.
@@ -85,7 +125,9 @@ ENV NODE_ENV=production \
 	PROTOCOL_HEADER=x-forwarded-proto \
 	PORT=3972 \
 	SHUTDOWN_TIMEOUT=5 \
-	UM_DASHBOARD_STATE_DIR=/var/lib/ultramarine-dashboard
+	UM_DASHBOARD_STATE_DIR=/var/lib/ultramarine-dashboard \
+	UM_DASHBOARD_RECIPES_SEED_DIR=/app/recipes-seed \
+	RECIPES_URL=${RECIPES_URL}
 EXPOSE 3972
 
 # Distroless :nonroot runs as 65532. The Quadlet overrides it with the host
