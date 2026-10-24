@@ -16,3 +16,7 @@ build/
 /test-results/
 /playwright-report/
 /.local/backports/
+
+# Translations are written by Weblate; `pnpm i18n:check` validates them.
+/src/lib/i18n/langs/*.json
+!/src/lib/i18n/langs/en.json

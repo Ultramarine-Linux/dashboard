@@ -2,27 +2,57 @@ import { init, type Interpolations } from 'i18nya';
 import type en from './langs/en.json';
 
 /**
- * Translation catalogs live in `./langs/<locale>.json`, one flat object per
- * BCP 47 locale (`en.json`, `pt-BR.json`, ...). `en.json` is the source of
- * truth: every key must exist there, and other locales fall back to it.
+ * Translation catalogs live in `./langs/<locale>.json`, one nested object per
+ * BCP 47 locale (`en.json`, `pt-BR.json`, ...), in the i18next v4 layout that
+ * Weblate edits. Code refers to strings by their dotted path
+ * (`settings.appearance.heading`). `en.json` is the source of truth; other
+ * locales fall back to it key by key.
+ *
+ * Plurals use i18next suffixes on the last segment: `apps.services_one`,
+ * `apps.services_other`, plus `_zero`, `_two`, `_few`, `_many` where a language
+ * needs them (CLDR categories).
  */
-export type TranslationKey = keyof typeof en;
+type Catalog = { [key: string]: string | Catalog };
+
+type DottedKeys<T, Prefix extends string = ''> = {
+	[K in keyof T & string]: T[K] extends string
+		? `${Prefix}${K}`
+		: DottedKeys<T[K], `${Prefix}${K}.`>;
+}[keyof T & string];
+
+export type TranslationKey = DottedKeys<typeof en>;
 export type { Interpolations };
 
-/** Bases of keys that have plural forms, e.g. `apps.count` for `apps.count.other`. */
+/** Bases of keys that have plural forms, e.g. `apps.services` for `apps.services_other`. */
 export type PluralKey = {
-	[K in TranslationKey]: K extends `${infer Base}.other` ? Base : never;
+	[K in TranslationKey]: K extends `${infer Base}_other` ? Base : never;
 }[TranslationKey];
 
 export const defaultLocale = 'en';
 export const localeCookie = 'locale';
 
+/** Flatten a nested catalog into `dotted.path -> string`. */
+export function flattenCatalog(catalog: Catalog, prefix = ''): Record<string, string> {
+	const flat: Record<string, string> = {};
+	for (const [key, value] of Object.entries(catalog)) {
+		if (typeof value === 'string') flat[prefix + key] = value;
+		else Object.assign(flat, flattenCatalog(value, `${prefix}${key}.`));
+	}
+	return flat;
+}
+
+const langDir = './langs';
+const catalogs = import.meta.glob<{ default: Catalog }>('./langs/*.json', { eager: true });
+
 const i18nya = await init<TranslationKey>({
-	langDir: './langs',
+	langDir,
 	defaultLang: defaultLocale,
-	viteImports: import.meta.glob<{ default: Record<TranslationKey, string> }>('./langs/*.json', {
-		eager: true
-	})
+	viteImports: Object.fromEntries(
+		Object.entries(catalogs).map(([path, module]) => [
+			path,
+			{ default: flattenCatalog(module.default) as Record<TranslationKey, string> }
+		])
+	)
 });
 
 /** Every locale with a catalog, default first. */
@@ -77,7 +107,7 @@ export function translate(locale: string, key: TranslationKey, its?: Interpolati
 }
 
 /**
- * Translate a pluralized key. The catalog holds `<key>.one`, `<key>.other`,
+ * Translate a pluralized key. The catalog holds `<key>_one`, `<key>_other`,
  * etc. (CLDR categories); `{{count}}` is filled in with the formatted number.
  */
 export function translatePlural(
@@ -89,9 +119,9 @@ export function translatePlural(
 	const category = new Intl.PluralRules(locale).select(count);
 	const formatted = new Intl.NumberFormat(locale).format(count);
 	const vars = { count: formatted, ...its };
-	const specific = `${key}.${category}` as TranslationKey;
+	const specific = `${key}_${category}` as TranslationKey;
 	const result = translate(locale, specific, vars);
-	return result === specific ? translate(locale, `${key}.other` as TranslationKey, vars) : result;
+	return result === specific ? translate(locale, `${key}_other` as TranslationKey, vars) : result;
 }
 
 /** A locale's name in its own language, for language pickers. */

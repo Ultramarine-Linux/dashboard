@@ -862,7 +862,7 @@
 								</p>
 							</div>
 							<div class="flex flex-col gap-1.5">
-								<Label>{t('settings.appearance.theme')}</Label>
+								<Label>{t('settings.appearance.theme.label')}</Label>
 								<div class="grid grid-cols-3 gap-2">
 									{#each themeOptions as option (option.value)}
 										{@const Icon = option.icon}
