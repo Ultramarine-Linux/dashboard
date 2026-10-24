@@ -123,10 +123,10 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="mx-auto max-w-6xl">
-		<h1 class="text-sm font-semibold text-foreground">New App</h1>
-		<p class="mt-1 text-xs text-muted-foreground">
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">New App</h1>
+		<p class="mt-1 text-sm text-muted-foreground">
 			Cook a recipe into an installed app on this host.
 		</p>
 

@@ -50,6 +50,9 @@
 	import User from '~icons/nucleo/user';
 	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import { userPrefersMode, setMode } from 'mode-watcher';
+	import { contrast, type ContrastPreference } from '$lib/state/contrast.svelte';
+	import Circle from '~icons/lucide/circle';
+	import ContrastIcon from '~icons/lucide/contrast';
 
 	type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -57,6 +60,12 @@
 		{ value: 'light', label: 'Light', icon: Sun },
 		{ value: 'dark', label: 'Dark', icon: Moon },
 		{ value: 'system', label: 'Auto', icon: Monitor }
+	];
+
+	const contrastOptions: { value: ContrastPreference; label: string; icon: typeof Sun }[] = [
+		{ value: 'off', label: 'Off', icon: Circle },
+		{ value: 'on', label: 'On', icon: ContrastIcon },
+		{ value: 'auto', label: 'Auto', icon: Monitor }
 	];
 
 	type Props = {
@@ -799,6 +808,7 @@
 										{@const Icon = option.icon}
 										<button
 											type="button"
+											aria-pressed={userPrefersMode.current === option.value}
 											onclick={() => setMode(option.value)}
 											class="flex flex-col items-center gap-1.5 border px-3 py-2.5 text-xs transition-colors {userPrefersMode.current ===
 											option.value
@@ -814,6 +824,34 @@
 									Auto follows your system's light/dark setting.
 								</p>
 							</div>
+							<fieldset class="mt-4 border-t border-border/50 pt-4">
+								<legend class="float-left mb-1.5 w-full text-sm leading-none font-medium">
+									High contrast
+								</legend>
+								<div class="clear-both grid grid-cols-3 gap-2">
+									{#each contrastOptions as option (option.value)}
+										{@const Icon = option.icon}
+										<button
+											type="button"
+											aria-pressed={contrast.preference === option.value}
+											onclick={() => contrast.setPreference(option.value)}
+											class="flex flex-col items-center gap-1.5 border px-3 py-2.5 text-xs transition-colors {contrast.preference ===
+											option.value
+												? 'border-primary bg-primary/10 text-foreground'
+												: 'border-border text-muted-foreground hover:border-ring hover:text-foreground'}"
+										>
+											<Icon class="h-4 w-4" />
+											{option.label}
+										</button>
+									{/each}
+								</div>
+								<p class="mt-1.5 text-xs text-muted-foreground">
+									Stronger colors, borders and focus outlines. Auto follows your system's contrast
+									setting{contrast.preference === 'auto'
+										? ` (currently ${contrast.systemPrefersMore ? 'on' : 'off'})`
+										: ''}.
+								</p>
+							</fieldset>
 						</div>
 					</Tabs.Content>
 				</div>

@@ -145,11 +145,11 @@
 	<title>{pageTitle('Services')}</title>
 </svelte:head>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-sm font-semibold text-foreground">Services</h1>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Services</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
 				{isAdmin
 					? 'The apps and links people on this server can open. Choose who sees each one.'
 					: 'Apps and links shared with you on this server.'}

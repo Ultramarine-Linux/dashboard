@@ -4,8 +4,13 @@
 	import { onMount } from 'svelte';
 	import { ModeWatcher } from 'mode-watcher';
 	import { dashboardBrand } from '$lib/branding';
+	import { contrast } from '$lib/state/contrast.svelte';
 
 	let { children } = $props();
+
+	$effect(() => {
+		contrast.apply();
+	});
 
 	onMount(async () => {
 		document.documentElement.dataset.brand = dashboardBrand.id;
@@ -30,6 +35,8 @@
 	<link rel="icon" href={dashboardBrand.favicon16} type="image/png" sizes="16x16" />
 	<link rel="apple-touch-icon" href={dashboardBrand.appleTouchIcon} sizes="180x180" />
 </svelte:head>
+
+<svelte:window onstorage={(event) => contrast.syncFromStorage(event)} />
 
 <ModeWatcher defaultMode="dark" />
 <NavigationProgress />

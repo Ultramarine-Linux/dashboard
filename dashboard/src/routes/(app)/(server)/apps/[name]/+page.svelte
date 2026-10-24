@@ -22,11 +22,12 @@
 		type HostSummary,
 		type ManagedHostAppDetail,
 		type ManagedHostAppService,
-		type ManagedHostAppStatus,
 		type ManagedHostAppWriteResult,
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import StatusBadge from '$lib/components/status-badge.svelte';
+	import ArrowLeft from '~icons/lucide/arrow-left';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Pencil from '~icons/lucide/pencil';
 	import RefreshCw from '~icons/lucide/refresh-cw';
@@ -105,19 +106,6 @@
 
 	function formatEpoch(seconds: number) {
 		return seconds > 0 ? new Date(seconds * 1000).toLocaleString() : 'Unknown';
-	}
-
-	function statusVariant(status: ManagedHostAppStatus) {
-		if (status === 'running') return 'default';
-		if (status === 'failed') return 'destructive';
-		if (status === 'stopped') return 'secondary';
-		return 'outline';
-	}
-
-	function serviceBadgeVariant(state: string) {
-		if (state === 'active') return 'default';
-		if (state === 'failed') return 'destructive';
-		return 'secondary';
 	}
 
 	function setLogPanel(name: string, panel: LogPanel) {
@@ -258,14 +246,21 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div class="min-w-0">
-			<div class="flex flex-wrap items-center gap-2">
-				<h1 class="truncate text-sm font-semibold text-foreground">{appName}</h1>
+			<a
+				href="/apps?scope={scope}"
+				class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+			>
+				<ArrowLeft class="size-3" />
+				Apps
+			</a>
+			<div class="mt-1 flex flex-wrap items-center gap-2">
+				<h1 class="truncate text-xl font-semibold tracking-tight text-foreground">{appName}</h1>
 				{#if detail}
-					<Badge variant={statusVariant(detail.status)}>{detail.status}</Badge>
-					<Badge variant="secondary">{scope}</Badge>
+					<StatusBadge status={detail.status} />
+					<Badge variant="outline" class="capitalize">{scope}</Badge>
 				{/if}
 			</div>
 			{#if detail}
@@ -314,8 +309,8 @@
 									<span class="font-mono text-xs font-medium text-foreground">
 										{service.name}
 									</span>
-									<Badge variant={serviceBadgeVariant(service.active)}>{service.active}</Badge>
-									<Badge variant={serviceBadgeVariant(service.sub)}>{service.sub}</Badge>
+									<StatusBadge status={service.active} />
+									<StatusBadge status={service.sub} />
 								</div>
 								{#if service.description}
 									<p class="mt-1 text-xs text-muted-foreground">{service.description}</p>

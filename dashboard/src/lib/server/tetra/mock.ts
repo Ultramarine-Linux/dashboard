@@ -583,7 +583,7 @@ export class MockTetra implements TetraClient {
 		if (!user.admin && !open) throw new TetraError('forbidden', 'not allowed');
 		if (params.module === 'agent' && params.action === 'capabilities') return { modules: [] };
 		if (params.module === 'settings' && params.action === 'get_system') {
-			return { hostname: 'mock-server', pretty_name: 'Ultramarine Linux (mock)', arch: 'x86_64' };
+			return { hostname: 'mock-server', pretty_name: 'Ultramarine Server (mock)', arch: 'x86_64' };
 		}
 		throw new TetraError('action_failed', 'module actions are not available in the Tetra mock');
 	}

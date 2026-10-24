@@ -24,21 +24,29 @@ export type HostTab =
 	| 'network'
 	| 'dispatch';
 
+export type HostTabGroup = 'workloads' | 'system';
+
+export const hostTabGroups: { id: HostTabGroup; label: string }[] = [
+	{ id: 'workloads', label: 'Workloads' },
+	{ id: 'system', label: 'System' }
+];
+
 export const hostTabs: {
 	id: HostTab;
 	label: string;
 	icon: IconComponent;
+	group: HostTabGroup;
 }[] = [
-	{ id: 'services', label: 'Services', icon: Layers },
-	{ id: 'apps', label: 'Apps', icon: Grid },
-	{ id: 'podman', label: 'Podman', icon: Box },
-	{ id: 'quadlets', label: 'Quadlets', icon: FileText },
-	{ id: 'proxy', label: 'Reverse Proxy', icon: Globe },
-	{ id: 'users', label: 'Users', icon: User },
-	{ id: 'storage', label: 'Storage', icon: Server },
-	{ id: 'network', label: 'Network', icon: Network },
-	{ id: 'overview', label: 'Overview', icon: Activity },
-	{ id: 'dispatch', label: 'Dispatch', icon: Send }
+	{ id: 'services', label: 'Services', icon: Layers, group: 'workloads' },
+	{ id: 'apps', label: 'Apps', icon: Grid, group: 'workloads' },
+	{ id: 'podman', label: 'Podman', icon: Box, group: 'workloads' },
+	{ id: 'quadlets', label: 'Quadlets', icon: FileText, group: 'workloads' },
+	{ id: 'proxy', label: 'Reverse Proxy', icon: Globe, group: 'workloads' },
+	{ id: 'overview', label: 'Overview', icon: Activity, group: 'system' },
+	{ id: 'users', label: 'Users', icon: User, group: 'system' },
+	{ id: 'storage', label: 'Storage', icon: Server, group: 'system' },
+	{ id: 'network', label: 'Network', icon: Network, group: 'system' },
+	{ id: 'dispatch', label: 'Dispatch', icon: Send, group: 'system' }
 ];
 
 export type HostTabHref =

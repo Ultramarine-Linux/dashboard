@@ -139,11 +139,11 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-col gap-5">
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<div>
-				<h1 class="flex items-center gap-2 text-lg font-semibold text-foreground">
+				<h1 class="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
 					<Globe class="size-5 text-muted-foreground" /> Reverse Proxy
 				</h1>
 				<p class="mt-1 max-w-2xl text-sm text-muted-foreground">

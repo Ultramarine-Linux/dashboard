@@ -2,13 +2,13 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getAppRecipe } from '$lib/apps/catalog';
-	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import SegmentedControl from '$lib/components/segmented-control.svelte';
+	import StatusBadge from '$lib/components/status-badge.svelte';
 	import {
 		listManagedHostApps,
 		type HostSummary,
 		type ManagedHostAppListItem,
-		type ManagedHostAppStatus,
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
@@ -53,13 +53,6 @@
 		}
 	}
 
-	function statusVariant(status: ManagedHostAppStatus) {
-		if (status === 'running') return 'default';
-		if (status === 'failed') return 'destructive';
-		if (status === 'stopped') return 'secondary';
-		return 'outline';
-	}
-
 	function setScope(nextScope: ManagedHostQuadletScope) {
 		scope = nextScope;
 		goto(`/apps?scope=${nextScope}`, {
@@ -72,31 +65,23 @@
 	function openApp(app: ManagedHostAppListItem) {
 		goto(`/apps/${encodeURIComponent(app.name)}?scope=${scope}`);
 	}
+
+	const scopeOptions: { value: ManagedHostQuadletScope; label: string }[] = [
+		{ value: 'user', label: 'User' },
+		{ value: 'system', label: 'System' }
+	];
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-sm font-semibold text-foreground">Apps</h1>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Apps</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
 				Cook recipes into installed apps and manage their lifecycle.
 			</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="flex border border-border">
-				{#each ['user', 'system'] as item (item)}
-					<Button
-						variant={scope === item ? 'default' : 'ghost'}
-						size="sm"
-						class="h-8 rounded-none px-3 text-xs"
-						onclick={() => {
-							setScope(item as ManagedHostQuadletScope);
-						}}
-					>
-						{item}
-					</Button>
-				{/each}
-			</div>
+			<SegmentedControl label="Scope" options={scopeOptions} value={scope} onchange={setScope} />
 			<Button variant="outline" size="sm" class="gap-2" onclick={loadApps} disabled={loading}>
 				{#if loading}
 					<Loader2 class="size-3.5 animate-spin" />
@@ -140,9 +125,7 @@
 						<div class="flex flex-wrap items-center justify-between gap-2">
 							<div class="flex min-w-0 items-center gap-2">
 								<span class="truncate font-medium text-foreground">{app.name}</span>
-								<Badge variant={statusVariant(app.status)} class="text-[10px]">
-									{app.status}
-								</Badge>
+								<StatusBadge status={app.status} />
 							</div>
 							<span class="shrink-0 text-xs text-muted-foreground">
 								Updated {new Date(app.updatedAt * 1000).toLocaleString()}

@@ -18,7 +18,7 @@ export const accessibilityFixtureFeatureFlags: FeatureFlags = {
  */
 export const accessibilityFixtureHost = {
 	hostname: 'a11y-host-01',
-	os: 'Ultramarine Linux',
+	os: 'Ultramarine Server',
 	arch: 'x86_64',
 	capabilities: {
 		modules: [

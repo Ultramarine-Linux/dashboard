@@ -65,8 +65,8 @@
 
 <div class="flex h-full min-h-0 flex-col overflow-auto bg-background">
 	<div class="border-b border-border px-5 py-4">
-		<h1 class="text-base font-semibold text-foreground">Host Users</h1>
-		<p class="mt-1 text-xs text-muted-foreground">
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">Host Users</h1>
+		<p class="mt-1 text-sm text-muted-foreground">
 			Manage local accounts on {host.hostname ?? 'this server'}. Anyone with an account and a
 			password can sign in to the dashboard; Tetra decides what each account may see.
 		</p>

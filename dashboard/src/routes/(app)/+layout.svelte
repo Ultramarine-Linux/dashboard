@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, invalidate } from '$app/navigation';
 	import UserSettingsDialog from '$lib/components/dialogs/user-settings-dialog.svelte';
 	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
 	import {
@@ -15,14 +15,18 @@
 	import { dashboardBrand, pageTitle } from '$lib/branding';
 	import type { FeatureFlags } from '$lib/feature-flags';
 	import type { IconComponent } from '$lib';
-	import { hostTabHref, visibleHostTabs } from '$lib/hosts/host-detail';
+	import { hostTabGroups, hostTabHref, visibleHostTabs } from '$lib/hosts/host-detail';
+	import type { HostSummary } from '$lib/remote/managed-hosts.remote';
 	import ArrowRight from '~icons/lucide/arrow-right';
+	import ChevronRight from '~icons/lucide/chevron-right';
+	import Loader2 from '~icons/lucide/loader-2';
+	import RefreshCw from '~icons/lucide/refresh-cw';
+	import Flag from '~icons/nucleo/flag';
 	import AlertTriangle from '~icons/nucleo/alert-triangle';
 	import Key from '~icons/nucleo/key';
 	import Lock from '~icons/nucleo/lock';
 	import Menu from '~icons/lucide/menu';
 	import Search from '~icons/nucleo/search';
-	import Server from '~icons/nucleo/server';
 	import Settings from '~icons/nucleo/settings';
 	import User from '~icons/nucleo/user';
 
@@ -32,14 +36,52 @@
 	let commandSearch = $state('');
 	const featureFlags = $derived((data.featureFlags ?? {}) as FeatureFlags);
 
-	const navItems: { icon: IconComponent; label: string; href: string }[] = [
-		{ icon: Server, label: 'Server', href: '/' }
+	type NavItem = { icon: IconComponent; label: string; href: string };
+	type NavGroup = { label: string; items: NavItem[] };
+
+	const hostTabsForUser = $derived(visibleHostTabs(data.permissions, featureFlags));
+
+	const adminItems: NavItem[] = [
+		{ icon: Key, label: 'Single sign-on', href: '/admin/sso' },
+		{ icon: Flag, label: 'Feature flags', href: '/admin/features' }
 	];
 
+	const navGroups = $derived.by<NavGroup[]>(() => {
+		const groups: NavGroup[] = hostTabGroups
+			.map((group) => ({
+				label: group.label,
+				items: hostTabsForUser
+					.filter((tab) => tab.group === group.id)
+					.map((tab) => ({ icon: tab.icon, label: tab.label, href: hostTabHref(tab.id) }))
+			}))
+			.filter((group) => group.items.length > 0);
+		if (data.isAdmin) groups.push({ label: 'Administration', items: adminItems });
+		return groups;
+	});
+
 	function isActive(href: string): boolean {
-		// Every view outside /admin belongs to this server.
-		if (href === '/') return !isActive('/admin');
 		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+	}
+
+	const activeNav = $derived.by(() => {
+		for (const group of navGroups) {
+			const item = group.items.find((entry) => isActive(entry.href));
+			if (item) return { group: group.label, item };
+		}
+		return null;
+	});
+
+	const host = $derived((page.data as { host?: HostSummary }).host ?? null);
+	let refreshingHost = $state(false);
+
+	async function refreshHost() {
+		if (refreshingHost) return;
+		refreshingHost = true;
+		try {
+			await invalidate('app:local-host');
+		} finally {
+			refreshingHost = false;
+		}
 	}
 
 	const userSettings = new UserSettingsState();
@@ -70,11 +112,13 @@
 		action?: () => void | Promise<void>;
 	};
 	const navigateCommands = $derived.by(() =>
-		visibleHostTabs(data.permissions, featureFlags).map((tab): CommandEntry => ({
-			icon: tab.icon,
-			label: tab.label,
-			href: hostTabHref(tab.id)
-		}))
+		navGroups.flatMap((group) =>
+			group.items.map((item): CommandEntry => ({
+				icon: item.icon,
+				label: item.label,
+				href: item.href
+			}))
+		)
 	);
 	const accountCommands: CommandEntry[] = [
 		{ icon: User, label: 'Profile', action: () => openUserSettings('profile') },
@@ -119,147 +163,230 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-	<title>{pageTitle('Dashboard')}</title>
+	<title>{pageTitle(activeNav?.item.label ?? 'Dashboard')}</title>
 </svelte:head>
+
+{#snippet sidebarNav(onNavigate?: () => void)}
+	<nav class="flex flex-col gap-5 px-3 py-4" aria-label="Main">
+		{#each navGroups as group (group.label)}
+			<div class="flex flex-col gap-0.5">
+				<p
+					class="px-2 pb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase"
+				>
+					{group.label}
+				</p>
+				{#each group.items as item (item.href)}
+					{@const active = isActive(item.href)}
+					<a
+						href={item.href}
+						aria-current={active ? 'page' : undefined}
+						onclick={() => onNavigate?.()}
+						class="group/nav relative flex h-8 items-center gap-2.5 px-2 text-sm transition-colors {active
+							? 'bg-primary/10 font-medium text-foreground high-contrast:bg-foreground high-contrast:text-background'
+							: 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
+					>
+						{#if active}
+							<span class="absolute inset-y-0 -left-3 w-0.5 bg-primary" aria-hidden="true"></span>
+						{/if}
+						<item.icon
+							class="size-4 shrink-0 {active
+								? 'text-primary high-contrast:text-background'
+								: 'text-muted-foreground group-hover/nav:text-foreground'}"
+						/>
+						<span class="truncate">{item.label}</span>
+					</a>
+				{/each}
+			</div>
+		{/each}
+	</nav>
+{/snippet}
+
+{#snippet hostCard()}
+	{#if host}
+		<div class="mx-3 mt-3 flex items-center gap-2.5 border border-border bg-background px-3 py-2.5">
+			<div class="min-w-0 flex-1">
+				<p class="truncate text-sm font-medium text-foreground">
+					{host.hostname ?? 'This server'}
+				</p>
+				{#if host.os}
+					<p class="truncate text-xs text-muted-foreground">{host.os}</p>
+				{/if}
+			</div>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet userButton()}
+	<button
+		class="flex w-full items-center gap-2.5 p-2 text-left transition-colors hover:bg-muted"
+		type="button"
+		onclick={() => openUserSettings()}
+	>
+		<Avatar.Root class="size-8 shrink-0 border border-border">
+			<Avatar.Fallback class="bg-primary/15 text-xs font-medium text-foreground">
+				{(user?.username || '?').slice(0, 2).toUpperCase()}
+			</Avatar.Fallback>
+		</Avatar.Root>
+		<div class="min-w-0 flex-1">
+			<p class="truncate text-sm leading-tight font-medium text-foreground">{user?.username}</p>
+			<p class="truncate text-xs leading-tight text-muted-foreground">
+				{user?.admin ? 'Administrator' : 'User'}
+			</p>
+		</div>
+		<Settings class="size-4 shrink-0 text-muted-foreground" />
+		<span class="sr-only">Open account settings</span>
+	</button>
+{/snippet}
 
 {#if !data.user}
 	{@render children()}
 {:else}
-	<div class="flex h-screen flex-col overflow-hidden bg-background">
-		<header class="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
-			<div class="flex min-w-0 items-center gap-2">
-				{#if navItems.length > 0}
+	<div class="flex h-screen overflow-hidden bg-background">
+		<aside
+			class="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar lg:flex"
+			aria-label="Sidebar"
+		>
+			<a href="/" class="flex h-14 shrink-0 items-center gap-2.5 px-5">
+				<img src={dashboardBrand.logo} alt="" class="size-6" />
+				<span class="text-sm font-semibold tracking-tight text-foreground"
+					>{dashboardBrand.name}</span
+				>
+			</a>
+			{@render hostCard()}
+			<div class="min-h-0 flex-1 overflow-y-auto">
+				{@render sidebarNav()}
+			</div>
+			<div class="shrink-0 border-t border-border p-2">
+				{@render userButton()}
+			</div>
+		</aside>
+
+		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+			<header
+				class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-4 lg:px-6"
+			>
+				<div class="flex min-w-0 items-center gap-2">
 					<button
-						class="inline-flex h-8 w-8 items-center justify-center text-muted-foreground hover:text-foreground lg:hidden"
+						class="-ml-1 inline-flex size-8 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
 						type="button"
 						onclick={() => (mobileNavOpen = true)}
 						aria-label="Open navigation"
 					>
-						<Menu class="h-4 w-4" />
+						<Menu class="size-4" />
 					</button>
-				{/if}
-				<a href="/" class="flex shrink-0 items-center gap-2">
-					<img src={dashboardBrand.logo} alt="" class="h-5 w-5" />
-					<span class="text-sm font-semibold tracking-tight text-foreground"
-						>{dashboardBrand.name}</span
-					>
-				</a>
-			</div>
-
-			<div class="flex min-w-0 flex-1 items-center justify-end gap-3">
-				{#if data.isAdmin}
-					<a
-						href="/admin"
-						class="hidden items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground sm:inline-flex"
-					>
-						<Settings class="size-4" />
-						<span>Admin</span>
+					<a href="/" class="flex shrink-0 items-center lg:hidden">
+						<img src={dashboardBrand.logo} alt={dashboardBrand.name} class="size-6" />
 					</a>
-				{/if}
-				<button
-					class="hidden items-center gap-2 rounded-sm border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground md:flex"
-					type="button"
-					onclick={openCommandPalette}
+					{#if activeNav}
+						<div class="flex min-w-0 items-center gap-1.5 text-sm">
+							<span class="hidden text-muted-foreground sm:inline">{activeNav.group}</span>
+							<ChevronRight class="hidden size-3.5 shrink-0 text-muted-foreground sm:block" />
+							<span class="truncate font-medium text-foreground">{activeNav.item.label}</span>
+						</div>
+					{/if}
+				</div>
+
+				<div class="flex shrink-0 items-center gap-2">
+					<button
+						class="hidden h-8 w-56 items-center gap-2 border border-border bg-muted/40 px-2.5 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground md:flex"
+						type="button"
+						onclick={openCommandPalette}
+					>
+						<Search class="size-3.5" />
+						<span class="flex-1 text-left">Search…</span>
+						<kbd
+							class="border border-border bg-background px-1.5 font-mono text-[10px] text-muted-foreground"
+							>⌘K</kbd
+						>
+					</button>
+					<button
+						class="inline-flex size-8 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+						type="button"
+						onclick={openCommandPalette}
+						aria-label="Search"
+					>
+						<Search class="size-4" />
+					</button>
+					{#if host}
+						<button
+							class="inline-flex size-8 items-center justify-center border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+							type="button"
+							onclick={refreshHost}
+							disabled={refreshingHost}
+							title="Refresh server"
+							aria-label="Refresh server"
+						>
+							{#if refreshingHost}
+								<Loader2 class="size-3.5 animate-spin" />
+							{:else}
+								<RefreshCw class="size-3.5" />
+							{/if}
+						</button>
+					{/if}
+					<button
+						class="lg:hidden"
+						type="button"
+						onclick={() => openUserSettings()}
+						aria-label="Account settings"
+					>
+						<Avatar.Root class="size-8 border border-border">
+							<Avatar.Fallback class="bg-primary/15 text-xs font-medium text-foreground">
+								{(user?.username || '?').slice(0, 2).toUpperCase()}
+							</Avatar.Fallback>
+						</Avatar.Root>
+					</button>
+				</div>
+			</header>
+
+			{#if data.hostnameNotConfigured}
+				<div
+					role="status"
+					class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 lg:px-6 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
 				>
-					<Search class="h-3 w-3" />
-					<span>Search</span>
-					<kbd class="rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-foreground">⌘K</kbd>
-				</button>
-				<button class="flex items-center gap-2" type="button" onclick={() => openUserSettings()}>
-					<div class="hidden min-w-0 text-right sm:block">
-						<p class="truncate text-sm leading-tight font-medium text-foreground">
-							{user?.username}
-						</p>
-						<p class="truncate text-xs leading-tight text-muted-foreground">
-							{user?.admin ? 'Administrator' : 'User'}
-						</p>
-					</div>
-					<Avatar.Root class="h-8 w-8 shrink-0 border border-border">
-						<Avatar.Fallback class="bg-muted text-xs text-foreground">
-							{(user?.username || '?').slice(0, 2).toUpperCase()}
-						</Avatar.Fallback>
-					</Avatar.Root>
-				</button>
-			</div>
-		</header>
-
-		{#if data.hostnameNotConfigured}
-			<div
-				role="status"
-				class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
-			>
-				<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-				<p>
-					This server's hostname is not configured, so apps can't sign in with Dashboard (single
-					sign-on). Set the server's hostname to turn it on. Dashboard restarts on its own once it
-					is set.
-				</p>
-			</div>
-		{/if}
-
-		{#if data.newerDatabase}
-			<div
-				role="status"
-				class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
-			>
-				<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-				<p>
-					The dashboard database is from a newer version of Dashboard (schema {data.newerDatabase
-						.dbVersion}; this version knows {data.newerDatabase.appVersion}), and no snapshot from
-					this version was found to restore. Dashboard is running on it without migrating, so some
-					features may not work. Upgrade Dashboard again, or restore a snapshot as described in
-					MIGRATIONS.md.
-				</p>
-			</div>
-		{/if}
-
-		<div class="flex flex-1 overflow-hidden">
-			{#if navItems.length > 0}
-				<aside class="hidden w-12 shrink-0 border-r border-border bg-background lg:block">
-					<nav class="flex flex-col items-center gap-1 p-2">
-						{#each navItems as item (item.label)}
-							<a
-								class="flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground {isActive(
-									item.href
-								)
-									? 'bg-muted text-foreground'
-									: ''}"
-								href={item.href}
-								aria-label={item.label}
-							>
-								<item.icon class="h-4 w-4" />
-							</a>
-						{/each}
-					</nav>
-				</aside>
+					<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+					<p>
+						This server's hostname is not configured, so apps can't sign in with Dashboard (single
+						sign-on). Set the server's hostname to turn it on. Dashboard restarts on its own once it
+						is set.
+					</p>
+				</div>
 			{/if}
-			<main class="flex flex-1 overflow-hidden">
+
+			{#if data.newerDatabase}
+				<div
+					role="status"
+					class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 lg:px-6 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
+				>
+					<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+					<p>
+						The dashboard database is from a newer version of Dashboard (schema {data.newerDatabase
+							.dbVersion}; this version knows {data.newerDatabase.appVersion}), and no snapshot from
+						this version was found to restore. Dashboard is running on it without migrating, so some
+						features may not work. Upgrade Dashboard again, or restore a snapshot as described in
+						MIGRATIONS.md.
+					</p>
+				</div>
+			{/if}
+
+			<main class="flex min-h-0 flex-1 overflow-hidden">
 				{@render children()}
 			</main>
 		</div>
 	</div>
 
 	<Sheet.Root bind:open={mobileNavOpen}>
-		<Sheet.Content side="left" class="flex w-64 flex-col gap-0 border-border bg-background p-0">
-			<Sheet.Header class="border-b border-border px-4 py-3 text-left">
+		<Sheet.Content side="left" class="flex w-72 flex-col gap-0 border-border bg-sidebar p-0">
+			<Sheet.Header class="flex h-14 flex-row items-center gap-2.5 px-5 py-0 text-left">
+				<img src={dashboardBrand.logo} alt="" class="size-6" />
 				<Sheet.Title class="truncate text-sm text-foreground">{dashboardBrand.name}</Sheet.Title>
 			</Sheet.Header>
-			<nav class="flex flex-col p-2">
-				{#each navItems as item (item.label)}
-					<a
-						class="flex items-center gap-3 rounded-sm px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground {isActive(
-							item.href
-						)
-							? 'bg-muted text-foreground'
-							: ''}"
-						href={item.href}
-						onclick={() => (mobileNavOpen = false)}
-					>
-						<item.icon class="h-4 w-4 shrink-0" />
-						<span>{item.label}</span>
-					</a>
-				{/each}
-			</nav>
+			{@render hostCard()}
+			<div class="min-h-0 flex-1 overflow-y-auto">
+				{@render sidebarNav(() => (mobileNavOpen = false))}
+			</div>
+			<div class="shrink-0 border-t border-border p-2">
+				{@render userButton()}
+			</div>
 		</Sheet.Content>
 	</Sheet.Root>
 

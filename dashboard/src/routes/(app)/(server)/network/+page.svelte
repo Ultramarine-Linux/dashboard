@@ -45,11 +45,11 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-sm font-semibold text-foreground">Network</h1>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Network</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
 				Interfaces, DNS configuration, and routes from this host.
 			</p>
 		</div>

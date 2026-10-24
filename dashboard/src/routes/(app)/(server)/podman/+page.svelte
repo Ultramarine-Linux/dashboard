@@ -10,8 +10,15 @@
 		type HostSummary
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import SegmentedControl from '$lib/components/segmented-control.svelte';
+	import StatusBadge from '$lib/components/status-badge.svelte';
+	import FileText from '~icons/lucide/file-text';
 	import Loader2 from '~icons/lucide/loader-2';
+	import Play from '~icons/lucide/play';
 	import RefreshCw from '~icons/lucide/refresh-cw';
+	import RotateCw from '~icons/lucide/rotate-cw';
+	import Square from '~icons/lucide/square';
+	import Trash2 from '~icons/lucide/trash-2';
 
 	type PodmanResource = 'containers' | 'images' | 'volumes' | 'networks';
 
@@ -113,11 +120,11 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-sm font-semibold text-foreground">Podman</h1>
-			<p class="mt-1 text-xs text-muted-foreground">Inspect and manage containers on this host.</p>
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Podman</h1>
+			<p class="mt-1 text-sm text-muted-foreground">Inspect and manage containers on this host.</p>
 		</div>
 		<Button
 			variant="outline"
@@ -135,18 +142,14 @@
 		</Button>
 	</div>
 
-	<div class="mt-4 flex flex-wrap gap-2">
-		{#each podmanResources as resource (resource.id)}
-			<Button
-				variant={podmanResource === resource.id ? 'default' : 'outline'}
-				size="sm"
-				onclick={() => refreshPodman(resource.id)}
-				disabled={podmanLoading}
-			>
-				{resource.label}
-			</Button>
-		{/each}
-	</div>
+	<SegmentedControl
+		class="mt-5"
+		label="Podman resource"
+		options={podmanResources.map((resource) => ({ value: resource.id, label: resource.label }))}
+		value={podmanResource}
+		onchange={(resource) => refreshPodman(resource)}
+		disabled={podmanLoading}
+	/>
 
 	{#if podmanError}
 		<div class="mt-4 border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
@@ -192,57 +195,94 @@
 					<tbody class="divide-y divide-border">
 						{#each podmanData as item, index (podmanRowKey(item, index))}
 							{@const record = asRecord(item)}
-							<tr>
+							<tr class="transition-colors hover:bg-muted/30">
 								{#if podmanResource === 'containers'}
 									{@const name = containerName(item)}
+									{@const containerState = field(record, ['State'])}
+									{@const running = containerState.toLowerCase() === 'running'}
 									<td class="max-w-56 px-3 py-2 font-medium text-foreground">
-										<span class="block truncate">{name}</span>
+										<a
+											href={containerPath(name)}
+											class="block truncate underline-offset-4 hover:text-primary hover:underline"
+										>
+											{name}
+										</a>
 									</td>
 									<td class="max-w-64 px-3 py-2 text-muted-foreground">
-										<span class="block truncate">{field(record, ['Image'])}</span>
+										<span class="block truncate font-mono text-[11px]"
+											>{field(record, ['Image'])}</span
+										>
 									</td>
-									<td class="px-3 py-2 text-muted-foreground">{field(record, ['State'])}</td>
+									<td class="px-3 py-2"><StatusBadge status={containerState} /></td>
 									<td class="max-w-56 px-3 py-2 text-muted-foreground">
 										<span class="block truncate">{field(record, ['Status'])}</span>
 									</td>
 									<td class="px-3 py-2">
-										<div class="flex justify-end gap-1">
-											{#each ['start', 'stop', 'restart'] as action (action)}
+										<div class="flex items-center justify-end gap-1">
+											{#if running}
 												<Button
 													variant="outline"
 													size="sm"
-													class="h-7 px-2 text-[11px]"
-													onclick={() =>
-														runContainerAction(action as 'start' | 'stop' | 'restart', name)}
+													class="h-7 w-[4.5rem] gap-1.5 px-2 text-xs"
+													onclick={() => runContainerAction('stop', name)}
 													disabled={!!podmanActionName}
 												>
-													{podmanActionName === `${action}:${name}` ? '...' : action}
+													{#if podmanActionName === `stop:${name}`}
+														<Loader2 class="size-3 animate-spin" />
+													{:else}
+														<Square class="size-3" />
+													{/if}
+													Stop
 												</Button>
-											{/each}
+											{:else}
+												<Button
+													variant="outline"
+													size="sm"
+													class="h-7 w-[4.5rem] gap-1.5 px-2 text-xs"
+													onclick={() => runContainerAction('start', name)}
+													disabled={!!podmanActionName}
+												>
+													{#if podmanActionName === `start:${name}`}
+														<Loader2 class="size-3 animate-spin" />
+													{:else}
+														<Play class="size-3" />
+													{/if}
+													Start
+												</Button>
+											{/if}
 											<Button
-												variant="outline"
-												size="sm"
-												class="h-7 px-2 text-[11px] text-destructive dark:text-red-300"
+												variant="ghost"
+												size="icon-sm"
+												title="Restart"
+												aria-label="Restart {name}"
+												onclick={() => runContainerAction('restart', name)}
+												disabled={!!podmanActionName}
+											>
+												<RotateCw
+													class="size-3.5 {podmanActionName === `restart:${name}`
+														? 'animate-spin'
+														: ''}"
+												/>
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												title="Logs"
+												aria-label="Logs for {name}"
+												onclick={() => openContainer(name, 'logs')}
+											>
+												<FileText class="size-3.5" />
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												class="text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-300"
+												title="Remove"
+												aria-label="Remove {name}"
 												onclick={() => runContainerAction('remove', name)}
 												disabled={!!podmanActionName}
 											>
-												Remove
-											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												class="h-7 px-2 text-[11px]"
-												onclick={() => openContainer(name)}
-											>
-												Edit
-											</Button>
-											<Button
-												variant="outline"
-												size="sm"
-												class="h-7 px-2 text-[11px]"
-												onclick={() => openContainer(name, 'logs')}
-											>
-												Logs
+												<Trash2 class="size-3.5" />
 											</Button>
 										</div>
 									</td>

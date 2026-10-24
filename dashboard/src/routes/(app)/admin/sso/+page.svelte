@@ -113,7 +113,7 @@
 	<div class="flex flex-col gap-5 p-5">
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<div>
-				<h1 class="text-lg font-semibold text-foreground">SSO Clients</h1>
+				<h1 class="text-xl font-semibold tracking-tight text-foreground">SSO Clients</h1>
 				<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
 					Manage OpenID Connect clients for services hosted on your Ultramarine server.
 				</p>

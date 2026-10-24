@@ -10,6 +10,8 @@
 		type ManagedHostPodmanContainerDetail
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import StatusBadge from '$lib/components/status-badge.svelte';
+	import ArrowLeft from '~icons/lucide/arrow-left';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';
 	import RefreshCw from '~icons/lucide/refresh-cw';
@@ -133,11 +135,24 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div class="min-w-0">
-			<p class="text-xs text-muted-foreground">Podman Container</p>
-			<h1 class="mt-1 truncate text-base font-semibold text-foreground">{containerName}</h1>
+			<a
+				href="/podman"
+				class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+			>
+				<ArrowLeft class="size-3" />
+				Containers
+			</a>
+			<div class="mt-1 flex min-w-0 items-center gap-2.5">
+				<h1 class="truncate text-xl font-semibold tracking-tight text-foreground">
+					{containerName}
+				</h1>
+				{#if container?.state}
+					<StatusBadge status={container.state} />
+				{/if}
+			</div>
 		</div>
 		<Button variant="outline" size="sm" class="gap-2" onclick={loadContainer} disabled={loading}>
 			{#if loading}

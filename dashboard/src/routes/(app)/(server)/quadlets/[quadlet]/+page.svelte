@@ -49,10 +49,10 @@
 	}
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div>
-		<h1 class="text-sm font-semibold text-foreground">{filename}</h1>
-		<p class="mt-1 text-xs text-muted-foreground">
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">{filename}</h1>
+		<p class="mt-1 text-sm text-muted-foreground">
 			Edit the Quadlet specification, parameters, and companion files.
 		</p>
 	</div>

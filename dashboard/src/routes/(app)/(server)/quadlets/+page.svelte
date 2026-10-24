@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
+	import SegmentedControl from '$lib/components/segmented-control.svelte';
 	import {
 		listManagedHostQuadlets,
 		type HostSummary,
@@ -56,31 +57,28 @@
 	function editQuadlet(filename: string) {
 		goto(`/quadlets/${encodeURIComponent(filename)}?scope=${scope}`);
 	}
+
+	const scopeOptions: { value: ManagedHostQuadletScope; label: string }[] = [
+		{ value: 'user', label: 'User' },
+		{ value: 'system', label: 'System' }
+	];
 </script>
 
-<section class="min-h-0 flex-1 overflow-auto bg-background p-5">
+<section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-sm font-semibold text-foreground">Quadlets</h1>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Quadlets</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
 				Manage Quadlet units and the files they reference.
 			</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="flex border border-border">
-				{#each ['user', 'system'] as item (item)}
-					<Button
-						variant={scope === item ? 'default' : 'ghost'}
-						size="sm"
-						class="h-8 rounded-none px-3 text-xs"
-						onclick={() => {
-							scope = item as ManagedHostQuadletScope;
-						}}
-					>
-						{item}
-					</Button>
-				{/each}
-			</div>
+			<SegmentedControl
+				label="Scope"
+				options={scopeOptions}
+				value={scope}
+				onchange={(next) => (scope = next)}
+			/>
 			<Button variant="outline" size="sm" class="gap-2" onclick={loadQuadlets} disabled={loading}>
 				{#if loading}
 					<Loader2 class="size-3.5 animate-spin" />

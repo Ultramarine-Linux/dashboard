@@ -38,8 +38,8 @@
 >
 	<div class="grid border-b border-border bg-background lg:grid-cols-[320px_1fr]">
 		<section class="border-b border-border p-5 lg:border-r lg:border-b-0">
-			<h1 class="text-sm font-semibold text-foreground">Host Details</h1>
-			<p class="mt-1 text-xs text-muted-foreground">
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Host Details</h1>
+			<p class="mt-1 text-sm text-muted-foreground">
 				This server, as reported by Tetra over its local socket.
 			</p>
 

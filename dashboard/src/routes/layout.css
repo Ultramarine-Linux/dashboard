@@ -5,6 +5,7 @@
 @import '@fontsource-variable/inter';
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant high-contrast (&:is([data-contrast='more'] *));
 
 :root {
 	--gray-50: #fafafa;
@@ -44,6 +45,7 @@
 	--border: var(--gray-200);
 	--input: var(--gray-200);
 	--ring: var(--gray-400);
+	--sidebar: var(--gray-100);
 	--radius: 0;
 }
 
@@ -67,6 +69,7 @@
 	--border: var(--gray-800);
 	--input: var(--gray-800);
 	--ring: var(--gray-500);
+	--sidebar: var(--gray-950);
 }
 
 :root[data-brand='ultramarine'] {
@@ -104,9 +107,10 @@
 	--muted-foreground: var(--gray-600);
 	--accent: var(--um-accent-500);
 	--accent-foreground: var(--gray-50);
-	--border: var(--gray-200);
+	--border: #dcdee6;
 	--input: var(--gray-200);
 	--ring: var(--um-accent-400);
+	--sidebar: #f4f5f8;
 }
 
 .dark:root[data-brand='ultramarine'] {
@@ -124,9 +128,102 @@
 	--muted-foreground: var(--gray-400);
 	--accent: var(--um-accent-400);
 	--accent-foreground: var(--gray-50);
-	--border: var(--gray-800);
-	--input: var(--gray-800);
+	--border: #2a2e40;
+	--input: #2f3347;
 	--ring: var(--um-accent-500);
+	--sidebar: #11131a;
+}
+
+/*
+ * High contrast mode. Applied via `data-contrast="more"` on <html> (see
+ * $lib/state/contrast.svelte.ts), so it stacks on top of light/dark. The red
+ * scale is remapped too, because many components use raw `red-*` utilities
+ * rather than semantic tokens. These blocks must stay after the brand blocks:
+ * they share specificity and win by source order.
+ *
+ * Backported from FyraStack/dashboard#156.
+ */
+:root[data-contrast='more'] {
+	--red-200: #7a0d0d;
+	--red-300: #7a0d0d;
+	--red-400: #8f1010;
+	--red-500: #9b1111;
+	--red-600: #8a0f0f;
+	--red-700: #6e0b0b;
+	--red-950: #fff0f0;
+	--color-red-800: #6e0b0b;
+	--color-red-900: #5c0909;
+	--background: #ffffff;
+	--foreground: #000000;
+	--card: #ffffff;
+	--card-foreground: #000000;
+	--popover: #ffffff;
+	--popover-foreground: #000000;
+	--primary: #9b1111;
+	--primary-foreground: #ffffff;
+	--secondary: #f0f0f0;
+	--secondary-foreground: #000000;
+	--muted: #f0f0f0;
+	--muted-foreground: #262626;
+	--accent: #9b1111;
+	--accent-foreground: #ffffff;
+	--destructive: #9b1111;
+	--destructive-foreground: #ffffff;
+	--border: #000000;
+	--input: #000000;
+	--ring: #000000;
+	--sidebar: #ffffff;
+}
+
+.dark:root[data-contrast='more'] {
+	--red-200: #ffe5e5;
+	--red-300: #ffcccc;
+	--red-400: #ffa3a3;
+	--red-500: #ff7a7a;
+	--red-600: #ff7a7a;
+	--red-700: #ff8f8f;
+	--red-950: #1a0000;
+	--color-red-800: #ff8f8f;
+	--color-red-900: #ff8f8f;
+	--background: #000000;
+	--foreground: #ffffff;
+	--card: #000000;
+	--card-foreground: #ffffff;
+	--popover: #000000;
+	--popover-foreground: #ffffff;
+	--primary: #ff7a7a;
+	--primary-foreground: #000000;
+	--secondary: #1a1a1a;
+	--secondary-foreground: #ffffff;
+	--muted: #1a1a1a;
+	--muted-foreground: #e5e5e5;
+	--accent: #ff7a7a;
+	--accent-foreground: #000000;
+	--destructive: #ff7a7a;
+	--destructive-foreground: #000000;
+	--border: #ffffff;
+	--input: #ffffff;
+	--ring: #ffffff;
+	--sidebar: #000000;
+}
+
+/* Ultramarine keeps its blue as the primary/accent color in high contrast. */
+:root[data-brand='ultramarine'][data-contrast='more'] {
+	--primary: #1a2573;
+	--accent: #1a2573;
+	--um-accent-300: #1a2573;
+	--um-accent-400: #1a2573;
+	--um-accent-500: #1a2573;
+	--um-accent-600: #1a2573;
+}
+
+.dark:root[data-brand='ultramarine'][data-contrast='more'] {
+	--primary: #aab8ff;
+	--accent: #aab8ff;
+	--um-accent-300: #aab8ff;
+	--um-accent-400: #aab8ff;
+	--um-accent-500: #aab8ff;
+	--um-accent-600: #aab8ff;
 }
 
 @theme inline {
@@ -176,6 +273,7 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	--color-sidebar: var(--sidebar);
 	--font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 	--font-mono:
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
@@ -201,6 +299,50 @@
 		@apply text-foreground antialiased;
 		background-color: var(--background);
 		font-feature-settings: 'ss01', 'ss02';
+	}
+	[data-contrast='more'] :focus-visible {
+		outline: 2px solid var(--ring) !important;
+		outline-offset: 2px;
+	}
+}
+
+/*
+ * High contrast: many borders, dividers, rings and text use an opacity modifier
+ * (e.g. `border-border/50`, `text-foreground/60`), which washes them out.
+ * Force them opaque. Exact class tokens (`~=`) are used so variant classes such
+ * as `aria-invalid:border-destructive/50` are NOT matched.
+ */
+@layer utilities {
+	:where([data-contrast='more']) [class~='border-border/30'],
+	:where([data-contrast='more']) [class~='border-border/50'],
+	:where([data-contrast='more']) [class~='border-border/60'],
+	:where([data-contrast='more']) [class~='border-input/30'] {
+		border-color: var(--border);
+	}
+
+	:where([data-contrast='more']) [class~='divide-border/50'] > :where(:not(:last-child)) {
+		border-color: var(--border);
+	}
+
+	:where([data-contrast='more']) [class~='ring-foreground/10'] {
+		--tw-ring-color: var(--border);
+	}
+
+	:where([data-contrast='more']) [class~='border-destructive/30'],
+	:where([data-contrast='more']) [class~='border-destructive/40'],
+	:where([data-contrast='more']) [class~='border-destructive/50'],
+	:where([data-contrast='more']) [class~='border-red-500/10'],
+	:where([data-contrast='more']) [class~='border-red-500/20'] {
+		border-color: var(--destructive);
+	}
+
+	:where([data-contrast='more']) [class~='text-foreground/60'],
+	:where([data-contrast='more']) [class~='text-primary/80'] {
+		color: var(--foreground);
+	}
+
+	:where([data-contrast='more']) [class~='text-red-400/80'] {
+		color: var(--red-400);
 	}
 }
 
