@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autofillAttributes } from '$lib/components/ui/input';
 	import { untrack } from 'svelte';
 	import { t, tn, formatDateTime } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
@@ -221,6 +222,7 @@
 						{t('admin.sso.fieldRedirectUrls')}
 						<textarea
 							bind:value={form.redirectUrls}
+							{...autofillAttributes(undefined)}
 							class="min-h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
 							placeholder="https://grafana.example.com/login/generic_oauth"
 							required></textarea>
@@ -230,6 +232,7 @@
 						{t('admin.sso.fieldMetadata')}
 						<textarea
 							bind:value={form.metadata}
+							{...autofillAttributes(undefined)}
 							class="min-h-16 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
 							placeholder={metadataPlaceholder}></textarea>
 					</label>

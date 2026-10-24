@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autofillAttributes } from '$lib/components/ui/input';
 	import { invalidate } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import type { UserSettingsTab } from '$lib/state/user-settings.svelte';
@@ -726,6 +727,7 @@
 								/>
 								<textarea
 									bind:value={newKeyValue}
+									{...autofillAttributes(undefined)}
 									placeholder="ssh-ed25519 AAAA..."
 									rows="3"
 									class="w-full resize-none border border-border bg-muted px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
