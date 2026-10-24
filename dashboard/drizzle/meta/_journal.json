@@ -15,6 +15,13 @@
       "when": 1792301631390,
       "tag": "0001_drop_removed_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792858269272,
+      "tag": "0002_recipe_catalogs",
+      "breakpoints": true
     }
   ]
 }

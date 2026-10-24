@@ -27,6 +27,7 @@
 	import ChevronRight from '~icons/lucide/chevron-right';
 	import Loader2 from '~icons/lucide/loader-2';
 	import RefreshCw from '~icons/lucide/refresh-cw';
+	import Box from '~icons/nucleo/box';
 	import Flag from '~icons/nucleo/flag';
 	import AlertTriangle from '~icons/nucleo/alert-triangle';
 	import Key from '~icons/nucleo/key';
@@ -42,7 +43,7 @@
 	let commandSearch = $state('');
 	const featureFlags = $derived((data.featureFlags ?? {}) as FeatureFlags);
 
-	type NavHref = HostTabHref | '/admin/sso' | '/admin/features';
+	type NavHref = HostTabHref | '/admin/sso' | '/admin/features' | '/admin/recipes';
 	type NavItem = { icon: IconComponent; label: string; href: NavHref };
 	type NavGroup = { label: string; items: NavItem[] };
 
@@ -50,7 +51,8 @@
 
 	const adminItems: { icon: IconComponent; labelKey: TranslationKey; href: NavHref }[] = [
 		{ icon: Key, labelKey: 'nav.sso', href: '/admin/sso' },
-		{ icon: Flag, labelKey: 'nav.features', href: '/admin/features' }
+		{ icon: Flag, labelKey: 'nav.features', href: '/admin/features' },
+		{ icon: Box, labelKey: 'nav.recipes', href: '/admin/recipes' }
 	];
 
 	const navGroups = $derived.by<NavGroup[]>(() => {

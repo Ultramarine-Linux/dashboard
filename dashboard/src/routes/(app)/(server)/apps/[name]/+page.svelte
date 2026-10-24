@@ -2,7 +2,6 @@
 	import { formatDateTime, t } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getAppRecipe } from '$lib/apps/catalog';
 	import {
 		defaultRecipeValues,
 		validateRecipeValues,
@@ -74,7 +73,7 @@
 	let editResult = $state<ManagedHostAppWriteResult | null>(null);
 	let removing = $state(false);
 
-	const recipe = $derived(detail ? getAppRecipe(detail.manifest.recipe_id) : null);
+	const recipe = $derived(detail?.recipe ?? null);
 	const editErrors = $derived(recipe && editing ? validateRecipeValues(recipe, editValues) : []);
 
 	$effect(() => {

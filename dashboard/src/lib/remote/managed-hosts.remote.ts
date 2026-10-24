@@ -7,7 +7,7 @@ import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureHost
 } from '$lib/server/accessibility-fixtures';
-import { getAppRecipe } from '$lib/apps/catalog';
+import type { RecipeDefinition } from '$lib/apps/catalog';
 import { isValidAppName } from '$lib/apps/params';
 import {
 	parseAppDetailResponse,
@@ -18,7 +18,9 @@ import {
 	type HostAppManifest,
 	type HostServiceState
 } from '$lib/apps/types';
-import { serverT } from '$lib/server/i18n';
+import { requestLocale, serverT } from '$lib/server/i18n';
+import { recipeDisplayNames, recipeForInstall, recipeForManifest } from '$lib/server/recipes';
+import { fixtureCatalog, FIXTURE_CATALOG_URL } from '$lib/server/recipes/fixtures';
 
 /** A module action's outcome, as the pages expect it. */
 export type AgentResponse = {
@@ -140,6 +142,8 @@ export type ManagedHostAppService = {
 export type ManagedHostAppListItem = {
 	name: string;
 	recipeId: string;
+	/** Translated name from a recipe catalog, when one has this recipe. */
+	recipeName: string | null;
 	recipeVersion: string;
 	scope: ManagedHostQuadletScope;
 	units: string[];
@@ -150,8 +154,13 @@ export type ManagedHostAppListItem = {
 	bundleDir: string;
 };
 
+/** An installed app's recipe, translated, for editing its values. */
+export type ManagedHostAppRecipe = RecipeDefinition & { categoryName: string };
+
 export type ManagedHostAppDetail = {
 	manifest: HostAppManifest;
+	/** Null when the recipe it was cooked from can't be read (see `recipeForManifest`). */
+	recipe: ManagedHostAppRecipe | null;
 	baseDir: string;
 	bundleDir: string;
 	units: HostAppFileEntry[];
@@ -1105,13 +1114,19 @@ function fixtureAppServices(): ManagedHostAppService[] {
 }
 
 function fixtureAppManifest(scope: ManagedHostQuadletScope): HostAppManifest {
+	const bundle = fixtureCatalog.bundles.get('nginx-site')!;
 	return {
+		source: {
+			catalog: 'official',
+			url: `${FIXTURE_CATALOG_URL}/${fixtureCatalog.index.recipes[0].bundle}`,
+			sha256: bundle.sha256
+		},
 		version: 1,
 		name: 'demo-web',
 		scope,
 		recipe_id: 'nginx-site',
-		recipe_version: '0.1.0',
-		recipe: { source: 'inline', recipe: '# fixture recipe', templates: {} },
+		recipe_version: bundle.version,
+		recipe: { source: 'inline', recipe: bundle.recipe, templates: {} },
 		values: { app_id: 'demo-web', site_title: 'Demo Web', server_name: '_', host_port: 8080 },
 		units: ['demo-web.container'],
 		files: ['index.html', 'default.conf'],
@@ -1124,7 +1139,8 @@ function fixtureAppListItem(scope: ManagedHostQuadletScope): ManagedHostAppListI
 	return {
 		name: 'demo-web',
 		recipeId: 'nginx-site',
-		recipeVersion: '0.1.0',
+		recipeName: 'Nginx static site',
+		recipeVersion: '0.2.0',
 		scope,
 		units: ['demo-web.container'],
 		services: fixtureAppServices(),
@@ -1135,10 +1151,12 @@ function fixtureAppListItem(scope: ManagedHostQuadletScope): ManagedHostAppListI
 	};
 }
 
-function fixtureAppDetail(scope: ManagedHostQuadletScope): ManagedHostAppDetail {
+async function fixtureAppDetail(scope: ManagedHostQuadletScope): Promise<ManagedHostAppDetail> {
 	const bundleDir = fixtureAppBundleDir(scope);
+	const manifest = fixtureAppManifest(scope);
 	return {
-		manifest: fixtureAppManifest(scope),
+		manifest,
+		recipe: await recipeForManifest(manifest, requestLocale()),
 		baseDir: '/home/a11y/.config/containers/systemd',
 		bundleDir,
 		units: [
@@ -1267,13 +1285,17 @@ export const listManagedHostApps = command(
 		});
 		if (!response.ok) throw new Error(response.error || serverT('errors.apps.listFailed'));
 		const apps = parseAppSummaries(response.payload);
-		const states = await dispatchAppServiceStates(scope);
+		const [states, recipeName] = await Promise.all([
+			dispatchAppServiceStates(scope),
+			recipeDisplayNames(requestLocale())
+		]);
 
 		return apps.map((app) => {
 			const { services, status } = mapAppServices(app.services, states);
 			return {
 				name: app.name,
 				recipeId: app.recipe_id,
+				recipeName: recipeName(app.recipe_id),
 				recipeVersion: app.recipe_version,
 				scope: app.scope,
 				units: app.units,
@@ -1296,7 +1318,7 @@ export const getManagedHostApp = command(
 	appGetParams,
 	async (params): Promise<ManagedHostAppDetail> => {
 		const scope = normalizeQuadletScope(params.scope);
-		if (accessibilityFixtureEnabled) return fixtureAppDetail(scope);
+		if (accessibilityFixtureEnabled) return await fixtureAppDetail(scope);
 
 		const response = await dispatchHostCommand({
 			module: 'apps',
@@ -1311,6 +1333,7 @@ export const getManagedHostApp = command(
 
 		return {
 			manifest: detail.app,
+			recipe: await recipeForManifest(detail.app, requestLocale()),
 			baseDir: detail.base_dir,
 			bundleDir: detail.bundle_dir,
 			units: detail.units,
@@ -1324,6 +1347,7 @@ export const getManagedHostApp = command(
 const appCreateParams = type({
 	scope: 'string',
 	name: 'string',
+	catalogId: 'string',
 	recipeId: 'string',
 	valuesJson: 'string'
 });
@@ -1336,9 +1360,9 @@ export const createManagedHostApp = command(
 		if (!isValidAppName(name)) {
 			error(400, serverT('errors.apps.invalidName'));
 		}
-		// Recipes come from the server-side catalog — clients pick an id,
-		// never ship recipe YAML.
-		const recipe = getAppRecipe(params.recipeId);
+		// Recipes come from the server's cached catalogs: clients pick one by
+		// catalog and id, never ship recipe YAML.
+		const recipe = await recipeForInstall(params.catalogId, params.recipeId);
 		if (!recipe) error(400, serverT('errors.apps.unknownRecipe'));
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
@@ -1352,6 +1376,10 @@ export const createManagedHostApp = command(
 				scope,
 				recipe: recipe.recipeYaml,
 				templates: recipe.templates,
+				// Tetra recomputes the digest and refuses the install on a
+				// mismatch. Only the Fyra Labs catalog claims `official` or
+				// `community`; recipes from added catalogs are `custom`.
+				source: recipe.source,
 				values,
 				converge: true
 			}

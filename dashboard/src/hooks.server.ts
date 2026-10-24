@@ -8,6 +8,7 @@ import {
 } from '@sveltejs/kit';
 import { building, dev } from '$app/environment';
 import { initDatabase } from '$lib/server/db';
+import { startRecipeCatalogs } from '$lib/server/recipes';
 import { instrument } from '$lib/server/observability';
 import { hostnameNotConfigured } from '$lib/server/env';
 import { hostnameNotConfiguredResponse } from '$lib/server/origin';
@@ -137,6 +138,9 @@ export const init: ServerInit = async () => {
 	// stack a listener on every reload.
 	if (!dev) closeTetraOnShutdown();
 	await initDatabase();
+	// Seeds the recipe cache from the image if needed (local files only) and
+	// starts background refreshes; never waits on the network.
+	await startRecipeCatalogs();
 };
 
 export const handle: Handle = withLocale(handleSession);

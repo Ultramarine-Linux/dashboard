@@ -94,6 +94,10 @@ jobs:
       # Keyless cosign signing through sigstore/fulcio.
       id-token: write
     # It only uses GITHUB_TOKEN, which a called workflow gets anyway.
+    # TODO: build releases with `RECIPES_SEED=required` (see
+    # dashboard/Containerfile) once the shared workflow takes build args; it
+    # has no input for them yet, so a release whose recipe catalog fetch
+    # fails still builds, just without the seeded catalog.
 
   # The shared workflow has no outputs, so read the digest of the tag it pushed.
   digest:
