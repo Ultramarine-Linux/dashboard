@@ -2,7 +2,7 @@
 #
 # Build from the repository root (the pnpm workspace):
 #
-#   podman build -f apps/dashboard/Containerfile -t dashboard .
+#   podman build -f dashboard/Containerfile -t dashboard .
 #
 # Every stage runs on the target architecture, so better-sqlite3 is installed
 # (its bundled prebuilt binary, or a build from source) for it here; nothing
@@ -33,10 +33,10 @@ COPY package.json ./
 RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY apps/dashboard/package.json apps/dashboard/package.json
+COPY dashboard/package.json dashboard/package.json
 RUN pnpm install --frozen-lockfile --filter ultramarine-dashboard...
 
-COPY apps/dashboard apps/dashboard
+COPY dashboard dashboard
 RUN pnpm --filter ultramarine-dashboard build
 
 # Production dependencies only (the adapter-node bundle keeps `dependencies`
@@ -66,10 +66,10 @@ LABEL org.opencontainers.image.title="Ultramarine Server Dashboard" \
 WORKDIR /app
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
-COPY --from=build /src/apps/dashboard/build ./build
-COPY --from=build /src/apps/dashboard/serve.js ./serve.js
+COPY --from=build /src/dashboard/build ./build
+COPY --from=build /src/dashboard/serve.js ./serve.js
 # Dashboard applies these on startup and /health checks them.
-COPY --from=build /src/apps/dashboard/drizzle ./drizzle
+COPY --from=build /src/dashboard/drizzle ./drizzle
 COPY --from=build --chown=65532:65532 /state/ /var/lib/
 
 # Listen on every interface inside the container so the published port works.

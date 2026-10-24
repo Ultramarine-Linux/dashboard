@@ -19,10 +19,10 @@ ENV CI=true
 COPY package.json ./
 RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
 COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY apps/dashboard/package.json apps/dashboard/package.json
+COPY dashboard/package.json dashboard/package.json
 RUN pnpm install --frozen-lockfile --filter ultramarine-dashboard...
-COPY apps/dashboard apps/dashboard
+COPY dashboard dashboard
 
-WORKDIR /src/apps/dashboard
+WORKDIR /src/dashboard
 EXPOSE 3972
 CMD ["pnpm", "exec", "vite", "dev", "--host", "0.0.0.0", "--port", "3972", "--strictPort"]

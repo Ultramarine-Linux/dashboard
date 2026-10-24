@@ -4,25 +4,25 @@ services:
   # The dev server against the in-memory Tetra mock. No host setup needed.
   dashboard:
     build:
-      context: ../../..
-      dockerfile: apps/dashboard/dev/dashboard/Dockerfile
+      context: ../..
+      dockerfile: dashboard/dev/dashboard/Dockerfile
     environment:
       TETRA_MOCK: '1'
       UM_DASHBOARD_STATE_DIR: /var/lib/ultramarine-dashboard
     volumes:
       - dashboard-state:/var/lib/ultramarine-dashboard
-      - ../src:/src/apps/dashboard/src:ro,z
-      - ../static:/src/apps/dashboard/static:ro,z
+      - ../src:/src/dashboard/src:ro,z
+      - ../static:/src/dashboard/static:ro,z
     ports:
       - '127.0.0.1:3972:3972'
 
-  # The production image (apps/dashboard/Containerfile) against a Tetra on
+  # The production image (dashboard/Containerfile) against a Tetra on
   # this machine. Start it with --profile tetra; see README.md.
   dashboard-tetra:
     profiles: ['tetra']
     build:
-      context: ../../..
-      dockerfile: apps/dashboard/Containerfile
+      context: ../..
+      dockerfile: dashboard/Containerfile
     # Map your account onto the image's user (65532), so Tetra sees your UID
     # on the socket: start Tetra with --dashboard-user "$USER".
     userns_mode: keep-id:uid=65532,gid=65532

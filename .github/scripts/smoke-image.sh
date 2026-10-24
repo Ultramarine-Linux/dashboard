@@ -108,7 +108,7 @@ smoke() {
 state=(--tmpfs '/var/lib/ultramarine-dashboard:rw,mode=0700,U')
 socket=(-v "$tetra_dir:/run/tetra:ro")
 if [ "$(getenforce 2>/dev/null || true)" = Enforcing ]; then
-	# The stand-in's socket has the host's label; see apps/dashboard/dev.
+	# The stand-in's socket has the host's label; see dashboard/dev.
 	socket+=(--security-opt label=disable)
 fi
 origin=(-e ORIGIN=http://localhost:3972)

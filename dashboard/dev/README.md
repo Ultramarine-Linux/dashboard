@@ -10,7 +10,7 @@ Both services publish `127.0.0.1:3972`, so run one at a time.
 ## Mock Tetra
 
 ```sh
-cd apps/dashboard/dev
+cd dashboard/dev
 podman compose up --build -d dashboard
 ./smoke.sh
 ```
@@ -18,12 +18,12 @@ podman compose up --build -d dashboard
 This runs the dev server (`vite dev`) with `TETRA_MOCK=1`; only a dev server
 accepts the mock. `src/` and `static/` are mounted, so edits reload. Open
 `http://localhost:3972` and sign in as `admin`/`admin` or `user`/`user` (see the
-[top-level README](../../../README.md#usage-dev)). Use `localhost` rather than
+[top-level README](../../README.md#usage-dev)). Use `localhost` rather than
 `127.0.0.1`: passkeys need a hostname.
 
 ## Local Tetra socket
 
-This runs the production image (`apps/dashboard/Containerfile`) against a Tetra
+This runs the production image (`dashboard/Containerfile`) against a Tetra
 on this machine. Tetra only accepts the dashboard's account on its socket, so
 the container maps your account onto the image's user and Tetra is told to treat
 your account as the dashboard.
@@ -53,7 +53,7 @@ your account as the dashboard.
 2. Start the dashboard:
 
    ```sh
-   cd apps/dashboard/dev
+   cd dashboard/dev
    TETRA_SOCKET_DIR=/run/tetra-dev podman compose --profile tetra up --build -d dashboard-tetra
    ./smoke.sh
    ```

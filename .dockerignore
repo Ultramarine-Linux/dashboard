@@ -22,4 +22,4 @@
 .local
 
 # Left behind by the removed WSS enrollment stack.
-apps/dashboard/dev/certs
+dashboard/dev/certs

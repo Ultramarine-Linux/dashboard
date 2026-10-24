@@ -21,7 +21,7 @@ importers:
         specifier: ^26.5.1
         version: 26.5.1
 
-  apps/dashboard:
+  dashboard:
     dependencies:
       '@better-auth/core':
         specifier: ^1.6.26

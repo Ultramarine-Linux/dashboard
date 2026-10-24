@@ -7,7 +7,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-      - 'apps/dashboard/**'
+      - 'dashboard/**'
   push:
     branches:
       - main
@@ -16,7 +16,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-      - 'apps/dashboard/**'
+      - 'dashboard/**'
   workflow_dispatch:
 
 permissions:
