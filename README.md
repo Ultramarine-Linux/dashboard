@@ -58,7 +58,8 @@ parameter labels, and categories are translated in the recipes repo, not in
 - The production image mirrors the Fyra Labs catalog endpoint (`index.json`
   and the bundles it lists) into `/app/recipes-seed/fyra` at build time
   (build args `RECIPES_URL`, and `RECIPES_SEED`: `required`, `optional`
-  (default), or `off`). On first start, with no catalog cached yet, Dashboard
+  (default), or `off`). The Image workflow builds every published image with
+  `required`, so a release can't ship without the catalog. On first start, with no catalog cached yet, Dashboard
   imports the seed (`UM_DASHBOARD_RECIPES_SEED_DIR`) through the same digest
   checks as a download, then refreshes from `RECIPES_URL`. Without a seed or
   network the catalog is empty until a refresh succeeds. To seed by hand,
