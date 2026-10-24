@@ -337,12 +337,9 @@
 							{/if}
 						</button>
 					{/if}
-					<button
-						class="lg:hidden"
-						type="button"
-						onclick={() => openUserSettings()}
-						aria-label={t('shell.accountSettings')}
-					>
+					<button class="lg:hidden" type="button" onclick={() => openUserSettings()}>
+						<!-- Named by its content, so the visible initials are part of the name. -->
+						<span class="sr-only">{t('shell.accountSettings')}</span>
 						<Avatar.Root class="size-8 border border-border">
 							<Avatar.Fallback class="bg-primary/15 text-xs font-medium text-foreground">
 								{(user?.username || '?').slice(0, 2).toUpperCase()}

@@ -92,11 +92,20 @@ const handleSession: Handle = async ({ event, resolve }) => {
 		// The issuer comes from ORIGIN, which Tetra writes once the server's
 		// hostname is set. Pages work without it; single sign-on can't.
 		if (hostnameNotConfigured()) return hostnameNotConfiguredResponse();
-		const [{ initAuth }, { svelteKitHandler }] = await Promise.all([
+		if (building) return resolve(event);
+		const [{ initAuth }, { isAuthPath }] = await Promise.all([
 			import('#lib/server/auth.js'),
 			import('better-auth/svelte-kit')
 		]);
-		return svelteKitHandler({ event, resolve, auth: initAuth(), building });
+		const auth = initAuth();
+		// Better Auth only answers requests at its own origin (ORIGIN, or the
+		// request's on the dev server). adapter-node used to give every request
+		// ORIGIN's origin; since SvelteKit 3 it takes the Host header, which a
+		// visitor using another name or the IP doesn't match. Present OIDC
+		// requests at ORIGIN, as before.
+		const url = new URL(`${event.url.pathname}${event.url.search}`, auth.options.baseURL);
+		if (!isAuthPath(url.href, auth.options)) return resolve(event);
+		return auth.handler(new Request(url, event.request));
 	}
 
 	// Health checks don't need a session, and shouldn't wait on `session.info`
