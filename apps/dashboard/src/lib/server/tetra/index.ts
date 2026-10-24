@@ -74,6 +74,17 @@ export function getTetra(): TetraClient {
 	return client;
 }
 
+/**
+ * Close the Tetra connection when adapter-node shuts down. Its open WebSocket
+ * would otherwise keep Node running after SIGTERM until Podman kills it.
+ */
+export function closeTetraOnShutdown(target: NodeJS.EventEmitter = process) {
+	// The closed client stays in place, so nothing reconnects afterwards.
+	target.once('sveltekit:shutdown', () => {
+		void client?.close?.().catch((error) => console.error('[tetra] closing failed:', error));
+	});
+}
+
 /** Replace the client, for tests. */
 export function setTetraForTesting(value: TetraClient | null) {
 	client = value;

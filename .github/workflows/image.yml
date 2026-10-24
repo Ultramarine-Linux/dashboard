@@ -1,0 +1,173 @@
+name: Image
+
+# Builds apps/dashboard/Containerfile for amd64 and arm64 (native runners) and
+# publishes a signed multi-arch image to ghcr.io/ultramarine-linux/dashboard,
+# the registry the Ultramarine-Linux/bootc images use, with the shared
+# FyraLabs/actions Docker workflow. Tags: `main` from main, `vX.Y.Z` and
+# `latest` from a release tag, and only after a local build of each
+# architecture passes the smoke test. Pull requests and dispatches on other
+# branches only build and smoke-test.
+#
+# The digest job prints the image's digest, which ultramarine-server-dashboard
+# (Ultramarine-Linux/packages) pins in the Quadlet bootc installs as a
+# logically bound image.
+
+on:
+  push:
+    branches: [main]
+    # Releases only: metadata-action would tag a prerelease `latest` too.
+    tags: ['v*.*.*', '!v*-*']
+    paths:
+      - '.github/workflows/image.yml'
+      - '.github/scripts/**'
+      - '.dockerignore'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - 'apps/dashboard/**'
+  pull_request:
+    paths:
+      - '.github/workflows/image.yml'
+      - '.github/scripts/**'
+      - '.dockerignore'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - 'apps/dashboard/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Runs on one ref queue up instead of overlapping, so the digest job reads the
+# tag this run pushed.
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/ultramarine-linux/dashboard
+
+jobs:
+  # Non-root, /health, OIDC and shutdown checks on each architecture, on a
+  # local build. Nothing is published unless they pass: update.rhai pins the
+  # newest release tag without looking at this run.
+  smoke-build:
+    name: Smoke test (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        run: podman build -f apps/dashboard/Containerfile -t localhost/dashboard:smoke .
+
+      - name: Smoke test
+        run: .github/scripts/smoke-image.sh localhost/dashboard:smoke
+
+  docker:
+    needs: smoke-build
+    # Pinned: this job can push and sign the image. Bump deliberately.
+    uses: FyraLabs/actions/.github/workflows/docker.yml@51d6b104753065880d3735f4e98672e331bab925 # main, 2026-10-22
+    with:
+      # Only main and release tags publish. A dispatch on another branch only
+      # builds: a branch named like a version would otherwise get a tag that
+      # update.rhai takes for a release.
+      # Release tags exclude prereleases here too, since a dispatch skips the
+      # push filter above.
+      publish: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))) }}
+      context: .
+      dockerfile: apps/dashboard/Containerfile
+      image_name: ultramarine-linux/dashboard
+    permissions:
+      contents: read
+      packages: write
+      # Keyless cosign signing through sigstore/fulcio.
+      id-token: write
+    # It only uses GITHUB_TOKEN, which a called workflow gets anyway.
+
+  # The shared workflow has no outputs, so read the digest of the tag it pushed.
+  digest:
+    name: Digest
+    needs: docker
+    if: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-'))) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
+      ref: ${{ steps.digest.outputs.ref }}
+    steps:
+      - name: Resolve digest
+        id: digest
+        env:
+          USERNAME: ${{ github.actor }}
+          PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s\n' "$PASSWORD" | skopeo login -u "$USERNAME" --password-stdin ghcr.io
+          # docker/metadata-action's tag for this ref (branch or git tag).
+          tag=${GITHUB_REF_NAME//\//-}
+          # The index (multi-arch) digest, as the shared workflow signs it.
+          digest=sha256:$(skopeo inspect --raw "docker://${IMAGE}:${tag}" | sha256sum | cut -d' ' -f1)
+
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "ref=${IMAGE}@${digest}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Dashboard image"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Image | \`${IMAGE}:${tag}\` |"
+            echo "| Digest | \`${digest}\` |"
+            echo
+            echo "Pin it in ultramarine-server-dashboard (Ultramarine-Linux/packages):"
+            echo
+            echo '```'
+            echo "%global dashboard_digest ${digest}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Dashboard image::${IMAGE}@${digest}"
+
+  # The same checks on the image as published (built by the shared workflow's
+  # buildx rather than podman), by digest.
+  smoke-published:
+    name: Smoke test, published (${{ matrix.arch }})
+    needs: digest
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pull the published image
+        env:
+          USERNAME: ${{ github.actor }}
+          PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          REF: ${{ needs.digest.outputs.ref }}
+        run: |
+          printf '%s\n' "$PASSWORD" | podman login -u "$USERNAME" --password-stdin ghcr.io
+          podman pull "$REF"
+
+      - name: Smoke test
+        env:
+          REF: ${{ needs.digest.outputs.ref }}
+        run: .github/scripts/smoke-image.sh "$REF"

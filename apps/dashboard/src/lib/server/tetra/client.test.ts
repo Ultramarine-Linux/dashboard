@@ -24,8 +24,9 @@ function encodeFrame(text: string) {
 	return Buffer.concat([header, payload]);
 }
 
-function decodeFrames(buffer: Buffer): { messages: string[]; rest: Buffer } {
+function decodeFrames(buffer: Buffer): { messages: string[]; closing: boolean; rest: Buffer } {
 	const messages: string[] = [];
+	let closing = false;
 	let offset = 0;
 	while (buffer.length - offset >= 2) {
 		const opcode = buffer[offset] & 0x0f;
@@ -41,9 +42,10 @@ function decodeFrames(buffer: Buffer): { messages: string[]; rest: Buffer } {
 		const data = Buffer.from(buffer.subarray(cursor, cursor + length));
 		for (let index = 0; index < data.length; index++) data[index] ^= mask[index % 4];
 		if (opcode === 1) messages.push(data.toString());
+		if (opcode === 8) closing = true;
 		offset = cursor + length;
 	}
-	return { messages, rest: buffer.subarray(offset) };
+	return { messages, closing, rest: buffer.subarray(offset) };
 }
 
 let directory: string;
@@ -51,7 +53,15 @@ let socketPath: string;
 let server: Server;
 let sockets: Duplex[];
 
-function startServer(handler: Handler, firstFrame?: unknown) {
+/**
+ * `answerClose: false` makes the server ignore the client's close frame, like
+ * a Tetra that hangs.
+ */
+function startServer(
+	handler: Handler,
+	firstFrame?: unknown,
+	{ answerClose = true }: { answerClose?: boolean } = {}
+) {
 	return new Promise<void>((resolve) => {
 		server = createServer();
 		server.on('upgrade', (request, socket) => {
@@ -76,9 +86,10 @@ function startServer(handler: Handler, firstFrame?: unknown) {
 			);
 			let pending: Buffer = Buffer.alloc(0);
 			socket.on('data', (chunk: Buffer) => {
-				const { messages, rest } = decodeFrames(Buffer.concat([pending, chunk]));
+				const { messages, closing, rest } = decodeFrames(Buffer.concat([pending, chunk]));
 				pending = rest;
 				for (const message of messages) handler(JSON.parse(message), send);
+				if (closing && answerClose) socket.end(Buffer.from([0x88, 0]));
 			});
 			socket.on('error', () => {});
 		});
@@ -175,5 +186,100 @@ describe('SocketTetraClient', () => {
 
 		expect(await client.call('setup.status', {})).toEqual({ ok: true });
 		expect(sockets).toHaveLength(2);
+	});
+});
+
+describe('SocketTetraClient.close', () => {
+	/**
+	 * The client's side of the connection is gone. http.Server sockets are
+	 * half-open, so the server sees `end` and keeps its own side open.
+	 */
+	function closedByClient(socket: Duplex) {
+		return new Promise<void>((resolve) => {
+			if (socket.readableEnded || socket.destroyed) return resolve();
+			socket.once('end', () => resolve());
+			socket.once('close', () => resolve());
+		});
+	}
+
+	it('closes the connection and fails requests in flight', async () => {
+		let received = () => {};
+		const sent = new Promise<void>((resolve) => (received = resolve));
+		// Tetra receives the request and never answers it.
+		await startServer(() => received());
+		const client = new SocketTetraClient(socketPath);
+		await client.hello();
+		// Attach the assertion now, so the rejection is never unhandled.
+		const inFlight = expect(client.call('setup.status', {})).rejects.toMatchObject({
+			code: 'unavailable'
+		});
+		await sent;
+
+		const started = performance.now();
+		await client.close();
+		expect(performance.now() - started).toBeLessThan(500);
+
+		await inFlight;
+		await closedByClient(sockets[0]);
+	});
+
+	it('stops waiting when Tetra does not answer the close handshake', async () => {
+		await startServer(() => {}, undefined, { answerClose: false });
+		const client = new SocketTetraClient(socketPath);
+		await client.hello();
+
+		const started = performance.now();
+		await client.close();
+		// close() gives up after about a second; leave room for a slow runner.
+		expect(performance.now() - started).toBeLessThan(4_000);
+		await closedByClient(sockets[0]);
+	});
+
+	it('does not wait out the connect timeout when Tetra never says hello', async () => {
+		// Any frame other than `hello`: the client keeps waiting for it.
+		await startServer(() => {}, { type: 'response', id: 'unrelated', ok: true, result: {} });
+		const client = new SocketTetraClient(socketPath);
+		const upgraded = new Promise<void>((resolve) => server.once('upgrade', () => resolve()));
+		// Attach the assertion now: hello() can reject before close() resolves.
+		const connecting = expect(client.hello()).rejects.toMatchObject({ code: 'unavailable' });
+		await upgraded;
+
+		const started = performance.now();
+		await client.close();
+		// Well under the 5-second connect timeout.
+		expect(performance.now() - started).toBeLessThan(4_000);
+		await connecting;
+		await closedByClient(sockets[0]);
+	});
+
+	it('fails a call that was waiting for the connection when it closed', async () => {
+		await startServer(() => {});
+		const client = new SocketTetraClient(socketPath);
+		await client.hello();
+		const call = expect(client.call('setup.status', {})).rejects.toMatchObject({
+			code: 'unavailable'
+		});
+		// call() is still awaiting the connection; nothing has been sent yet.
+		await client.close();
+		await call;
+	});
+
+	it('does not reconnect afterwards', async () => {
+		await startServer((request, reply) =>
+			reply({ type: 'response', id: request.id, ok: true, result: { ok: true } })
+		);
+		const client = new SocketTetraClient(socketPath);
+		await client.call('setup.status', {});
+		await client.close();
+
+		await expect(client.call('setup.status', {})).rejects.toMatchObject({ code: 'unavailable' });
+		expect(sockets).toHaveLength(1);
+	});
+
+	it('works before anything connected, and twice', async () => {
+		const client = new SocketTetraClient(join(directory, 'missing.sock'));
+		await client.close();
+		await client.close();
+		await expect(client.hello()).rejects.toMatchObject({ code: 'unavailable' });
 	});
 });

@@ -210,4 +210,6 @@ export interface TetraClient {
 	/** The `hello` frame from the current connection. */
 	hello(): Promise<TetraHello>;
 	call<O extends TetraOp>(op: O, params: TetraParams<O>, token?: string): Promise<TetraResult<O>>;
+	/** Release the connection, if there is one. */
+	close?(): Promise<void>;
 }

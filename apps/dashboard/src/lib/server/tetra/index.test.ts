@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { resolveTetraMode } from './index';
+import { EventEmitter } from 'node:events';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { closeTetraOnShutdown, getTetra, resolveTetraMode, setTetraForTesting } from './index';
+import type { TetraClient } from './protocol';
 
 describe('resolveTetraMode', () => {
 	it('uses the socket by default', () => {
@@ -37,5 +39,39 @@ describe('resolveTetraMode', () => {
 			'fixtures'
 		);
 		expect(resolveTetraMode({ development: true, mock: undefined, fixtures: '0' })).toBe('socket');
+	});
+});
+
+describe('closeTetraOnShutdown', () => {
+	afterEach(() => setTetraForTesting(null));
+
+	function fakeClient() {
+		const close = vi.fn(async () => {});
+		const client: TetraClient = {
+			hello: vi.fn<TetraClient['hello']>(),
+			call: vi.fn<TetraClient['call']>(),
+			close
+		};
+		return { client, close };
+	}
+
+	it("closes the client on adapter-node's shutdown event, once", () => {
+		const { client, close } = fakeClient();
+		setTetraForTesting(client);
+		const events = new EventEmitter();
+		closeTetraOnShutdown(events);
+
+		expect(close).not.toHaveBeenCalled();
+		events.emit('sveltekit:shutdown', 'SIGTERM');
+		events.emit('sveltekit:shutdown', 'SIGTERM');
+		expect(close).toHaveBeenCalledTimes(1);
+		// The closed client stays, so nothing opens a new connection.
+		expect(getTetra()).toBe(client);
+	});
+
+	it('does nothing when Tetra was never used', () => {
+		const events = new EventEmitter();
+		closeTetraOnShutdown(events);
+		expect(() => events.emit('sveltekit:shutdown', 'SIGTERM')).not.toThrow();
 	});
 });

@@ -32,7 +32,7 @@ export function resolveDatabasePath() {
 	);
 }
 
-function resolveMigrationsFolder() {
+export function resolveMigrationsFolder() {
 	return resolve(privateEnv.UM_DASHBOARD_MIGRATIONS_DIR?.trim() || 'drizzle');
 }
 
@@ -56,9 +56,15 @@ async function initialize(): Promise<Database> {
 	const connection = openSqlite(dbPath);
 	const database = drizzle(connection, { schema });
 	if (prepared.action !== 'newer-without-snapshot') {
-		migrateWithoutForeignKeys(connection, () =>
-			migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE })
-		);
+		try {
+			migrateWithoutForeignKeys(connection, () =>
+				migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE })
+			);
+		} catch (error) {
+			// initDatabase retries; don't leave this connection open behind it.
+			connection.close();
+			throw error;
+		}
 	}
 
 	startupState = prepared;
@@ -112,6 +118,13 @@ export function initDatabase(): Promise<Database> {
 		throw error;
 	});
 	return initializing;
+}
+
+/** The raw SQLite connection, for the health check. */
+export async function getSqlite(): Promise<Sqlite.Database> {
+	await initDatabase();
+	if (!sqlite) throw new Error('The database is not initialized.');
+	return sqlite;
 }
 
 export function initDrizzle(): Database {
