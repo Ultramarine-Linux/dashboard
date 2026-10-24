@@ -1,27 +1,21 @@
-import {
-	error,
-	redirect,
-	type Handle,
-	type HandleServerError,
-	type RequestEvent,
-	type ServerInit
-} from '@sveltejs/kit';
-import { building, dev } from '$app/environment';
-import { initDatabase } from '$lib/server/db';
-import { instrument } from '$lib/server/observability';
-import { hostnameNotConfigured } from '$lib/server/env';
-import { hostnameNotConfiguredResponse } from '$lib/server/origin';
-import { accessibilityFixtureEnabled } from '$lib/server/accessibility-fixtures';
-import { canAccessRoute, routeAccess } from '$lib/permissions';
-import { defaultLocale, localeCookie, negotiateLocale, translate } from '$lib/i18n/core';
-import { clearSessionCookie, readSessionToken } from '$lib/server/session';
+import { error, redirect, type RequestEvent } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit/hooks';
+import { building, dev } from '$app/env';
+import { initDatabase } from '#lib/server/db/index.js';
+import { instrument } from '#lib/server/observability.js';
+import { hostnameNotConfigured } from '#lib/server/env.js';
+import { hostnameNotConfiguredResponse } from '#lib/server/origin.js';
+import { accessibilityFixtureEnabled } from '#lib/server/accessibility-fixtures.js';
+import { canAccessRoute, routeAccess } from '#lib/permissions.js';
+import { defaultLocale, localeCookie, negotiateLocale, translate } from '#lib/i18n/core.js';
+import { clearSessionCookie, readSessionToken } from '#lib/server/session.js';
 import {
 	ACCESSIBILITY_FIXTURE_TOKEN,
 	checkTetraConfiguration,
 	closeTetraOnShutdown,
 	getTetra,
 	isTetraError
-} from '$lib/server/tetra';
+} from '#lib/server/tetra/index.js';
 
 function isOidcEndpoint(pathname: string) {
 	return pathname === '/api/auth' || pathname.startsWith('/api/auth/');
@@ -99,7 +93,7 @@ const handleSession: Handle = async ({ event, resolve }) => {
 		// hostname is set. Pages work without it; single sign-on can't.
 		if (hostnameNotConfigured()) return hostnameNotConfiguredResponse();
 		const [{ initAuth }, { svelteKitHandler }] = await Promise.all([
-			import('$lib/server/auth'),
+			import('#lib/server/auth.js'),
 			import('better-auth/svelte-kit')
 		]);
 		return svelteKitHandler({ event, resolve, auth: initAuth(), building });
@@ -141,8 +135,15 @@ export const init: ServerInit = async () => {
 
 export const handle: Handle = withLocale(handleSession);
 
-/** Unexpected errors: log them, and show the visitor a translated, detail-free message. */
-export const handleError: HandleServerError = ({ error, event, status }) => {
+/**
+ * Errors thrown with `error(...)` (`app`) already carry a translated message,
+ * and validation errors keep SvelteKit's safe default. Framework errors (such
+ * as 404s) and unexpected errors show the visitor a translated, detail-free
+ * message; everything but a 404 is logged.
+ */
+export const handleError: HandleServerError = ({ kind, error, event }) => {
+	if (kind === 'app' || kind === 'validation') return;
+	const status = kind === 'framework' ? error.status : 500;
 	if (status !== 404) console.error(error);
 	const locale = event.locals.locale ?? defaultLocale;
 	return {

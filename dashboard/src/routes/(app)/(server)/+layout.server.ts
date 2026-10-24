@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from './$types';
-import { getHostSummary } from '$lib/remote/managed-hosts.remote';
+import { getHostSummary } from '#lib/remote/managed-hosts.remote.js';
 
 export const load: LayoutServerLoad = async ({ parent }) => {
 	// The app shell loads the host best-effort so it can show it on every page.

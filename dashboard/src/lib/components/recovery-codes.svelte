@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { dashboardBrand } from '$lib/branding';
-	import { t } from '$lib/i18n';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { dashboardBrand } from '#lib/branding.js';
+	import { t } from '#lib/i18n/index.js';
 	import Check from '~icons/lucide/check';
 	import Download from '~icons/lucide/download';
 	import Copy from '~icons/nucleo/copy';

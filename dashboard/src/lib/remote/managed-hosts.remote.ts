@@ -1,14 +1,14 @@
 import { command, query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
-import { requireAdmin, requireUser, tetraCall } from '$lib/server/session';
-import { isTetraError } from '$lib/server/tetra';
+import { requireAdmin, requireUser, tetraCall } from '#lib/server/session.js';
+import { isTetraError } from '#lib/server/tetra/index.js';
 import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureHost
-} from '$lib/server/accessibility-fixtures';
-import { getAppRecipe } from '$lib/apps/catalog';
-import { isValidAppName } from '$lib/apps/params';
+} from '#lib/server/accessibility-fixtures.js';
+import { getAppRecipe } from '#lib/apps/catalog.js';
+import { isValidAppName } from '#lib/apps/params.js';
 import {
 	parseAppDetailResponse,
 	parseAppSummaries,
@@ -17,8 +17,8 @@ import {
 	type HostAppFileEntry,
 	type HostAppManifest,
 	type HostServiceState
-} from '$lib/apps/types';
-import { serverT } from '$lib/server/i18n';
+} from '#lib/apps/types.js';
+import { serverT } from '#lib/server/i18n.js';
 
 /** A module action's outcome, as the pages expect it. */
 export type AgentResponse = {

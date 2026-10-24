@@ -1,7 +1,19 @@
-import { env as privateEnv } from '$env/dynamic/private';
-import { dev } from '$app/environment';
-import { resolveBetterAuthSecret } from '$lib/server/runtime-secret';
-import { configuredOrigin } from '$lib/server/origin';
+import {
+	BETTER_AUTH_SECRET,
+	BETTER_AUTH_SECRET_FILE,
+	UM_DASHBOARD_STATE_DIR,
+	ORIGIN,
+	AUTUMN_ENABLED,
+	AUTUMN_SECRET,
+	AUTUMN_DEFAULT_PLAN_ID,
+	AUTUMN_SERVER_ENTITY_FEATURE_ID,
+	INTERNAL_CRON_SECRET,
+	SSO_TRUSTED_CLIENTS
+} from '$app/env/private';
+
+import { dev } from '$app/env';
+import { resolveBetterAuthSecret } from '#lib/server/runtime-secret.js';
+import { configuredOrigin } from '#lib/server/origin.js';
 
 export type RuntimeEnv = {
 	/** Null until the server's hostname is configured; see origin.ts. */
@@ -19,25 +31,25 @@ export type RuntimeEnv = {
 
 export function getBetterAuthSecret() {
 	return resolveBetterAuthSecret({
-		explicitSecret: privateEnv.BETTER_AUTH_SECRET,
-		secretFile: privateEnv.BETTER_AUTH_SECRET_FILE,
-		stateDir: privateEnv.UM_DASHBOARD_STATE_DIR,
+		explicitSecret: BETTER_AUTH_SECRET,
+		secretFile: BETTER_AUTH_SECRET_FILE,
+		stateDir: UM_DASHBOARD_STATE_DIR,
 		development: dev
 	});
 }
 
 export function getRuntimeEnv(): RuntimeEnv {
 	return {
-		ORIGIN: configuredOrigin(privateEnv.ORIGIN),
+		ORIGIN: configuredOrigin(ORIGIN),
 		BETTER_AUTH_SECRET: getBetterAuthSecret(),
-		AUTUMN_ENABLED: privateEnv.AUTUMN_ENABLED,
-		AUTUMN_SECRET: privateEnv.AUTUMN_SECRET,
-		AUTUMN_DEFAULT_PLAN_ID: privateEnv.AUTUMN_DEFAULT_PLAN_ID,
-		AUTUMN_SERVER_ENTITY_FEATURE_ID: privateEnv.AUTUMN_SERVER_ENTITY_FEATURE_ID,
-		INTERNAL_CRON_SECRET: privateEnv.INTERNAL_CRON_SECRET,
-		SSO_TRUSTED_CLIENTS: privateEnv.SSO_TRUSTED_CLIENTS,
-		BETTER_AUTH_SECRET_FILE: privateEnv.BETTER_AUTH_SECRET_FILE,
-		UM_DASHBOARD_STATE_DIR: privateEnv.UM_DASHBOARD_STATE_DIR
+		AUTUMN_ENABLED,
+		AUTUMN_SECRET,
+		AUTUMN_DEFAULT_PLAN_ID,
+		AUTUMN_SERVER_ENTITY_FEATURE_ID,
+		INTERNAL_CRON_SECRET,
+		SSO_TRUSTED_CLIENTS,
+		BETTER_AUTH_SECRET_FILE,
+		UM_DASHBOARD_STATE_DIR
 	};
 }
 
@@ -46,5 +58,5 @@ export function getRuntimeEnv(): RuntimeEnv {
  * yet, so single sign-on is unavailable. The dev server uses request origins.
  */
 export function hostnameNotConfigured(): boolean {
-	return !dev && configuredOrigin(privateEnv.ORIGIN) === null;
+	return !dev && configuredOrigin(ORIGIN) === null;
 }

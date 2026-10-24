@@ -2,14 +2,14 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { jwt, oidcProvider, type Client } from 'better-auth/plugins';
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { getRequestEvent } from '$app/server';
 
-import { initDrizzle, type Database } from '$lib/server/db';
-import { getRuntimeEnv } from '$lib/server/env';
-import { HOSTNAME_NOT_CONFIGURED, oidcBaseURL } from '$lib/server/origin';
-import { ulid } from '$lib/server/id';
-import { dashboardBrand } from '$lib/branding';
+import { initDrizzle, type Database } from '#lib/server/db/index.js';
+import { getRuntimeEnv } from '#lib/server/env.js';
+import { HOSTNAME_NOT_CONFIGURED, oidcBaseURL } from '#lib/server/origin.js';
+import { ulid } from '#lib/server/id.js';
+import { dashboardBrand } from '#lib/branding.js';
 
 /**
  * Better Auth only backs the OIDC provider for apps. Dashboard logins,

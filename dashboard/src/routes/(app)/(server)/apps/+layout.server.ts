@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { serverT } from '$lib/server/i18n';
+import { serverT } from '#lib/server/i18n.js';
 
 export const load: LayoutServerLoad = async ({ parent }) => {
 	const { featureFlags } = await parent();

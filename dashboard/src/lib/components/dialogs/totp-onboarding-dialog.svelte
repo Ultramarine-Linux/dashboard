@@ -1,14 +1,14 @@
 <script lang="ts">
 	import QRCode from 'qrcode';
 	import { untrack } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Label } from '$lib/components/ui/label';
-	import RecoveryCodes from '$lib/components/recovery-codes.svelte';
-	import { beginTotpEnrollment, confirmTotpEnrollment } from '$lib/remote/account.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import { t } from '$lib/i18n';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import RecoveryCodes from '#lib/components/recovery-codes.svelte';
+	import { beginTotpEnrollment, confirmTotpEnrollment } from '#lib/remote/account.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { t } from '#lib/i18n/index.js';
 	import Check from '~icons/lucide/check';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Copy from '~icons/nucleo/copy';

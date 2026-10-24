@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { confirmController } from '$lib/confirm.svelte';
-	import { t } from '$lib/i18n';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { confirmController } from '#lib/confirm.svelte.js';
+	import { t } from '#lib/i18n/index.js';
 
 	let typed = $state('');
 

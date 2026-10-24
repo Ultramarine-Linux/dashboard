@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import type { LauncherEntry, LauncherEntryInput, Permissions } from '$lib/permissions';
+import type { LauncherEntry, LauncherEntryInput, Permissions } from '#lib/permissions.js';
 import {
 	TETRA_PROTOCOL_VERSION,
 	TetraError,

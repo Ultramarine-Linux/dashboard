@@ -4,7 +4,7 @@
  * validation that blocks cook until required fields are filled, and
  * conversion into the typed `values` map sent to the agent.
  */
-import { t } from '$lib/i18n';
+import { t } from '#lib/i18n/index.js';
 import type { AppRecipe, AppRecipeParameter } from './catalog';
 
 export type AppValueMap = Record<string, string | number | boolean>;

@@ -2,9 +2,9 @@ import { query, command, getRequestEvent } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
 import { eq, and } from 'drizzle-orm';
-import { initDrizzle } from '$lib/server/db';
-import { sshKeys } from '$lib/server/db/schema';
-import { serverT } from '$lib/server/i18n';
+import { initDrizzle } from '#lib/server/db/index.js';
+import { sshKeys } from '#lib/server/db/schema.js';
+import { serverT } from '#lib/server/i18n.js';
 
 type ListResult = {
 	id: string;

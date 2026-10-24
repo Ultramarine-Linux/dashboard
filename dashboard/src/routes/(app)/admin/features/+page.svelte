@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 	import {
 		featureFlagKeys,
 		featureFlagLabelKeys,
@@ -9,7 +9,7 @@
 		featureFlagCategoryLabelKeys,
 		type FeatureFlagKey,
 		type FeatureFlagCategory
-	} from '$lib/feature-flags';
+	} from '#lib/feature-flags.js';
 	import Check from '~icons/lucide/check';
 	import FileText from '~icons/nucleo/file-text';
 	import FolderOpen from '~icons/nucleo/folder-open';
@@ -29,8 +29,11 @@
 	import Shield from '~icons/nucleo/shield';
 	import Terminal from '~icons/nucleo/terminal';
 	import Upload from '~icons/nucleo/upload';
-	import { AdminFeaturesState, type AdminFeaturesPageData } from '$lib/state/admin-features.svelte';
-	import type { IconComponent } from '$lib';
+	import {
+		AdminFeaturesState,
+		type AdminFeaturesPageData
+	} from '#lib/state/admin-features.svelte.js';
+	import type { IconComponent } from '#lib';
 
 	const featureFlagIcons: Record<FeatureFlagKey, IconComponent> = {
 		apps: LayoutGrid

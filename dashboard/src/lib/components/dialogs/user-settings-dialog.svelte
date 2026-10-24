@@ -1,34 +1,34 @@
 <script lang="ts">
-	import { autofillAttributes } from '$lib/components/ui/input';
+	import { autofillAttributes } from '#lib/components/ui/input/index.js';
 	import { invalidate } from '$app/navigation';
 	import { untrack } from 'svelte';
-	import type { UserSettingsTab } from '$lib/state/user-settings.svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Avatar from '$lib/components/ui/avatar';
-	import * as Tabs from '$lib/components/ui/tabs';
-	import { Skeleton } from '$lib/components/ui/skeleton';
-	import RecoveryCodes from '$lib/components/recovery-codes.svelte';
+	import type { UserSettingsTab } from '#lib/state/user-settings.svelte.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
+	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
+	import RecoveryCodes from '#lib/components/recovery-codes.svelte';
 	import TotpOnboardingDialog from './totp-onboarding-dialog.svelte';
 	import PasskeyOnboardingDialog from './passkey-onboarding-dialog.svelte';
 	import {
 		createSshKey as createSshKeyRpc,
 		deleteSshKey,
 		listSshKeys
-	} from '$lib/remote/ssh-keys.remote';
-	import { listApiTokens, createApiToken, revokeApiToken } from '$lib/remote/api-tokens.remote';
+	} from '#lib/remote/ssh-keys.remote.js';
+	import { listApiTokens, createApiToken, revokeApiToken } from '#lib/remote/api-tokens.remote.js';
 	import {
 		disableTotp,
 		getAccountSecurity,
 		regenerateRecoveryCodes,
 		removePasskey as removePasskeyRpc,
 		type AccountSecurity
-	} from '$lib/remote/account.remote';
+	} from '#lib/remote/account.remote.js';
 	import { toast } from 'svelte-sonner';
-	import { getErrorMessage } from '$lib/utils';
-	import { confirmDestructive } from '$lib/confirm.svelte';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { confirmDestructive } from '#lib/confirm.svelte.js';
 
 	import Check from '~icons/lucide/check';
 	import Loader2 from '~icons/lucide/loader-2';
@@ -51,7 +51,7 @@
 	import User from '~icons/nucleo/user';
 	import { Dialog as DialogPrimitive } from 'bits-ui';
 	import { userPrefersMode, setMode } from 'mode-watcher';
-	import { contrast, type ContrastPreference } from '$lib/state/contrast.svelte';
+	import { contrast, type ContrastPreference } from '#lib/state/contrast.svelte.js';
 	import Circle from '~icons/lucide/circle';
 	import ContrastIcon from '~icons/lucide/contrast';
 	import Languages from '~icons/lucide/languages';
@@ -63,7 +63,7 @@
 		t,
 		tn,
 		type TranslationKey
-	} from '$lib/i18n';
+	} from '#lib/i18n/index.js';
 
 	type ThemeMode = 'light' | 'dark' | 'system';
 
