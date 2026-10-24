@@ -1,10 +1,10 @@
 <script lang="ts">
 	import './layout.css';
-	import NavigationProgress from '$lib/components/navigation-progress.svelte';
+	import NavigationProgress from '#lib/components/navigation-progress.svelte';
 	import { onMount } from 'svelte';
 	import { ModeWatcher } from 'mode-watcher';
-	import { dashboardBrand } from '$lib/branding';
-	import { contrast } from '$lib/state/contrast.svelte';
+	import { dashboardBrand } from '#lib/branding.js';
+	import { contrast } from '#lib/state/contrast.svelte.js';
 
 	let { children, data } = $props();
 

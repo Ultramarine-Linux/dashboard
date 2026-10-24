@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
-import { getSqlite, resolveMigrationsFolder } from '$lib/server/db';
-import { checkHealth, singleFlight } from '$lib/server/health';
-import { getTetra } from '$lib/server/tetra';
+import { getSqlite, resolveMigrationsFolder } from '#lib/server/db/index.js';
+import { checkHealth, singleFlight } from '#lib/server/health.js';
+import { getTetra } from '#lib/server/tetra/index.js';
 
 /**
  * `OK` (200) only when the database opens, every migration is applied and

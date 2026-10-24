@@ -27,7 +27,7 @@ export {
  *
  * On the server `page` is only readable while a component renders; anywhere
  * else (load functions, hooks) use `event.locals.locale` with `translate()`
- * from `$lib/i18n/core` instead.
+ * from `#lib/i18n/core.js` instead.
  */
 export function currentLocale(): string {
 	try {

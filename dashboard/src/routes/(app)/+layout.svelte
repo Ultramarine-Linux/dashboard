@@ -2,27 +2,28 @@
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import UserSettingsDialog from '$lib/components/dialogs/user-settings-dialog.svelte';
-	import ConfirmDialog from '$lib/components/confirm-dialog.svelte';
+	import type { Path } from '$app/types';
+	import UserSettingsDialog from '#lib/components/dialogs/user-settings-dialog.svelte';
+	import ConfirmDialog from '#lib/components/confirm-dialog.svelte';
 	import {
 		clearUserSettingsHref,
 		UserSettingsState,
 		type UserSettingsTab
-	} from '$lib/state/user-settings.svelte';
-	import { Toaster } from '$lib/components/ui/sonner';
-	import * as Avatar from '$lib/components/ui/avatar';
-	import * as Command from '$lib/components/ui/command';
-	import * as Sheet from '$lib/components/ui/sheet';
-	import { dashboardBrand, pageTitle } from '$lib/branding';
-	import { t, type TranslationKey } from '$lib/i18n';
-	import type { FeatureFlags } from '$lib/feature-flags';
-	import type { IconComponent } from '$lib';
+	} from '#lib/state/user-settings.svelte.js';
+	import { Toaster } from '#lib/components/ui/sonner/index.js';
+	import * as Avatar from '#lib/components/ui/avatar/index.js';
+	import * as Command from '#lib/components/ui/command/index.js';
+	import * as Sheet from '#lib/components/ui/sheet/index.js';
+	import { dashboardBrand, pageTitle } from '#lib/branding.js';
+	import { t, type TranslationKey } from '#lib/i18n/index.js';
+	import type { FeatureFlags } from '#lib/feature-flags.js';
+	import type { IconComponent } from '#lib';
 	import {
 		hostTabGroups,
 		hostTabHref,
 		visibleHostTabs,
 		type HostTabHref
-	} from '$lib/hosts/host-detail';
+	} from '#lib/hosts/host-detail.js';
 	import ArrowRight from '~icons/lucide/arrow-right';
 	import ChevronRight from '~icons/lucide/chevron-right';
 	import Loader2 from '~icons/lucide/loader-2';
@@ -43,6 +44,8 @@
 	const featureFlags = $derived((data.featureFlags ?? {}) as FeatureFlags);
 
 	type NavHref = HostTabHref | '/admin/sso' | '/admin/features';
+	/** `resolve` takes pathnames without the leading slash. */
+	const navPath = (href: NavHref) => href.slice(1) as Path;
 	type NavItem = { icon: IconComponent; label: string; href: NavHref };
 	type NavGroup = { label: string; items: NavItem[] };
 
@@ -105,13 +108,12 @@
 	}
 
 	$effect(() => {
-		const url = page.url;
+		const url = new URL(page.url.href);
 		if (userSettings.urlHasSettingsTab(url)) {
 			userSettings.syncFromUrl(url);
 			void goto(clearUserSettingsHref(url), {
-				replaceState: true,
-				noScroll: true,
-				keepFocus: true
+				replace: true,
+				reset: false
 			});
 		}
 	});
@@ -166,7 +168,7 @@
 
 	function runCommand(command: CommandEntry) {
 		commandOpen = false;
-		if (command.href) void goto(resolve(command.href));
+		if (command.href) void goto(resolve(navPath(command.href)));
 		else void command.action?.();
 	}
 </script>
@@ -190,7 +192,7 @@
 				{#each group.items as item (item.href)}
 					{@const active = isActive(item.href)}
 					<a
-						href={resolve(item.href)}
+						href={resolve(navPath(item.href))}
 						aria-current={active ? 'page' : undefined}
 						onclick={() => onNavigate?.()}
 						class="group/nav relative flex h-8 items-center gap-2.5 px-2 text-sm transition-colors {active
@@ -258,7 +260,7 @@
 			class="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar lg:flex"
 			aria-label={t('shell.sidebar')}
 		>
-			<a href={resolve('/')} class="flex h-14 shrink-0 items-center gap-2.5 px-5">
+			<a href={resolve('')} class="flex h-14 shrink-0 items-center gap-2.5 px-5">
 				<img src={dashboardBrand.logo} alt="" class="size-6" />
 				<span class="text-sm font-semibold tracking-tight text-foreground"
 					>{dashboardBrand.name}</span
@@ -286,7 +288,7 @@
 					>
 						<Menu class="size-4" />
 					</button>
-					<a href={resolve('/')} class="flex shrink-0 items-center lg:hidden">
+					<a href={resolve('')} class="flex shrink-0 items-center lg:hidden">
 						<img src={dashboardBrand.logo} alt={dashboardBrand.name} class="size-6" />
 					</a>
 					{#if activeNav}
@@ -335,12 +337,9 @@
 							{/if}
 						</button>
 					{/if}
-					<button
-						class="lg:hidden"
-						type="button"
-						onclick={() => openUserSettings()}
-						aria-label={t('shell.accountSettings')}
-					>
+					<button class="lg:hidden" type="button" onclick={() => openUserSettings()}>
+						<!-- Named by its content, so the visible initials are part of the name. -->
+						<span class="sr-only">{t('shell.accountSettings')}</span>
 						<Avatar.Root class="size-8 border border-border">
 							<Avatar.Fallback class="bg-primary/15 text-xs font-medium text-foreground">
 								{(user?.username || '?').slice(0, 2).toUpperCase()}

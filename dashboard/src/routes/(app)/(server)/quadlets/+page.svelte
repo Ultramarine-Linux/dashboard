@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
-	import SegmentedControl from '$lib/components/segmented-control.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import SegmentedControl from '#lib/components/segmented-control.svelte';
 	import {
 		listManagedHostQuadlets,
 		type HostSummary,
 		type ManagedHostQuadletFile,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import { t, type TranslationKey } from '$lib/i18n';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { t, type TranslationKey } from '#lib/i18n/index.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';
 	import RefreshCw from '~icons/lucide/refresh-cw';

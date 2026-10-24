@@ -1,3 +1,4 @@
+import adapter from '@sveltejs/adapter-node';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
@@ -8,7 +9,11 @@ export default defineConfig({
 	envPrefix: ['VITE_', 'PUBLIC_'],
 	plugins: [
 		tailwindcss(),
-		sveltekit(),
+		sveltekit({
+			compilerOptions: { experimental: { async: true } },
+			adapter: adapter(),
+			experimental: { remoteFunctions: true }
+		}),
 		Icons({
 			compiler: 'svelte',
 			customCollections: {

@@ -2,11 +2,11 @@ import { command, query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
 import { count, desc, eq } from 'drizzle-orm';
-import { requireAdmin } from '$lib/server/session';
-import { initDrizzle } from '$lib/server/db';
-import { oauthAccessToken, oauthApplication, oauthConsent } from '$lib/server/db/schema';
-import { ulid } from '$lib/server/id';
-import { serverT } from '$lib/server/i18n';
+import { requireAdmin } from '#lib/server/session.js';
+import { initDrizzle } from '#lib/server/db/index.js';
+import { oauthAccessToken, oauthApplication, oauthConsent } from '#lib/server/db/schema.js';
+import { ulid } from '#lib/server/id.js';
+import { serverT } from '#lib/server/i18n.js';
 
 const clientTypes = ['web', 'public', 'native', 'user-agent-based'] as const;
 type SsoClientType = (typeof clientTypes)[number];

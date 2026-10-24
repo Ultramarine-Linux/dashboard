@@ -1,12 +1,19 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Label } from '$lib/components/ui/label';
-	import { beginPasskeyRegistration, finishPasskeyRegistration } from '$lib/remote/account.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import { t } from '$lib/i18n';
-	import { attestationToJson, creationOptionsFromJson, webAuthnErrorMessage } from '$lib/webauthn';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import {
+		beginPasskeyRegistration,
+		finishPasskeyRegistration
+	} from '#lib/remote/account.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { t } from '#lib/i18n/index.js';
+	import {
+		attestationToJson,
+		creationOptionsFromJson,
+		webAuthnErrorMessage
+	} from '#lib/webauthn.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Fingerprint from '~icons/nucleo/fingerprint';
 

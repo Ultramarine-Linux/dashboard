@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import {
 		saveManagedHostQuadlet,
 		type HostSummary,
 		type ManagedHostQuadletCompanionFile,
 		type ManagedHostQuadletDetail,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import { t } from '$lib/i18n';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { t } from '#lib/i18n/index.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';
 	import Trash2 from '~icons/nucleo/trash';

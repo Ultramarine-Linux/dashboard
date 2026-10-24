@@ -1,5 +1,10 @@
 import { getRequestEvent } from '$app/server';
-import { defaultLocale, translate, type Interpolations, type TranslationKey } from '$lib/i18n/core';
+import {
+	defaultLocale,
+	translate,
+	type Interpolations,
+	type TranslationKey
+} from '#lib/i18n/core.js';
 
 /** The locale of the request being handled, or the default outside one. */
 export function requestLocale(): string {

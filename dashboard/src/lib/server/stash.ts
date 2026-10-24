@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 
 /**
  * Short-lived server-side state for multi-step logins (Tetra's `pending`

@@ -1,23 +1,23 @@
 <script lang="ts">
-	import { t, tn } from '$lib/i18n';
+	import { t, tn } from '#lib/i18n/index.js';
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import * as Dialog from '$lib/components/ui/dialog';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Switch } from '$lib/components/ui/switch';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Dialog from '#lib/components/ui/dialog/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
 	import {
 		getLauncherEntry,
 		listLauncherEntries,
 		removeLauncherEntry,
 		saveLauncherEntry
-	} from '$lib/remote/launcher.remote';
-	import type { LauncherEntry, LauncherVisibility } from '$lib/permissions';
-	import { confirmDestructive } from '$lib/confirm.svelte';
-	import { pageTitle } from '$lib/branding';
-	import { getErrorMessage } from '$lib/utils';
+	} from '#lib/remote/launcher.remote.js';
+	import type { LauncherEntry, LauncherVisibility } from '#lib/permissions.js';
+	import { confirmDestructive } from '#lib/confirm.svelte.js';
+	import { pageTitle } from '#lib/branding.js';
+	import { getErrorMessage } from '#lib/utils.js';
 	import ExternalLink from '~icons/lucide/external-link';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';

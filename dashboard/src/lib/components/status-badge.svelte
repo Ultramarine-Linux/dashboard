@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { t, type TranslationKey } from '$lib/i18n';
+	import { t, type TranslationKey } from '#lib/i18n/index.js';
 
 	export type StatusTone = 'success' | 'neutral' | 'warning' | 'danger' | 'info';
 
@@ -76,7 +76,7 @@
 </script>
 
 <script lang="ts">
-	import { cn } from '$lib/utils';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		status,

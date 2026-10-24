@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import type { HostSummary } from '$lib/remote/managed-hosts.remote';
+	import { t } from '#lib/i18n/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import type { HostSummary } from '#lib/remote/managed-hosts.remote.js';
 	import Check from '~icons/lucide/check';
 	import ChevronDown from '~icons/lucide/chevron-down';
 	import Minus from '~icons/lucide/minus';
-	import { parseHostCapabilities, type ModuleStatus } from '$lib/hosts/capabilities';
+	import { parseHostCapabilities, type ModuleStatus } from '#lib/hosts/capabilities.js';
 
 	let { data }: { data: { host: HostSummary } } = $props();
 	const host = $derived(data.host);

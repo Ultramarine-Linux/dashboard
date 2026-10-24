@@ -1,5 +1,5 @@
-import { dev } from '$app/environment';
-import type { FeatureFlags } from '$lib/feature-flags';
+import { dev } from '$app/env';
+import type { FeatureFlags } from '#lib/feature-flags.js';
 
 /**
  * Fixture mode logs every visitor in as an administrator, so it only exists

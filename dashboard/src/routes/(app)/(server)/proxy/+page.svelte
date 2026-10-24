@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { t, tn } from '$lib/i18n';
+	import { t, tn } from '#lib/i18n/index.js';
 	import { untrack } from 'svelte';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
-	import { confirmDestructive } from '$lib/confirm.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { confirmDestructive } from '#lib/confirm.svelte.js';
 	import {
 		deleteManagedHostReverseProxySite,
 		listManagedHostReverseProxySites,
@@ -12,8 +12,8 @@
 		writeManagedHostReverseProxySite,
 		type HostSummary,
 		type ManagedHostReverseProxySite
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Pencil from '~icons/lucide/pencil';
 	import Plus from '~icons/lucide/plus';
