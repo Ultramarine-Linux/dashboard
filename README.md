@@ -41,7 +41,7 @@ required Tetra, Podman, and systemd/Quadlet support available. Open **Apps** to
 create, inspect, update, or remove an application.
 
 Recipes come from
-[Ultramarine-Server/recipes](https://github.com/Ultramarine-Server/recipes)
+[Ultramarine-Linux/recipes](https://github.com/Ultramarine-Linux/recipes)
 and never live in this repository. Dashboard fetches the published catalog at
 runtime and caches it in its state directory
 (`$UM_DASHBOARD_STATE_DIR/recipes/<catalog>/`). Recipe names, descriptions,
