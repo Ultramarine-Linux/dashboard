@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime, t } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getAppRecipe } from '$lib/apps/catalog';
@@ -97,7 +98,7 @@
 			if (requestKey === `${scope}:${appName}`) detail = nextDetail;
 		} catch (err) {
 			if (requestKey === `${scope}:${appName}`) {
-				actionError = getErrorMessage(err, 'Failed to load app.');
+				actionError = getErrorMessage(err, t('apps.loadAppFailed'));
 			}
 		} finally {
 			if (requestKey === `${scope}:${appName}`) loading = false;
@@ -105,7 +106,7 @@
 	}
 
 	function formatEpoch(seconds: number) {
-		return seconds > 0 ? new Date(seconds * 1000).toLocaleString() : 'Unknown';
+		return seconds > 0 ? formatDateTime(seconds * 1000) : t('apps.unknown');
 	}
 
 	function setLogPanel(name: string, panel: LogPanel) {
@@ -137,7 +138,7 @@
 				expanded: true,
 				loading: false,
 				logs: null,
-				error: getErrorMessage(err, 'Failed to load service logs.')
+				error: getErrorMessage(err, t('apps.loadLogsFailed'))
 			});
 		}
 	}
@@ -170,7 +171,7 @@
 				expanded: true,
 				loading: false,
 				contents: null,
-				error: getErrorMessage(err, 'Failed to read file.')
+				error: getErrorMessage(err, t('apps.readFileFailed'))
 			});
 		}
 	}
@@ -217,7 +218,7 @@
 			editing = false;
 			await loadApp();
 		} catch (err) {
-			editError = getErrorMessage(err, 'Failed to update app.');
+			editError = getErrorMessage(err, t('apps.updateFailed'));
 		} finally {
 			saving = false;
 		}
@@ -226,10 +227,10 @@
 	async function removeApp() {
 		if (removing || !detail) return;
 		const ok = await confirmDestructive({
-			title: 'Remove app',
-			description: `This stops and disables the app's services, deletes its Quadlet units, and removes the bundle directory. Volumes created by Podman are kept.`,
+			title: t('apps.removeApp'),
+			description: t('apps.removeDescription'),
 			confirmWord: appName,
-			confirmLabel: 'Remove app'
+			confirmLabel: t('apps.removeApp')
 		});
 		if (!ok) return;
 
@@ -239,7 +240,7 @@
 			await removeManagedHostApp({ scope, name: appName });
 			await goto(`/apps`);
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to remove app.');
+			actionError = getErrorMessage(err, t('apps.removeFailed'));
 		} finally {
 			removing = false;
 		}
@@ -254,13 +255,15 @@
 				class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 			>
 				<ArrowLeft class="size-3" />
-				Apps
+				{t('apps.title')}
 			</a>
 			<div class="mt-1 flex flex-wrap items-center gap-2">
 				<h1 class="truncate text-xl font-semibold tracking-tight text-foreground">{appName}</h1>
 				{#if detail}
 					<StatusBadge status={detail.status} />
-					<Badge variant="outline" class="capitalize">{scope}</Badge>
+					<Badge variant="outline" class="capitalize">
+						{scope === 'system' ? t('apps.scopeSystem') : t('apps.scopeUser')}
+					</Badge>
 				{/if}
 			</div>
 			{#if detail}
@@ -269,9 +272,10 @@
 				</p>
 				<p class="mt-1 font-mono text-xs break-all text-muted-foreground">{detail.bundleDir}</p>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Created {formatEpoch(detail.manifest.created_at)} · Updated {formatEpoch(
-						detail.manifest.updated_at
-					)}
+					{t('apps.createdUpdated', {
+						created: formatEpoch(detail.manifest.created_at),
+						updated: formatEpoch(detail.manifest.updated_at)
+					})}
 				</p>
 			{/if}
 		</div>
@@ -281,7 +285,7 @@
 			{:else}
 				<RefreshCw class="size-3.5" />
 			{/if}
-			Refresh
+			{t('common.refresh')}
 		</Button>
 	</div>
 
@@ -294,11 +298,11 @@
 	{#if loading && !detail}
 		<div class="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
 			<Loader2 class="size-3.5 animate-spin" />
-			Loading app
+			{t('apps.loadingApp')}
 		</div>
 	{:else if detail}
 		<section class="mt-5">
-			<h2 class="text-sm font-semibold text-foreground">Services</h2>
+			<h2 class="text-sm font-semibold text-foreground">{t('apps.servicesHeading')}</h2>
 			<div class="mt-3 divide-y divide-border border border-border">
 				{#each detail.services as service (service.name)}
 					{@const panel = logPanels[service.name]}
@@ -330,7 +334,7 @@
 										{:else}
 											<RefreshCw class="size-3" />
 										{/if}
-										Refresh
+										{t('common.refresh')}
 									</Button>
 								{/if}
 								<Button
@@ -340,7 +344,7 @@
 									onclick={() => toggleLogs(service)}
 								>
 									<ScrollText class="size-3" />
-									{panel?.expanded ? 'Hide logs' : 'Logs'}
+									{panel?.expanded ? t('apps.hideLogs') : t('apps.logs')}
 								</Button>
 							</div>
 						</div>
@@ -355,25 +359,25 @@
 								<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
 								<pre
 									role="region"
-									aria-label={`Logs for ${service.name}`}
+									aria-label={t('apps.logsFor', { name: service.name })}
 									tabindex="0"
 									class="mt-3 max-h-80 overflow-auto border border-border bg-muted/20 p-3 font-mono text-xs whitespace-pre-wrap">{panel.logs}</pre>
 							{:else}
 								<div class="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
 									<Loader2 class="size-3.5 animate-spin" />
-									Loading logs
+									{t('apps.loadingLogs')}
 								</div>
 							{/if}
 						{/if}
 					</div>
 				{:else}
-					<div class="p-3 text-xs text-muted-foreground">No services reported for this app.</div>
+					<div class="p-3 text-xs text-muted-foreground">{t('apps.noServices')}</div>
 				{/each}
 			</div>
 		</section>
 
 		<section class="mt-5">
-			<h2 class="text-sm font-semibold text-foreground">Units</h2>
+			<h2 class="text-sm font-semibold text-foreground">{t('apps.unitsHeading')}</h2>
 			<div class="mt-3 divide-y divide-border border border-border">
 				{#each detail.units as unit (unit.filename)}
 					<div class="flex flex-wrap items-center gap-2 p-3">
@@ -384,17 +388,17 @@
 							{unit.filename}
 						</a>
 						{#if !unit.exists}
-							<span class="text-xs text-destructive">missing</span>
+							<span class="text-xs text-destructive">{t('apps.missing')}</span>
 						{/if}
 					</div>
 				{:else}
-					<div class="p-3 text-xs text-muted-foreground">No units recorded for this app.</div>
+					<div class="p-3 text-xs text-muted-foreground">{t('apps.noUnits')}</div>
 				{/each}
 			</div>
 		</section>
 
 		<section class="mt-5">
-			<h2 class="text-sm font-semibold text-foreground">Files</h2>
+			<h2 class="text-sm font-semibold text-foreground">{t('apps.filesHeading')}</h2>
 			<div class="mt-3 divide-y divide-border border border-border">
 				{#each detail.files as file (file.filename)}
 					{@const panel = filePanels[file.filename]}
@@ -405,7 +409,7 @@
 									{file.filename}
 								</span>
 								{#if !file.exists}
-									<span class="text-xs text-destructive">missing</span>
+									<span class="text-xs text-destructive">{t('apps.missing')}</span>
 								{/if}
 							</div>
 							<Button
@@ -418,7 +422,7 @@
 								{#if panel?.loading}
 									<Loader2 class="size-3 animate-spin" />
 								{/if}
-								{panel?.expanded ? 'Hide' : 'View'}
+								{panel?.expanded ? t('apps.hide') : t('apps.view')}
 							</Button>
 						</div>
 						{#if panel?.expanded}
@@ -432,7 +436,7 @@
 								<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
 								<pre
 									role="region"
-									aria-label={`Contents of ${file.filename}`}
+									aria-label={t('apps.contentsOf', { name: file.filename })}
 									tabindex="0"
 									class="mt-3 max-h-80 overflow-auto border border-border bg-muted/20 p-3 font-mono text-xs whitespace-pre-wrap">{panel.contents}</pre>
 							{/if}
@@ -440,7 +444,7 @@
 					</div>
 				{:else}
 					<div class="p-3 text-xs text-muted-foreground">
-						No companion files recorded for this app.
+						{t('apps.noFiles')}
 					</div>
 				{/each}
 			</div>
@@ -449,23 +453,23 @@
 		<section class="mt-5 border border-border p-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<div>
-					<h2 class="text-sm font-semibold text-foreground">Recipe Values</h2>
+					<h2 class="text-sm font-semibold text-foreground">{t('apps.recipeValues')}</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Re-render the app with updated parameter values.
+						{t('apps.recipeValuesHint')}
 					</p>
 				</div>
 				<Button variant="outline" size="sm" class="gap-2" onclick={toggleEditing}>
 					<Pencil class="size-3.5" />
-					{editing ? 'Cancel' : 'Edit values'}
+					{editing ? t('common.cancel') : t('apps.editValues')}
 				</Button>
 			</div>
 
 			{#if editResult}
 				<div class="mt-4">
-					<AppCookResult title="App re-rendered" result={editResult}>
+					<AppCookResult title={t('apps.reRendered')} result={editResult}>
 						{#snippet actions()}
 							<Button variant="outline" size="sm" onclick={() => (editResult = null)}>
-								Dismiss
+								{t('apps.dismiss')}
 							</Button>
 						{/snippet}
 					</AppCookResult>
@@ -476,9 +480,9 @@
 				{#if recipe}
 					<div class="mt-4 space-y-5">
 						<div class="space-y-2">
-							<Label for="edit-app-name">App name</Label>
+							<Label for="edit-app-name">{t('apps.appName')}</Label>
 							<Input id="edit-app-name" value={appName} readonly />
-							<p class="text-xs text-muted-foreground">Apps cannot be renamed.</p>
+							<p class="text-xs text-muted-foreground">{t('apps.cannotRename')}</p>
 						</div>
 
 						<AppValuesForm {recipe} bind:values={editValues} idPrefix="edit-param" />
@@ -503,23 +507,21 @@
 							{#if saving}
 								<Loader2 class="size-3.5 animate-spin" />
 							{/if}
-							Re-render and restart
+							{t('apps.reRenderRestart')}
 						</Button>
 					</div>
 				{:else}
 					<div class="mt-4 border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-						This app was cooked from a recipe outside the dashboard catalog, so value editing is
-						unavailable.
+						{t('apps.outsideCatalog')}
 					</div>
 				{/if}
 			{/if}
 		</section>
 
 		<section class="mt-5 border border-destructive/30 p-4">
-			<h2 class="text-sm font-semibold text-foreground">Danger Zone</h2>
+			<h2 class="text-sm font-semibold text-foreground">{t('apps.dangerZone')}</h2>
 			<p class="mt-1 text-xs text-muted-foreground">
-				Removing an app stops and disables its services, deletes its Quadlet units, and removes the
-				bundle directory.
+				{t('apps.dangerHint')}
 			</p>
 			<Button
 				variant="outline"
@@ -533,7 +535,7 @@
 				{:else}
 					<Trash2 class="size-3.5" />
 				{/if}
-				Remove app
+				{t('apps.removeApp')}
 			</Button>
 		</section>
 	{/if}

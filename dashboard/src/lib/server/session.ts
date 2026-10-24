@@ -10,6 +10,7 @@ import {
 	type TetraParams,
 	type TetraResult
 } from '$lib/server/tetra';
+import { serverT } from '$lib/server/i18n';
 
 /**
  * Tetra issues session tokens; the dashboard only keeps them in an httpOnly
@@ -58,14 +59,14 @@ export function safeRedirectTarget(value: string | null | undefined) {
 
 export function requireUser() {
 	const { locals } = getRequestEvent();
-	if (!locals.user || !locals.tetraToken) error(401, 'Authentication required');
+	if (!locals.user || !locals.tetraToken) error(401, serverT('errors.authRequired'));
 	return locals.user;
 }
 
 /** A convenience check; Tetra re-checks administrator status on every action. */
 export function requireAdmin() {
 	const user = requireUser();
-	if (!user.admin) error(403, 'Administrator permission required');
+	if (!user.admin) error(403, serverT('errors.adminRequired'));
 	return user;
 }
 
@@ -88,13 +89,13 @@ export function throwTetraError(cause: unknown): never {
 
 	if (cause.code === 'unauthenticated') {
 		clearSessionCookie(getRequestEvent().cookies);
-		error(401, 'Your session has ended. Sign in again.');
+		error(401, serverT('errors.sessionEnded'));
 	}
 	if (cause.code === 'forbidden' || cause.code === 'wrong_client') {
-		error(403, 'You do not have permission to do that.');
+		error(403, serverT('errors.forbiddenAction'));
 	}
 	if (cause.code === 'rate_limited') {
-		error(429, `Too many attempts. Try again in ${cause.retryAfter ?? 30} seconds.`);
+		error(429, serverT('errors.rateLimited', { seconds: cause.retryAfter ?? 30 }));
 	}
 	const status = httpStatusForTetraError[cause.code];
 	if (status) error(status, cause.message);
@@ -107,7 +108,7 @@ export async function tetraCall<O extends TetraOp>(
 	params: TetraParams<O>
 ): Promise<TetraResult<O>> {
 	const { locals } = getRequestEvent();
-	if (!locals.tetraToken) error(401, 'Authentication required');
+	if (!locals.tetraToken) error(401, serverT('errors.authRequired'));
 	try {
 		return await getTetra().call(op, params, locals.tetraToken);
 	} catch (cause) {

@@ -40,6 +40,24 @@ Applications are deployed as Quadlet resources, so the server must have the
 required Tetra, Podman, and systemd/Quadlet support available. Open **Apps** to
 create, inspect, update, or remove an application.
 
+## Translations
+
+UI strings go through [i18nya](https://github.com/FyraLabs/i18nya). Catalogs are
+flat JSON files in `dashboard/src/lib/i18n/langs`, one per BCP 47 locale
+(`en.json`, `pt-BR.json`, ...). `en.json` is the source of truth; other
+locales fall back to it key by key.
+
+- In components, `import { t, tn, formatDateTime } from '$lib/i18n'` and use
+  `t('ns.key', { name })` with `{{name}}` placeholders in the catalog. Plurals
+  use `tn('ns.items', count)` with `ns.items.one` / `ns.items.other` keys (CLDR
+  categories).
+- On the server outside a component render (hooks, `load`, remote functions),
+  use `translate(event.locals.locale, 'ns.key')` from `$lib/i18n/core`.
+- To add a language, drop `<locale>.json` next to `en.json`; it shows up in
+  **Account settings → Appearance → Language**. The locale is picked from the
+  `locale` cookie, then `Accept-Language`, then English.
+- `pnpm i18n:check` validates catalogs against `en.json` and reports coverage.
+
 ## Build and run
 
 ```sh

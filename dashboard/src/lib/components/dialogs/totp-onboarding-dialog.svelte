@@ -8,6 +8,7 @@
 	import RecoveryCodes from '$lib/components/recovery-codes.svelte';
 	import { beginTotpEnrollment, confirmTotpEnrollment } from '$lib/remote/account.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t } from '$lib/i18n';
 	import Check from '~icons/lucide/check';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Copy from '~icons/nucleo/copy';
@@ -49,7 +50,7 @@
 			secretKey = result.secret;
 			step = 'verify';
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to start authenticator setup.');
+			error = getErrorMessage(err, t('totp.startFailed'));
 			step = 'error';
 		}
 	}
@@ -89,10 +90,7 @@
 			step = 'codes';
 			onComplete?.();
 		} catch (err) {
-			error = getErrorMessage(
-				err,
-				'Invalid code. Use the newest entry and make sure your device time is set automatically.'
-			);
+			error = getErrorMessage(err, t('totp.invalidCode'));
 		} finally {
 			verifying = false;
 		}
@@ -120,12 +118,10 @@
 	<Dialog.Content class="border-border bg-background sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>
-				{step === 'codes' ? 'Save your recovery codes' : 'Set up authenticator app'}
+				{step === 'codes' ? t('totp.titleCodes') : t('totp.titleSetup')}
 			</Dialog.Title>
 			<Dialog.Description>
-				{step === 'codes'
-					? 'Two-factor authentication is on.'
-					: 'Scan the QR code with your authenticator app, then enter the code it shows.'}
+				{step === 'codes' ? t('totp.descriptionCodes') : t('totp.descriptionSetup')}
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -140,13 +136,13 @@
 				<div class="flex justify-center">
 					<div class="rounded-xs border border-border bg-muted p-3">
 						{#if qrCodeSrc}
-							<img src={qrCodeSrc} alt="Authenticator app QR code" />
+							<img src={qrCodeSrc} alt={t('totp.qrAlt')} />
 						{/if}
 					</div>
 				</div>
 
 				<div class="flex flex-col gap-1.5">
-					<Label class="text-xs text-muted-foreground">Manual entry key</Label>
+					<Label class="text-xs text-muted-foreground">{t('totp.manualKey')}</Label>
 					<div class="flex items-center gap-2">
 						<code
 							class="flex-1 overflow-hidden rounded-xs border border-border bg-muted px-2 py-1.5 font-mono text-xs text-ellipsis whitespace-nowrap text-foreground"
@@ -156,7 +152,7 @@
 						<button
 							type="button"
 							class="shrink-0 text-muted-foreground hover:text-foreground"
-							aria-label="Copy key"
+							aria-label={t('totp.copyKey')}
 							onclick={copySecret}
 						>
 							{#if copiedSecret}
@@ -169,7 +165,7 @@
 				</div>
 
 				<div class="flex flex-col gap-1.5">
-					<Label for="totp-verify-code">Verification code</Label>
+					<Label for="totp-verify-code">{t('totp.verificationCode')}</Label>
 					<Input
 						id="totp-verify-code"
 						bind:value={verifyCode}
@@ -188,7 +184,7 @@
 
 				<Button onclick={verifyTotp} disabled={verifying || !normalizedVerifyCode} class="gap-1.5">
 					<ShieldCheck class="size-4" />
-					{verifying ? 'Verifying...' : 'Verify & enable'}
+					{verifying ? t('totp.verifying') : t('totp.verifyEnable')}
 				</Button>
 			</div>
 		{:else if step === 'codes'}

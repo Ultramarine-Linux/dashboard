@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { t } from '$lib/i18n';
 	import {
 		featureFlagKeys,
-		featureFlagLabels,
-		featureFlagDescriptions,
+		featureFlagLabelKeys,
+		featureFlagDescriptionKeys,
 		featureFlagCategories,
-		featureFlagCategoryLabels,
+		featureFlagCategoryLabelKeys,
 		type FeatureFlagKey,
 		type FeatureFlagCategory
 	} from '$lib/feature-flags';
@@ -69,10 +70,7 @@
 				<div
 					class="flex h-8 items-center gap-2 rounded-full bg-muted/50 px-3 text-xs font-medium text-muted-foreground"
 				>
-					<span class="text-muted-foreground">{enabledCount}</span>
-					<span>of</span>
-					<span class="text-muted-foreground">{totalCount}</span>
-					<span>enabled</span>
+					<span>{t('admin.features.summary', { enabled: enabledCount, total: totalCount })}</span>
 				</div>
 			</div>
 		</div>
@@ -86,7 +84,7 @@
 					<div class="flex items-center gap-2.5">
 						<CatIcon class="h-4 w-4 shrink-0 text-muted-foreground" />
 						<h3 class="text-sm font-semibold text-foreground">
-							{featureFlagCategoryLabels[category as FeatureFlagCategory]}
+							{t(featureFlagCategoryLabelKeys[category as FeatureFlagCategory])}
 						</h3>
 					</div>
 					<div
@@ -95,11 +93,11 @@
 							: 'bg-muted text-muted-foreground'}"
 					>
 						{#if catEnabled === flags.length}
-							<Check class="mr-1 h-2.5 w-2.5" />All on
+							<Check class="mr-1 h-2.5 w-2.5" />{t('admin.features.allOn')}
 						{:else if catEnabled > 0}
-							{catEnabled}/{flags.length} on
+							{t('admin.features.someOn', { enabled: catEnabled, total: flags.length })}
 						{:else}
-							<X class="mr-1 h-2.5 w-2.5" />All off
+							<X class="mr-1 h-2.5 w-2.5" />{t('admin.features.allOff')}
 						{/if}
 					</div>
 				</div>
@@ -124,17 +122,17 @@
 								<div class="flex min-w-0 flex-col gap-0.5">
 									<div class="flex items-center gap-2">
 										<span class="text-sm font-medium text-foreground"
-											>{featureFlagLabels[flag]}</span
+											>{t(featureFlagLabelKeys[flag])}</span
 										>
 										{#if enabled}
 											<span
 												class="hidden items-center gap-1 text-[10px] font-medium text-emerald-400 sm:flex"
-												><Check class="h-2.5 w-2.5" />Active</span
+												><Check class="h-2.5 w-2.5" />{t('admin.features.active')}</span
 											>
 										{/if}
 									</div>
 									<p class="text-xs text-muted-foreground">
-										{featureFlagDescriptions[flag]}
+										{t(featureFlagDescriptionKeys[flag])}
 									</p>
 								</div>
 							</div>
@@ -149,7 +147,9 @@
 										: 'hover:bg-muted-foreground'}"
 									onclick={() => toggleFlag(flag)}
 									disabled={admin.featureFlagSaving[flag]}
-									aria-label="Toggle {featureFlagLabels[flag]}"
+									aria-label={t('admin.features.toggleLabel', {
+										name: t(featureFlagLabelKeys[flag])
+									})}
 								>
 									<span
 										class="block aspect-square w-1/2 rounded-full bg-white shadow-xs ring-1 ring-black/5 transition-transform duration-200 {enabled

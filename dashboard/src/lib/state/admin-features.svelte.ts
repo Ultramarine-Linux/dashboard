@@ -1,5 +1,6 @@
 import { invalidate } from '$app/navigation';
 import { getErrorMessage } from '$lib/utils';
+import { t } from '$lib/i18n';
 import { defaultFeatureFlags, type FeatureFlagKey, type FeatureFlags } from '$lib/feature-flags';
 import { updateFeatureFlag } from '$lib/remote/feature-flags.remote';
 
@@ -27,7 +28,7 @@ export class AdminFeaturesState {
 			this.featureFlags = (await updateFeatureFlag({ flag, enabled })).featureFlags;
 			await invalidate('app:feature-flags');
 		} catch (err) {
-			this.featureFlagError = getErrorMessage(err, 'Failed to update feature flag');
+			this.featureFlagError = getErrorMessage(err, t('admin.features.errorUpdate'));
 		} finally {
 			this.featureFlagSaving = { ...this.featureFlagSaving, [flag]: false };
 		}

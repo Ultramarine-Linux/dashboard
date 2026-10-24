@@ -5,6 +5,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { beginPasskeyRegistration, finishPasskeyRegistration } from '$lib/remote/account.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t } from '$lib/i18n';
 	import { attestationToJson, creationOptionsFromJson, webAuthnErrorMessage } from '$lib/webauthn';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Fingerprint from '~icons/nucleo/fingerprint';
@@ -41,7 +42,7 @@
 				creationOptionsFromJson(options)
 			)) as PublicKeyCredential | null;
 			if (!credential) {
-				error = 'No passkey was created.';
+				error = t('passkey.noneCreated');
 				return;
 			}
 			await finishPasskeyRegistration({
@@ -53,8 +54,8 @@
 		} catch (err) {
 			error =
 				err instanceof DOMException
-					? webAuthnErrorMessage(err, 'Failed to register passkey.')
-					: getErrorMessage(err, 'Failed to register passkey.');
+					? webAuthnErrorMessage(err, t('passkey.registerFailed'))
+					: getErrorMessage(err, t('passkey.registerFailed'));
 		} finally {
 			registering = false;
 		}
@@ -64,22 +65,23 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="border-border bg-background sm:max-w-sm">
 		<Dialog.Header>
-			<Dialog.Title>Add passkey</Dialog.Title>
+			<Dialog.Title>{t('passkey.title')}</Dialog.Title>
 			<Dialog.Description>
-				Sign in without a password or code. Your browser will ask you to confirm.
+				{t('passkey.description')}
 				{#if hostname}
-					The passkey works only at <span class="font-medium text-foreground">{hostname}</span>.
+					{t('passkey.hostnameBefore')}
+					<span class="font-medium text-foreground">{hostname}</span>{t('passkey.hostnameAfter')}
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="flex flex-col gap-4 py-4">
 			<div class="flex flex-col gap-1.5">
-				<Label for="passkey-name">Name</Label>
+				<Label for="passkey-name">{t('common.name')}</Label>
 				<Input
 					id="passkey-name"
 					bind:value={passkeyName}
-					placeholder="My laptop"
+					placeholder={t('passkey.namePlaceholder')}
 					onkeydown={(e) => e.key === 'Enter' && registerPasskey()}
 				/>
 			</div>
@@ -91,10 +93,10 @@
 			<Button onclick={registerPasskey} disabled={registering} class="gap-1.5">
 				{#if registering}
 					<Loader2 class="h-3.5 w-3.5 animate-spin" />
-					Registering...
+					{t('passkey.registering')}
 				{:else}
 					<Fingerprint class="size-4" />
-					Register passkey
+					{t('passkey.register')}
 				{/if}
 			</Button>
 		</div>

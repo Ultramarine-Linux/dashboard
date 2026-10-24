@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import type { ManagedHostAppWriteResult } from '$lib/remote/managed-hosts.remote';
 	import ChevronDown from '~icons/lucide/chevron-down';
@@ -26,7 +27,7 @@
 
 	{#if result.units.length > 0}
 		<div>
-			<p class="text-xs font-medium text-foreground">Units installed</p>
+			<p class="text-xs font-medium text-foreground">{t('apps.unitsInstalled')}</p>
 			<ul class="mt-2 space-y-1 font-mono text-xs break-all text-muted-foreground">
 				{#each result.units as unit (unit)}
 					<li>{unit}</li>
@@ -37,7 +38,7 @@
 
 	{#if result.services.length > 0}
 		<div>
-			<p class="text-xs font-medium text-foreground">Services</p>
+			<p class="text-xs font-medium text-foreground">{t('apps.servicesLabel')}</p>
 			<ul class="mt-2 space-y-1 font-mono text-xs break-all text-muted-foreground">
 				{#each result.services as service (service)}
 					<li>{service}</li>
@@ -57,10 +58,10 @@
 			>
 				{#if showSystemdCommands}
 					<ChevronUp class="size-3.5" />
-					Hide systemd commands
+					{t('apps.hideSystemd')}
 				{:else}
 					<ChevronDown class="size-3.5" />
-					Show systemd commands
+					{t('apps.showSystemd')}
 				{/if}
 			</Button>
 			{#if showSystemdCommands}

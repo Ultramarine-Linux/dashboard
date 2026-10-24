@@ -13,6 +13,7 @@
 		"test:accessibility:ci": "pnpm --filter ultramarine-dashboard test:accessibility:ci",
 		"check": "pnpm --filter ultramarine-dashboard check",
 		"check:watch": "pnpm --filter ultramarine-dashboard check:watch",
+		"i18n:check": "pnpm --filter ultramarine-dashboard i18n:check",
 		"lint": "pnpm --filter ultramarine-dashboard lint",
 		"format": "pnpm --filter ultramarine-dashboard format",
 		"db:push": "pnpm --filter ultramarine-dashboard db:push",

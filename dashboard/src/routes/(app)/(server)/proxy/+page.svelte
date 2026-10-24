@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, tn } from '$lib/i18n';
 	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -70,7 +71,7 @@
 			sites = result.sites;
 			configDir = result.configDir;
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to load reverse proxy sites.');
+			error = getErrorMessage(err, t('proxy.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -95,7 +96,7 @@
 			].sort((left, right) => left.domain.localeCompare(right.domain));
 			resetForm();
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to save reverse proxy site.');
+			error = getErrorMessage(err, t('proxy.saveFailed'));
 		} finally {
 			saving = false;
 		}
@@ -104,10 +105,12 @@
 	async function deleteSite(site: ManagedHostReverseProxySite) {
 		if (deletingDomain) return;
 		const ok = await confirmDestructive({
-			title: 'Delete reverse proxy site',
-			description: `This will remove the route for ${site.domain} from ${host.hostname ?? 'this server'}.`,
+			title: t('proxy.deleteTitle'),
+			description: host.hostname
+				? t('proxy.deleteDescription', { domain: site.domain, host: host.hostname })
+				: t('proxy.deleteDescriptionThisServer', { domain: site.domain }),
 			confirmWord: site.domain,
-			confirmLabel: 'Delete route'
+			confirmLabel: t('proxy.deleteRoute')
 		});
 		if (!ok) return;
 
@@ -119,7 +122,7 @@
 			});
 			sites = sites.filter((entry) => entry.domain !== site.domain);
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to delete reverse proxy site.');
+			error = getErrorMessage(err, t('proxy.deleteFailed'));
 		} finally {
 			deletingDomain = '';
 		}
@@ -132,7 +135,7 @@
 		try {
 			await reloadManagedHostReverseProxy();
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to reload reverse proxy.');
+			error = getErrorMessage(err, t('proxy.reloadFailed'));
 		} finally {
 			reloading = false;
 		}
@@ -144,15 +147,15 @@
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<div>
 				<h1 class="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
-					<Globe class="size-5 text-muted-foreground" /> Reverse Proxy
+					<Globe class="size-5 text-muted-foreground" />
+					{t('proxy.title')}
 				</h1>
 				<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
-					Create Caddy reverse proxy routes for services running on this host. Tetra writes managed
-					site snippets and reloads Caddy after changes.
+					{t('proxy.description')}
 				</p>
 				{#if configDir}
 					<p class="mt-2 text-xs text-muted-foreground">
-						Managed config directory:
+						{t('proxy.configDir')}
 						<code class="border border-border bg-muted/30 px-1.5 py-0.5 text-foreground"
 							>{configDir}</code
 						>
@@ -162,7 +165,8 @@
 
 			<div class="flex shrink-0 gap-2">
 				<Button variant="outline" size="sm" class="gap-1.5" onclick={loadSites} {loading}>
-					<RefreshCw class="size-3.5" /> Refresh
+					<RefreshCw class="size-3.5" />
+					{t('common.refresh')}
 				</Button>
 				<Button
 					variant="outline"
@@ -171,10 +175,12 @@
 					onclick={reloadProxy}
 					loading={reloading}
 				>
-					<RefreshCw class="size-3.5" /> Reload Caddy
+					<RefreshCw class="size-3.5" />
+					{t('proxy.reloadCaddy')}
 				</Button>
 				<Button size="sm" class="gap-1.5" onclick={startCreate} disabled={formOpen}>
-					<Plus class="size-3.5" /> New route
+					<Plus class="size-3.5" />
+					{t('proxy.newRoute')}
 				</Button>
 			</div>
 		</div>
@@ -191,10 +197,11 @@
 			<div class="border border-border/60 bg-background/30 p-4">
 				<div class="mb-4">
 					<h2 class="text-sm font-semibold text-foreground">
-						{editingDomain ? 'Edit proxy route' : 'Create proxy route'}
+						{editingDomain ? t('proxy.editRoute') : t('proxy.createRoute')}
 					</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Example upstreams: <code>127.0.0.1:8080</code>, <code>localhost:3000</code>, or
+						{t('proxy.exampleUpstreamsBefore')} <code>127.0.0.1:8080</code>,
+						<code>localhost:3000</code>, {t('proxy.exampleUpstreamsOr')}
 						<code>http://app:80</code>.
 					</p>
 				</div>
@@ -206,21 +213,22 @@
 					}}
 				>
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground">
-						Domain
+						{t('proxy.domain')}
 						<Input bind:value={form.domain} placeholder="app.example.com" required />
 					</label>
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground">
-						Upstream
+						{t('proxy.upstream')}
 						<Input bind:value={form.upstream} placeholder="127.0.0.1:8080" required />
 					</label>
 					<div class="flex items-center gap-2 lg:col-span-2">
 						<Switch bind:checked={form.tls} />
-						<span class="text-sm text-foreground">Enable automatic HTTPS</span>
+						<span class="text-sm text-foreground">{t('proxy.enableHttps')}</span>
 					</div>
 					<div class="flex items-center justify-end gap-2 lg:col-span-2">
-						<Button type="button" variant="outline" onclick={resetForm}>Cancel</Button>
+						<Button type="button" variant="outline" onclick={resetForm}>{t('common.cancel')}</Button
+						>
 						<Button type="submit" loading={saving}
-							>{editingDomain ? 'Save route' : 'Create route'}</Button
+							>{editingDomain ? t('proxy.saveRoute') : t('proxy.createRouteButton')}</Button
 						>
 					</div>
 				</form>
@@ -231,10 +239,10 @@
 			<table class="w-full text-left text-sm">
 				<thead class="border-b border-border/60 bg-muted/30 text-xs text-muted-foreground">
 					<tr>
-						<th class="px-4 py-2 font-medium">Domain</th>
-						<th class="px-4 py-2 font-medium">Upstream</th>
-						<th class="px-4 py-2 font-medium">TLS</th>
-						<th class="px-4 py-2 text-right font-medium">Actions</th>
+						<th class="px-4 py-2 font-medium">{t('proxy.domain')}</th>
+						<th class="px-4 py-2 font-medium">{t('proxy.upstream')}</th>
+						<th class="px-4 py-2 font-medium">{t('proxy.tls')}</th>
+						<th class="px-4 py-2 text-right font-medium">{t('common.actions')}</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-border/50">
@@ -254,7 +262,7 @@
 									? 'text-emerald-400'
 									: 'text-muted-foreground'}"
 							>
-								{site.tls ? 'Automatic HTTPS' : 'Disabled'}
+								{site.tls ? t('proxy.automaticHttps') : t('common.disabled')}
 							</td>
 							<td class="px-4 py-3 align-top">
 								<div class="flex justify-end gap-1.5">
@@ -262,7 +270,7 @@
 										variant="outline"
 										size="icon-sm"
 										onclick={() => startEdit(site)}
-										aria-label="Edit route"
+										aria-label={t('proxy.editRouteAria')}
 									>
 										<Pencil class="size-3.5" />
 									</Button>
@@ -271,7 +279,7 @@
 										size="icon-sm"
 										loading={deletingDomain === site.domain}
 										onclick={() => deleteSite(site)}
-										aria-label="Delete route"
+										aria-label={t('proxy.deleteRoute')}
 									>
 										<Trash class="size-3.5" />
 									</Button>
@@ -285,11 +293,12 @@
 
 		{#if loading && sites.length === 0}
 			<div class="rounded-md border border-border/60 p-8 text-center text-sm text-muted-foreground">
-				<Loader2 class="mx-auto mb-2 size-4 animate-spin" /> Loading reverse proxy routes…
+				<Loader2 class="mx-auto mb-2 size-4 animate-spin" />
+				{t('proxy.loading')}
 			</div>
 		{:else if sites.length === 0}
 			<div class="rounded-md border border-border/60 p-8 text-center text-sm text-muted-foreground">
-				No reverse proxy routes yet. Create one to expose a local service by domain.
+				{t('proxy.empty')}
 			</div>
 		{/if}
 	</div>

@@ -7,6 +7,7 @@
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t } from '$lib/i18n';
 	import Loader2 from '~icons/lucide/loader-2';
 	import QuadletEditor from '$lib/hosts/quadlets/QuadletEditor.svelte';
 
@@ -42,7 +43,7 @@
 				filename
 			});
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to load Quadlet bundle.');
+			actionError = getErrorMessage(err, t('quadlets.detail.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -53,7 +54,7 @@
 	<div>
 		<h1 class="text-xl font-semibold tracking-tight text-foreground">{filename}</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Edit the Quadlet specification, parameters, and companion files.
+			{t('quadlets.detail.subtitle')}
 		</p>
 	</div>
 
@@ -66,7 +67,7 @@
 	{#if loading && !detail}
 		<div class="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
 			<Loader2 class="size-3.5 animate-spin" />
-			Loading Quadlet
+			{t('quadlets.detail.loading')}
 		</div>
 	{:else if detail}
 		<div class="mt-5">

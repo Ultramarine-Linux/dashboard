@@ -3,23 +3,28 @@
 	import { Button } from '$lib/components/ui/button';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { t } from '$lib/i18n';
 
 	const isNotFound = $derived(page.status === 404);
 	const isServerError = $derived(page.status >= 500);
 	const heading = $derived(
-		isNotFound ? 'Page not found' : isServerError ? 'Something went wrong' : 'Error'
+		isNotFound
+			? t('error.notFoundHeading')
+			: isServerError
+				? t('error.serverErrorHeading')
+				: t('error.genericHeading')
 	);
 	const detail = $derived(
 		isNotFound
-			? "We couldn't find the page you're looking for."
+			? t('error.notFoundDetail')
 			: isServerError
-				? 'Something went wrong on our end. Please try again in a moment.'
-				: (page.error?.message ?? 'Something went wrong')
+				? t('error.serverErrorDetail')
+				: (page.error?.message ?? t('error.fallbackDetail'))
 	);
 </script>
 
 <svelte:head>
-	<title>{page.status} / Ultramarine Server</title>
+	<title>{t('error.pageTitle', { status: page.status })}</title>
 </svelte:head>
 
 <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 text-center">
@@ -30,8 +35,12 @@
 	</div>
 	<div class="mt-2 flex items-center gap-2">
 		{#if !isNotFound}
-			<Button variant="outline" size="sm" onclick={() => location.reload()}>Try again</Button>
+			<Button variant="outline" size="sm" onclick={() => location.reload()}
+				>{t('error.tryAgain')}</Button
+			>
 		{/if}
-		<Button variant="outline" size="sm" onclick={() => goto(resolve('/'))}>Go Home</Button>
+		<Button variant="outline" size="sm" onclick={() => goto(resolve('/'))}
+			>{t('error.goHome')}</Button
+		>
 	</div>
 </div>

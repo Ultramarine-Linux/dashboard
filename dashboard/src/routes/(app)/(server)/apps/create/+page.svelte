@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatNumber, t, tn } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { appRecipes, getAppRecipe, type AppRecipe } from '$lib/apps/catalog';
@@ -116,7 +117,7 @@
 				valuesJson: JSON.stringify(valuesForSubmit(recipe, values))
 			});
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to create the app.');
+			actionError = getErrorMessage(err, t('apps.createFailed'));
 		} finally {
 			saving = false;
 		}
@@ -125,28 +126,30 @@
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="mx-auto max-w-6xl">
-		<h1 class="text-xl font-semibold tracking-tight text-foreground">New App</h1>
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('apps.newAppTitle')}</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Cook a recipe into an installed app on this host.
+			{t('apps.createSubtitle')}
 		</p>
 
 		<section class="mt-5 border border-border p-4">
 			<div class="flex items-center justify-between gap-3 border-b border-border pb-2">
 				<div>
 					<h2 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-						Recipe catalog
+						{t('apps.recipeCatalog')}
 					</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Choose an app recipe to install on this host.
+						{t('apps.chooseRecipe')}
 					</p>
 				</div>
-				<span class="text-[11px] text-muted-foreground">{filteredRecipes.length} available</span>
+				<span class="text-[11px] text-muted-foreground"
+					>{t('apps.recipesAvailable', { count: formatNumber(filteredRecipes.length) })}</span
+				>
 			</div>
 			<div class="mt-3">
 				<Input
 					bind:value={recipeSearch}
-					placeholder="Search recipes..."
-					aria-label="Search recipes"
+					placeholder={t('apps.searchRecipes')}
+					aria-label={t('apps.searchRecipesLabel')}
 				/>
 			</div>
 			{#if filteredRecipes.length > 0}
@@ -188,7 +191,7 @@
 				</div>
 			{:else}
 				<div class="py-8 text-center text-xs text-muted-foreground">
-					No recipes match “{recipeSearch}”.
+					{t('apps.noRecipesMatch', { query: recipeSearch })}
 				</div>
 			{/if}
 		</section>
@@ -209,20 +212,20 @@
 			<div class="mt-5 space-y-5">
 				<section class="space-y-5 border border-border p-5">
 					<div>
-						<h2 class="text-sm font-semibold text-foreground">App Settings</h2>
+						<h2 class="text-sm font-semibold text-foreground">{t('apps.appSettings')}</h2>
 						<p class="mt-1 text-xs text-muted-foreground">{recipe.name}</p>
 					</div>
 
 					{#if missingRequirements.length > 0}
-						{@const plural = missingRequirements.length > 1 ? 's' : ''}
 						<p class="text-xs text-amber-600 dark:text-amber-400">
-							This host does not advertise the {missingRequirements.join(', ')} module{plural};
-							cooking may fail.
+							{tn('apps.missingModules', missingRequirements.length, {
+								modules: missingRequirements.join(', ')
+							})}
 						</p>
 					{/if}
 
 					<div class="space-y-2">
-						<Label for="app-name">App name</Label>
+						<Label for="app-name">{t('apps.appName')}</Label>
 						<Input
 							id="app-name"
 							value={appName}
@@ -230,7 +233,7 @@
 						/>
 						{#if appName && !nameValid}
 							<p class="text-xs text-destructive">
-								Use letters, digits, dots, underscores, and dashes; start with a letter or digit.
+								{t('apps.invalidName')}
 							</p>
 						{/if}
 					</div>
@@ -253,22 +256,24 @@
 						{#if saving}
 							<Loader2 class="size-3.5 animate-spin" />
 						{/if}
-						Cook app
+						{t('apps.cookApp')}
 					</Button>
 				</section>
 
 				{#if result}
 					{@const cooked = result}
-					<AppCookResult title="App cooked" result={cooked}>
+					<AppCookResult title={t('apps.cooked')} result={cooked}>
 						{#snippet actions()}
 							<Button
 								size="sm"
 								onclick={() =>
 									goto(`/apps/${encodeURIComponent(cooked.manifest.name)}?scope=${scope}`)}
 							>
-								Open app
+								{t('apps.openApp')}
 							</Button>
-							<Button variant="outline" size="sm" onclick={resetCook}>Cook another</Button>
+							<Button variant="outline" size="sm" onclick={resetCook}
+								>{t('apps.cookAnother')}</Button
+							>
 						{/snippet}
 					</AppCookResult>
 				{/if}

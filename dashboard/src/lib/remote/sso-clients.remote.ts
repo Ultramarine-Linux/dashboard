@@ -6,6 +6,7 @@ import { requireAdmin } from '$lib/server/session';
 import { initDrizzle } from '$lib/server/db';
 import { oauthAccessToken, oauthApplication, oauthConsent } from '$lib/server/db/schema';
 import { ulid } from '$lib/server/id';
+import { serverT } from '$lib/server/i18n';
 
 const clientTypes = ['web', 'public', 'native', 'user-agent-based'] as const;
 type SsoClientType = (typeof clientTypes)[number];
@@ -44,18 +45,18 @@ function splitRedirectUrls(value: string | string[]): string[] {
 
 function validateRedirectUrls(value: string | string[]): string[] {
 	const urls = splitRedirectUrls(value);
-	if (urls.length === 0) error(400, 'Add at least one redirect URL.');
+	if (urls.length === 0) error(400, serverT('errors.sso.redirectUrlRequired'));
 
 	for (const url of urls) {
 		let parsed: URL;
 		try {
 			parsed = new URL(url);
 		} catch {
-			error(400, `Invalid redirect URL: ${url}`);
+			error(400, serverT('errors.sso.invalidRedirectUrl', { url }));
 		}
 
 		if (!['http:', 'https:'].includes(parsed.protocol)) {
-			error(400, `Redirect URL must use http or https: ${url}`);
+			error(400, serverT('errors.sso.redirectUrlScheme', { url }));
 		}
 	}
 
@@ -64,7 +65,7 @@ function validateRedirectUrls(value: string | string[]): string[] {
 
 function assertClientType(value: string): SsoClientType {
 	if (!clientTypes.includes(value as SsoClientType)) {
-		error(400, 'Invalid client type.');
+		error(400, serverT('errors.sso.invalidClientType'));
 	}
 
 	return value as SsoClientType;
@@ -78,11 +79,11 @@ function normalizeMetadata(value: string | undefined): string | null {
 	try {
 		parsed = JSON.parse(trimmed);
 	} catch {
-		error(400, 'Metadata must be valid JSON.');
+		error(400, serverT('errors.sso.metadataInvalidJson'));
 	}
 
 	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-		error(400, 'Metadata must be a JSON object.');
+		error(400, serverT('errors.sso.metadataNotObject'));
 	}
 
 	return JSON.stringify(parsed);
@@ -176,13 +177,13 @@ export const createSsoClient = command(
 	async (params): Promise<SsoClientWithSecret> => {
 		const { db } = await requireCurrentAdmin();
 		const name = params.name.trim();
-		if (!name) error(400, 'Client name is required.');
+		if (!name) error(400, serverT('errors.sso.nameRequired'));
 
 		const clientId = params.clientId?.trim() || generateClientId(name);
 		const existing = await db.query.oauthApplication.findFirst({
 			where: eq(oauthApplication.clientId, clientId)
 		});
-		if (existing) error(409, 'Client ID is already in use.');
+		if (existing) error(409, serverT('errors.sso.clientIdInUse'));
 
 		const redirectUrls = validateRedirectUrls(params.redirectUrls);
 		const metadata = normalizeMetadata(params.metadata);
@@ -225,10 +226,10 @@ export const updateSsoClient = command(updateParams, async (params): Promise<Sso
 	const target = await db.query.oauthApplication.findFirst({
 		where: eq(oauthApplication.id, params.id)
 	});
-	if (!target) error(404, 'SSO client not found.');
+	if (!target) error(404, serverT('errors.sso.notFound'));
 
 	const name = params.name.trim();
-	if (!name) error(400, 'Client name is required.');
+	if (!name) error(400, serverT('errors.sso.nameRequired'));
 
 	const redirectUrls = validateRedirectUrls(params.redirectUrls);
 	const metadata = normalizeMetadata(params.metadata);
@@ -257,7 +258,7 @@ export const rotateSsoClientSecret = command(
 		const target = await db.query.oauthApplication.findFirst({
 			where: eq(oauthApplication.id, params.id)
 		});
-		if (!target) error(404, 'SSO client not found.');
+		if (!target) error(404, serverT('errors.sso.notFound'));
 
 		const clientSecret = generateClientSecret();
 		const [updated] = await db
@@ -278,7 +279,7 @@ export const deleteSsoClient = command(deleteParams, async (params) => {
 	const target = await db.query.oauthApplication.findFirst({
 		where: eq(oauthApplication.id, params.id)
 	});
-	if (!target) error(404, 'SSO client not found.');
+	if (!target) error(404, serverT('errors.sso.notFound'));
 
 	await db.delete(oauthApplication).where(eq(oauthApplication.id, params.id));
 

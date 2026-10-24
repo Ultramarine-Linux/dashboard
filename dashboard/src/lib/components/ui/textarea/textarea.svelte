@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { cn, type WithElementRef, type WithoutChildren } from '$lib/utils.js';
 	import type { HTMLTextareaAttributes } from 'svelte/elements';
+	import { autofillAttributes } from '../input/autofill.js';
 
 	let {
 		ref = $bindable(null),
 		value = $bindable(),
 		class: className,
 		'data-slot': dataSlot = 'textarea',
+		autocomplete,
 		...restProps
 	}: WithoutChildren<WithElementRef<HTMLTextareaAttributes>> = $props();
 </script>
@@ -19,4 +21,5 @@
 		className
 	)}
 	bind:value
+	{...autofillAttributes(autocomplete)}
 	{...restProps}></textarea>

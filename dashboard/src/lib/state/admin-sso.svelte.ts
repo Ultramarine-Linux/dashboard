@@ -1,6 +1,7 @@
 import { invalidate } from '$app/navigation';
 import { toast } from 'svelte-sonner';
 import { getErrorMessage } from '$lib/utils';
+import { t } from '$lib/i18n';
 import {
 	createSsoClient,
 	deleteSsoClient,
@@ -46,10 +47,10 @@ export class AdminSsoState {
 			this.newSsoClientSecret = result.clientSecret ?? null;
 			this.ssoClients = [result.client, ...this.ssoClients];
 			await invalidate('app:sso-clients');
-			toast.success('SSO client created');
+			toast.success(t('admin.sso.toastCreated'));
 			return result.client;
 		} catch (err) {
-			this.ssoClientError = getErrorMessage(err, 'Failed to create SSO client');
+			this.ssoClientError = getErrorMessage(err, t('admin.sso.errorCreate'));
 			throw err;
 		} finally {
 			this.ssoClientSaving = { ...this.ssoClientSaving, create: false };
@@ -63,9 +64,9 @@ export class AdminSsoState {
 			const updated = await updateSsoClient({ id, ...input });
 			this.ssoClients = this.ssoClients.map((client) => (client.id === id ? updated : client));
 			await invalidate('app:sso-clients');
-			toast.success('SSO client updated');
+			toast.success(t('admin.sso.toastUpdated'));
 		} catch (err) {
-			this.ssoClientError = getErrorMessage(err, 'Failed to update SSO client');
+			this.ssoClientError = getErrorMessage(err, t('admin.sso.errorUpdate'));
 			throw err;
 		} finally {
 			this.ssoClientSaving = { ...this.ssoClientSaving, [id]: false };
@@ -82,9 +83,9 @@ export class AdminSsoState {
 			this.ssoClients = this.ssoClients.map((client) =>
 				client.id === id ? result.client : client
 			);
-			toast.success('Client secret rotated');
+			toast.success(t('admin.sso.toastRotated'));
 		} catch (err) {
-			this.ssoClientError = getErrorMessage(err, 'Failed to rotate client secret');
+			this.ssoClientError = getErrorMessage(err, t('admin.sso.errorRotate'));
 			throw err;
 		} finally {
 			this.ssoClientSaving = { ...this.ssoClientSaving, [`rotate:${id}`]: false };
@@ -98,9 +99,9 @@ export class AdminSsoState {
 			await deleteSsoClient({ id });
 			this.ssoClients = this.ssoClients.filter((client) => client.id !== id);
 			await invalidate('app:sso-clients');
-			toast.success('SSO client deleted');
+			toast.success(t('admin.sso.toastDeleted'));
 		} catch (err) {
-			this.ssoClientError = getErrorMessage(err, 'Failed to delete SSO client');
+			this.ssoClientError = getErrorMessage(err, t('admin.sso.errorDelete'));
 			throw err;
 		} finally {
 			this.ssoClientSaving = { ...this.ssoClientSaving, [`delete:${id}`]: false };

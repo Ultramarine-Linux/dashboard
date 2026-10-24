@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -23,11 +24,15 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="border-border bg-background sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Attach Volume</Dialog.Title>
-			<Dialog.Description>Attach {volumeName ?? 'this volume'} to a server.</Dialog.Description>
+			<Dialog.Title>{t('dialogs.attachVolumeTitle')}</Dialog.Title>
+			<Dialog.Description
+				>{volumeName
+					? t('dialogs.attachVolumeDescription', { name: volumeName })
+					: t('dialogs.attachThisVolumeDescription')}</Dialog.Description
+			>
 		</Dialog.Header>
 		<div class="flex flex-col gap-2 py-4">
-			<Label>Server</Label>
+			<Label>{t('dialogs.server')}</Label>
 			<select
 				bind:value={server}
 				class="w-full appearance-none border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none"
@@ -39,10 +44,10 @@
 		</div>
 		<Dialog.Footer>
 			<Button variant="outline" size="sm" onclick={() => (open = false)} disabled={submitting}
-				>Cancel</Button
+				>{t('common.cancel')}</Button
 			>
 			<Button size="sm" onclick={onSubmit} disabled={submitting || !server}
-				>{submitting ? 'Attaching...' : 'Attach'}</Button
+				>{submitting ? t('dialogs.attaching') : t('dialogs.attach')}</Button
 			>
 		</Dialog.Footer>
 	</Dialog.Content>

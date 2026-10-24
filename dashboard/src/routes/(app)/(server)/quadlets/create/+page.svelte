@@ -12,6 +12,7 @@
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t, tn, type TranslationKey } from '$lib/i18n';
 	import Eye from '~icons/lucide/eye';
 	import EyeOff from '~icons/lucide/eye-off';
 	import Loader2 from '~icons/lucide/loader-2';
@@ -58,6 +59,12 @@
 					: buildRecipeDetail(selectedRecipe, initialScope, composeOptions)
 	);
 
+	const recipeNameKeys: Record<string, TranslationKey> = {
+		'Nginx static site': 'quadlets.recipes.nginxSite.name',
+		Nextcloud: 'quadlets.recipes.nextcloud.name',
+		'Compose specification': 'quadlets.recipes.compose.name'
+	};
+
 	function updateNginxOption<Key extends keyof NginxSiteOptions>(
 		key: Key,
 		value: NginxSiteOptions[Key]
@@ -98,7 +105,7 @@
 			});
 			await goto(`/quadlets/${encodeURIComponent(recipeDetail.filename)}`);
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to create app.');
+			actionError = getErrorMessage(err, t('quadlets.create.createFailed'));
 		} finally {
 			saving = false;
 		}
@@ -107,14 +114,16 @@
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div>
-		<h1 class="text-xl font-semibold tracking-tight text-foreground">New Quadlet</h1>
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">
+			{t('quadlets.create.title')}
+		</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Create a Quadlet unit with companion files in the host's mutable data directory.
+			{t('quadlets.create.subtitle')}
 		</p>
 	</div>
 
 	<div class="mt-5">
-		<h2 class="text-sm font-semibold text-foreground">Recipe</h2>
+		<h2 class="text-sm font-semibold text-foreground">{t('quadlets.create.recipe')}</h2>
 		<div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 			<Button
 				variant={selectedRecipe === 'blank' ? 'default' : 'outline'}
@@ -122,9 +131,9 @@
 				onclick={() => selectRecipe('blank')}
 			>
 				<span class="min-w-0">
-					<span class="block text-xs font-semibold">Blank Quadlet</span>
+					<span class="block text-xs font-semibold">{t('quadlets.create.blank')}</span>
 					<span class="mt-1 block text-xs leading-snug break-words">
-						Paste or write a unit from scratch.
+						{t('quadlets.create.blankDescription')}
 					</span>
 				</span>
 			</Button>
@@ -135,8 +144,10 @@
 					onclick={() => selectRecipe(recipe.id)}
 				>
 					<span class="min-w-0">
-						<span class="block text-xs font-semibold">{recipe.name}</span>
-						<span class="mt-1 block text-xs leading-snug break-words">{recipe.description}</span>
+						<span class="block text-xs font-semibold">{t(recipe.nameKey)}</span>
+						<span class="mt-1 block text-xs leading-snug break-words"
+							>{t(recipe.descriptionKey)}</span
+						>
 					</span>
 				</Button>
 			{/each}
@@ -153,13 +164,17 @@
 				<div>
 					<section class="space-y-5 border border-border p-5">
 						<div>
-							<h2 class="text-sm font-semibold text-foreground">App Settings</h2>
-							<p class="mt-1 text-xs text-muted-foreground">{recipeDetail.recipeName}</p>
+							<h2 class="text-sm font-semibold text-foreground">
+								{t('quadlets.create.appSettings')}
+							</h2>
+							<p class="mt-1 text-xs text-muted-foreground">
+								{t(recipeNameKeys[recipeDetail.recipeName] ?? 'quadlets.recipes.compose.name')}
+							</p>
 						</div>
 
 						{#if selectedRecipe === 'nginx-site'}
 							<div class="space-y-2">
-								<Label for="nginx-app-id">App ID</Label>
+								<Label for="nginx-app-id">{t('quadlets.create.appId')}</Label>
 								<Input
 									id="nginx-app-id"
 									value={nginxOptions.appId}
@@ -168,7 +183,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<Label for="nginx-site-title">Site title</Label>
+								<Label for="nginx-site-title">{t('quadlets.create.siteTitle')}</Label>
 								<Input
 									id="nginx-site-title"
 									value={nginxOptions.siteTitle}
@@ -178,7 +193,7 @@
 
 							<div class="grid gap-3 sm:grid-cols-2">
 								<div class="space-y-2">
-									<Label for="nginx-host-port">Host port</Label>
+									<Label for="nginx-host-port">{t('quadlets.create.hostPort')}</Label>
 									<Input
 										id="nginx-host-port"
 										type="number"
@@ -191,7 +206,7 @@
 								</div>
 
 								<div class="space-y-2">
-									<Label for="nginx-server-name">Server name</Label>
+									<Label for="nginx-server-name">{t('quadlets.create.serverName')}</Label>
 									<Input
 										id="nginx-server-name"
 										value={nginxOptions.serverName}
@@ -201,7 +216,7 @@
 							</div>
 						{:else if selectedRecipe === 'nextcloud'}
 							<div class="space-y-2">
-								<Label for="nextcloud-app-id">App ID</Label>
+								<Label for="nextcloud-app-id">{t('quadlets.create.appId')}</Label>
 								<Input
 									id="nextcloud-app-id"
 									value={nextcloudOptions.appId}
@@ -210,7 +225,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<Label for="nextcloud-domain">Domain</Label>
+								<Label for="nextcloud-domain">{t('quadlets.create.domain')}</Label>
 								<Input
 									id="nextcloud-domain"
 									value={nextcloudOptions.domain}
@@ -220,7 +235,7 @@
 
 							<div class="grid gap-3 sm:grid-cols-2">
 								<div class="space-y-2">
-									<Label for="nextcloud-host-port">Host port</Label>
+									<Label for="nextcloud-host-port">{t('quadlets.create.hostPort')}</Label>
 									<Input
 										id="nextcloud-host-port"
 										type="number"
@@ -233,7 +248,7 @@
 								</div>
 
 								<div class="space-y-2">
-									<Label for="nextcloud-protocol">Public protocol</Label>
+									<Label for="nextcloud-protocol">{t('quadlets.create.publicProtocol')}</Label>
 									<div class="grid grid-cols-2 gap-2">
 										<Button
 											type="button"
@@ -259,7 +274,7 @@
 
 							<div class="grid gap-3 sm:grid-cols-2">
 								<div class="space-y-2">
-									<Label for="nextcloud-admin-user">Admin user</Label>
+									<Label for="nextcloud-admin-user">{t('quadlets.create.adminUser')}</Label>
 									<Input
 										id="nextcloud-admin-user"
 										value={nextcloudOptions.adminUser}
@@ -269,7 +284,7 @@
 								</div>
 
 								<div class="space-y-2">
-									<Label for="nextcloud-admin-password">Admin password</Label>
+									<Label for="nextcloud-admin-password">{t('quadlets.create.adminPassword')}</Label>
 									<Input
 										id="nextcloud-admin-password"
 										type="password"
@@ -282,7 +297,7 @@
 
 							<div class="grid gap-3 sm:grid-cols-2">
 								<div class="space-y-2">
-									<Label for="nextcloud-database-name">Database name</Label>
+									<Label for="nextcloud-database-name">{t('quadlets.create.databaseName')}</Label>
 									<Input
 										id="nextcloud-database-name"
 										value={nextcloudOptions.databaseName}
@@ -292,7 +307,7 @@
 								</div>
 
 								<div class="space-y-2">
-									<Label for="nextcloud-database-user">Database user</Label>
+									<Label for="nextcloud-database-user">{t('quadlets.create.databaseUser')}</Label>
 									<Input
 										id="nextcloud-database-user"
 										value={nextcloudOptions.databaseUser}
@@ -303,7 +318,9 @@
 							</div>
 
 							<div class="space-y-2">
-								<Label for="nextcloud-database-password">Database password</Label>
+								<Label for="nextcloud-database-password"
+									>{t('quadlets.create.databasePassword')}</Label
+								>
 								<Input
 									id="nextcloud-database-password"
 									type="password"
@@ -315,7 +332,7 @@
 
 							<div class="grid gap-3 sm:grid-cols-2">
 								<div class="space-y-2">
-									<Label for="nextcloud-memory-limit">PHP memory limit</Label>
+									<Label for="nextcloud-memory-limit">{t('quadlets.create.phpMemoryLimit')}</Label>
 									<Input
 										id="nextcloud-memory-limit"
 										value={nextcloudOptions.phpMemoryLimit}
@@ -325,7 +342,7 @@
 								</div>
 
 								<div class="space-y-2">
-									<Label for="nextcloud-upload-limit">Upload limit</Label>
+									<Label for="nextcloud-upload-limit">{t('quadlets.create.uploadLimit')}</Label>
 									<Input
 										id="nextcloud-upload-limit"
 										value={nextcloudOptions.uploadLimit}
@@ -336,7 +353,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<Label for="nextcloud-trusted-proxies">Trusted proxies</Label>
+								<Label for="nextcloud-trusted-proxies">{t('quadlets.create.trustedProxies')}</Label>
 								<Input
 									id="nextcloud-trusted-proxies"
 									placeholder="10.0.0.0/8 172.16.0.0/12"
@@ -348,9 +365,11 @@
 
 							<div class="flex items-center justify-between gap-4 border border-border p-3">
 								<div class="min-w-0">
-									<p class="text-xs font-medium text-foreground">Redis cache</p>
+									<p class="text-xs font-medium text-foreground">
+										{t('quadlets.create.redisCache')}
+									</p>
 									<p class="mt-1 text-xs text-muted-foreground">
-										Add a Redis container and wire it into Nextcloud.
+										{t('quadlets.create.redisCacheHint')}
 									</p>
 								</div>
 								<Switch
@@ -362,7 +381,7 @@
 							</div>
 						{:else if selectedRecipe === 'compose'}
 							<div class="space-y-2">
-								<Label for="compose-app-id">App ID</Label>
+								<Label for="compose-app-id">{t('quadlets.create.appId')}</Label>
 								<Input
 									id="compose-app-id"
 									value={composeOptions.appId}
@@ -371,7 +390,7 @@
 							</div>
 
 							<div class="space-y-2">
-								<Label for="compose-yaml">Compose specification</Label>
+								<Label for="compose-yaml">{t('quadlets.recipes.compose.name')}</Label>
 								<Textarea
 									id="compose-yaml"
 									class="min-h-96 font-mono text-xs leading-relaxed"
@@ -389,22 +408,22 @@
 							{:else}
 								<div class="border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
 									<p>
-										Services are converted to container Quadlets. Named volumes and networks become
-										managed Quadlet resources, and relative bind paths are rooted under the mutable
-										app bundle directory.
+										{t('quadlets.create.composeHint')}
 									</p>
 								</div>
 							{/if}
 						{/if}
 
 						<div class="border border-border bg-muted/20 p-3">
-							<p class="text-xs font-medium text-foreground">Generated paths</p>
+							<p class="text-xs font-medium text-foreground">
+								{t('quadlets.create.generatedPaths')}
+							</p>
 							<p class="mt-2 font-mono text-xs break-all text-muted-foreground">
 								{recipeDetail.filename}
 							</p>
 							{#if recipeDetail.resources.length > 1}
 								<p class="mt-1 text-xs text-muted-foreground">
-									{recipeDetail.resources.length} Quadlet resources
+									{tn('quadlets.create.resourceCount', recipeDetail.resources.length)}
 								</p>
 							{/if}
 							{#if recipeDetail.filesBaseDir}
@@ -422,7 +441,7 @@
 							{#if saving}
 								<Loader2 class="size-3.5 animate-spin" />
 							{/if}
-							Create app
+							{t('quadlets.create.createApp')}
 						</Button>
 
 						<Button
@@ -433,10 +452,10 @@
 						>
 							{#if showGeneratedConfiguration}
 								<EyeOff class="size-3.5" />
-								Hide generated configuration
+								{t('quadlets.create.hideGenerated')}
 							{:else}
 								<Eye class="size-3.5" />
-								Show generated configuration
+								{t('quadlets.create.showGenerated')}
 							{/if}
 						</Button>
 					</section>
@@ -444,9 +463,11 @@
 					{#if showGeneratedConfiguration}
 						<section class="mt-5 min-w-0 space-y-4 border border-border p-4">
 							<div>
-								<h2 class="text-sm font-semibold text-foreground">Generated Configuration</h2>
+								<h2 class="text-sm font-semibold text-foreground">
+									{t('quadlets.create.generatedConfiguration')}
+								</h2>
 								<p class="mt-1 text-xs text-muted-foreground">
-									Review the generated units and files before creating the app.
+									{t('quadlets.create.generatedHint')}
 								</p>
 							</div>
 
@@ -495,10 +516,9 @@
 			</div>
 		{:else}
 			<div class="mx-auto max-w-5xl border border-border bg-muted/20 p-5">
-				<h2 class="text-sm font-semibold text-foreground">Select a recipe</h2>
+				<h2 class="text-sm font-semibold text-foreground">{t('quadlets.create.selectRecipe')}</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Choose an app recipe above to configure it, or choose Blank Quadlet to write a unit from
-					scratch.
+					{t('quadlets.create.selectRecipeHint')}
 				</p>
 			</div>
 		{/if}

@@ -17,12 +17,15 @@ declare global {
 			/** Tetra's session token, sent with every call. Never sent to the browser. */
 			tetraToken?: string;
 			permissions?: Permissions;
+			/** The negotiated UI locale, from the `locale` cookie or `Accept-Language`. */
+			locale: string;
 
 			backgroundTasks?: Promise<unknown>[];
 			accessCache?: Map<string, Promise<unknown>>;
 		}
 
 		interface PageData {
+			locale?: string;
 			isAdmin?: boolean;
 			permissions?: Permissions;
 			featureFlags?: {

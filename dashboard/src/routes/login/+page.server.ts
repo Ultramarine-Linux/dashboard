@@ -8,6 +8,7 @@ import {
 	type AuthenticatedResult,
 	type SecondFactorMethod
 } from '$lib/server/tetra';
+import { serverT } from '$lib/server/i18n';
 
 type PendingLogin = { pending: string; username: string; methods: SecondFactorMethod[] };
 
@@ -15,31 +16,29 @@ type PendingLogin = { pending: string; username: string; methods: SecondFactorMe
 const pendingLogins = new Stash<PendingLogin>('um_login_pending', 300);
 const passkeyLogins = new Stash<string>('um_passkey_login', 300);
 
-const INVALID = 'Incorrect username, password or code.';
-
 function loginFailure(cause: unknown, fields: Record<string, unknown> = {}) {
 	if (isTetraError(cause)) {
 		switch (cause.code) {
 			case 'invalid_credentials':
-				return fail(400, { ...fields, error: INVALID });
+				return fail(400, { ...fields, error: serverT('errors.login.invalid') });
 			case 'password_expired':
 				return fail(400, {
 					...fields,
-					error: 'Your password has expired. Change it on the server console or over SSH.'
+					error: serverT('errors.login.passwordExpired')
 				});
 			case 'rate_limited':
 				return fail(429, {
 					...fields,
-					error: `Too many attempts. Try again in ${cause.retryAfter ?? 30} seconds.`
+					error: serverT('errors.rateLimited', { seconds: cause.retryAfter ?? 30 })
 				});
 			case 'passkeys_unavailable':
-				return fail(400, { ...fields, error: 'Passkeys need the server to use a domain name.' });
+				return fail(400, { ...fields, error: serverT('errors.login.passkeysUnavailable') });
 			case 'unavailable':
-				return fail(503, { ...fields, error: 'Dashboard cannot reach Tetra on this server.' });
+				return fail(503, { ...fields, error: serverT('errors.tetraUnreachable') });
 		}
 	}
 	console.error('[login]', cause);
-	return fail(500, { ...fields, error: 'Sign-in failed. Try again.' });
+	return fail(500, { ...fields, error: serverT('errors.login.failed') });
 }
 
 function finish(event: RequestEvent, result: AuthenticatedResult, form: FormData): never {
@@ -78,7 +77,7 @@ export const actions: Actions = {
 		const username = String(form.get('username') ?? '').trim();
 		const password = String(form.get('password') ?? '');
 		if (!username || !password) {
-			return fail(400, { username, error: 'Enter your username and password.' });
+			return fail(400, { username, error: serverT('errors.login.credentialsRequired') });
 		}
 
 		let result;
@@ -106,13 +105,13 @@ export const actions: Actions = {
 	secondFactor: async (event) => {
 		const pending = pendingLogins.peek(event.cookies);
 		if (!pending) {
-			return fail(400, { error: 'Your sign-in expired. Enter your password again.' });
+			return fail(400, { error: serverT('errors.login.expired') });
 		}
 
 		const form = await event.request.formData();
 		const method = form.get('method') === 'recovery_code' ? 'recovery_code' : 'totp';
 		const value = String(form.get('code') ?? '').trim();
-		if (!value) return fail(400, { method, error: 'Enter a code.' });
+		if (!value) return fail(400, { method, error: serverT('errors.enterCode') });
 
 		let result;
 		try {
@@ -148,14 +147,14 @@ export const actions: Actions = {
 
 	passkeyFinish: async (event) => {
 		const ceremony = passkeyLogins.take(event.cookies);
-		if (!ceremony) return fail(400, { error: 'The passkey request expired. Try again.' });
+		if (!ceremony) return fail(400, { error: serverT('errors.passkeyExpired') });
 
 		const form = await event.request.formData();
 		let credential: unknown;
 		try {
 			credential = JSON.parse(String(form.get('credential') ?? ''));
 		} catch {
-			return fail(400, { error: 'The browser returned an invalid passkey response.' });
+			return fail(400, { error: serverT('errors.passkeyInvalidResponse') });
 		}
 
 		let result;

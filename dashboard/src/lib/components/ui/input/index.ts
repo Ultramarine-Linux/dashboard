@@ -5,3 +5,4 @@ export {
 	//
 	Root as Input
 };
+export { autofillAttributes } from './autofill.js';

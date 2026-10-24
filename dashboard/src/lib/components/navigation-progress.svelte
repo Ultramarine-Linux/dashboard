@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
+	import { t } from '$lib/i18n';
 
 	const APPEAR_DELAY_MS = 120;
 	const TRICKLE_INTERVAL_MS = 200;
@@ -89,7 +90,7 @@
 	<div
 		class="pointer-events-none fixed inset-x-0 top-0 z-[200] h-0.5"
 		role="progressbar"
-		aria-label="Page loading"
+		aria-label={t('components.pageLoading')}
 		aria-busy="true"
 	>
 		<div

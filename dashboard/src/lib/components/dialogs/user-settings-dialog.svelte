@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autofillAttributes } from '$lib/components/ui/input';
 	import { invalidate } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import type { UserSettingsTab } from '$lib/state/user-settings.svelte';
@@ -53,20 +54,45 @@
 	import { contrast, type ContrastPreference } from '$lib/state/contrast.svelte';
 	import Circle from '~icons/lucide/circle';
 	import ContrastIcon from '~icons/lucide/contrast';
+	import Languages from '~icons/lucide/languages';
+	import {
+		currentLocale,
+		localeName,
+		locales,
+		setLocale,
+		t,
+		tn,
+		type TranslationKey
+	} from '$lib/i18n';
 
 	type ThemeMode = 'light' | 'dark' | 'system';
 
-	const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
-		{ value: 'light', label: 'Light', icon: Sun },
-		{ value: 'dark', label: 'Dark', icon: Moon },
-		{ value: 'system', label: 'Auto', icon: Monitor }
+	const themeOptions: { value: ThemeMode; labelKey: TranslationKey; icon: typeof Sun }[] = [
+		{ value: 'light', labelKey: 'settings.appearance.theme.light', icon: Sun },
+		{ value: 'dark', labelKey: 'settings.appearance.theme.dark', icon: Moon },
+		{ value: 'system', labelKey: 'settings.appearance.auto', icon: Monitor }
 	];
 
-	const contrastOptions: { value: ContrastPreference; label: string; icon: typeof Sun }[] = [
-		{ value: 'off', label: 'Off', icon: Circle },
-		{ value: 'on', label: 'On', icon: ContrastIcon },
-		{ value: 'auto', label: 'Auto', icon: Monitor }
+	const contrastOptions: {
+		value: ContrastPreference;
+		labelKey: TranslationKey;
+		icon: typeof Sun;
+	}[] = [
+		{ value: 'off', labelKey: 'settings.appearance.off', icon: Circle },
+		{ value: 'on', labelKey: 'settings.appearance.on', icon: ContrastIcon },
+		{ value: 'auto', labelKey: 'settings.appearance.auto', icon: Monitor }
 	];
+
+	let changingLocale = $state(false);
+
+	async function changeLocale(locale: string) {
+		changingLocale = true;
+		try {
+			await setLocale(locale);
+		} finally {
+			changingLocale = false;
+		}
+	}
 
 	type Props = {
 		open?: boolean;
@@ -92,6 +118,10 @@
 
 	type CodeMethod = 'totp' | 'recovery_code';
 	type CodeAction = 'disable' | 'regenerate';
+	const codeMethods: [CodeMethod, TranslationKey][] = [
+		['totp', 'settings.security.authenticatorCode'],
+		['recovery_code', 'settings.security.recoveryCode']
+	];
 	let codeDialogOpen = $state(false);
 	let codeAction = $state<CodeAction>('disable');
 	let codeMethod = $state<CodeMethod>('totp');
@@ -109,7 +139,7 @@
 		try {
 			security = await getAccountSecurity();
 		} catch (err) {
-			toast.error(getErrorMessage(err, 'Failed to load security settings'));
+			toast.error(getErrorMessage(err, t('settings.security.loadFailed')));
 		} finally {
 			securityLoading = false;
 		}
@@ -138,7 +168,7 @@
 			}
 			await loadSecurity();
 		} catch (err) {
-			codeError = getErrorMessage(err, 'That code did not work.');
+			codeError = getErrorMessage(err, t('settings.security.codeFailed'));
 		} finally {
 			codeSubmitting = false;
 		}
@@ -147,10 +177,12 @@
 	async function removePasskey(id: string) {
 		const passkey = security?.passkeys.find((p) => p.id === id);
 		const ok = await confirmDestructive({
-			title: 'Remove passkey',
-			description: `You will no longer be able to sign in with ${passkey?.name ?? 'this passkey'}.`,
+			title: t('settings.security.removePasskeyTitle'),
+			description: t('settings.security.removePasskeyDescription', {
+				name: passkey?.name ?? t('settings.security.thisPasskey')
+			}),
 			confirmWord: passkey?.name,
-			confirmLabel: 'Remove passkey'
+			confirmLabel: t('settings.security.removePasskeyTitle')
 		});
 		if (!ok) return;
 		removingPasskey = id;
@@ -158,7 +190,7 @@
 			await removePasskeyRpc({ id });
 			await loadSecurity();
 		} catch (err) {
-			toast.error(getErrorMessage(err, 'Failed to remove passkey'));
+			toast.error(getErrorMessage(err, t('settings.security.removePasskeyFailed')));
 		} finally {
 			removingPasskey = null;
 		}
@@ -190,7 +222,7 @@
 			sshKeys = await listSshKeys();
 			sshKeysLoaded = true;
 		} catch (err) {
-			toast.error(getErrorMessage(err, 'Failed to load SSH keys'));
+			toast.error(getErrorMessage(err, t('settings.keys.loadFailed')));
 		} finally {
 			sshKeysLoading = false;
 		}
@@ -209,7 +241,7 @@
 			newKeyName = '';
 			newKeyValue = '';
 		} catch (err) {
-			toast.error(getErrorMessage(err, 'Failed to add SSH key'));
+			toast.error(getErrorMessage(err, t('settings.keys.addFailed')));
 		} finally {
 			sshKeyAdding = false;
 		}
@@ -219,10 +251,12 @@
 		if (sshKeyRemoving) return;
 		const key = sshKeys.find((k) => k.id === id);
 		const ok = await confirmDestructive({
-			title: 'Delete SSH key',
-			description: `Anything relying on ${key?.name ?? 'this key'} for access will stop working.`,
+			title: t('settings.keys.deleteTitle'),
+			description: t('settings.keys.deleteDescription', {
+				name: key?.name ?? t('settings.keys.thisKey')
+			}),
 			confirmWord: key?.name,
-			confirmLabel: 'Delete SSH key'
+			confirmLabel: t('settings.keys.deleteTitle')
 		});
 		if (!ok) return;
 		sshKeyRemoving = id;
@@ -232,7 +266,7 @@
 			await invalidate('app:ssh-keys');
 		} catch (err) {
 			sshKeys = [...sshKeys, key!];
-			toast.error(getErrorMessage(err, 'Failed to remove SSH key'));
+			toast.error(getErrorMessage(err, t('settings.keys.removeFailed')));
 		} finally {
 			sshKeyRemoving = null;
 		}
@@ -262,7 +296,7 @@
 				lastUsedAt: t.lastUsedAt
 			}));
 		} catch (err) {
-			toast.error(getErrorMessage(err, 'Failed to load API tokens'));
+			toast.error(getErrorMessage(err, t('settings.api.loadFailed')));
 		} finally {
 			tokensLoading = false;
 		}
@@ -283,7 +317,7 @@
 			if (idx !== -1) tokens[idx] = { ...tokens[idx], id: result.id };
 		} catch (err) {
 			tokens = tokens.filter((t) => t.id !== tempId);
-			toast.error(getErrorMessage(err, 'Failed to create API token'));
+			toast.error(getErrorMessage(err, t('settings.api.createFailed')));
 		} finally {
 			newTokenName = '';
 		}
@@ -294,10 +328,10 @@
 		if (idx === -1) return;
 		const tokenToRemove = tokens[idx];
 		const ok = await confirmDestructive({
-			title: 'Revoke API token',
-			description: `Any integrations using ${tokenToRemove.name} will immediately stop working.`,
+			title: t('settings.api.revokeTitle'),
+			description: t('settings.api.revokeDescription', { name: tokenToRemove.name }),
 			confirmWord: tokenToRemove.name,
-			confirmLabel: 'Revoke token'
+			confirmLabel: t('settings.api.revokeLabel')
 		});
 		if (!ok) return;
 		tokens = tokens.filter((t) => t.id !== id);
@@ -306,7 +340,7 @@
 			await revokeApiToken({ tokenId: id });
 		} catch (err) {
 			tokens.splice(idx, 0, tokenToRemove);
-			toast.error(getErrorMessage(err, 'Failed to revoke API token'));
+			toast.error(getErrorMessage(err, t('settings.api.revokeFailed')));
 		}
 	}
 
@@ -338,7 +372,7 @@
 					{...props}
 				>
 					<X class="h-4 w-4" />
-					<span class="sr-only">Close</span>
+					<span class="sr-only">{t('common.close')}</span>
 				</button>
 			{/snippet}
 		</DialogPrimitive.Close>
@@ -358,7 +392,7 @@
 						<div class="min-w-0">
 							<p class="truncate text-sm font-medium text-foreground">{user?.username}</p>
 							<p class="truncate text-xs text-muted-foreground">
-								{user?.admin ? 'Administrator' : 'User'}
+								{user?.admin ? t('settings.profile.administrator') : t('settings.profile.user')}
 							</p>
 						</div>
 					</div>
@@ -370,35 +404,35 @@
 						class="w-full justify-start gap-2 rounded-none border-0 px-3 py-2 text-muted-foreground after:hidden data-active:bg-transparent data-active:text-foreground"
 					>
 						<User class="size-4" />
-						Profile
+						{t('settings.tabs.profile')}
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="security"
 						class="w-full justify-start gap-2 rounded-none border-0 px-3 py-2 text-muted-foreground after:hidden data-active:bg-transparent data-active:text-foreground"
 					>
 						<Lock class="size-4" />
-						Security
+						{t('settings.tabs.security')}
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="keys"
 						class="w-full justify-start gap-2 rounded-none border-0 px-3 py-2 text-muted-foreground after:hidden data-active:bg-transparent data-active:text-foreground"
 					>
 						<Key class="size-4" />
-						Keys
+						{t('settings.tabs.keysShort')}
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="api"
 						class="w-full justify-start gap-2 rounded-none border-0 px-3 py-2 text-muted-foreground after:hidden data-active:bg-transparent data-active:text-foreground"
 					>
 						<Terminal class="size-4" />
-						API
+						{t('settings.tabs.apiShort')}
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="appearance"
 						class="w-full justify-start gap-2 rounded-none border-0 px-3 py-2 text-muted-foreground after:hidden data-active:bg-transparent data-active:text-foreground"
 					>
 						<SunMoon class="size-4" />
-						Appearance
+						{t('settings.tabs.appearance')}
 					</Tabs.Trigger>
 				</Tabs.List>
 			</div>
@@ -411,26 +445,27 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<User class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									Account
+									{t('settings.profile.account')}
 								</p>
 							</div>
 							<dl class="divide-y divide-border/50 text-sm">
 								<div class="flex justify-between gap-4 py-2">
-									<dt class="text-muted-foreground">Username</dt>
+									<dt class="text-muted-foreground">{t('settings.profile.username')}</dt>
 									<dd class="font-mono text-foreground">{user?.username}</dd>
 								</div>
 								<div class="flex justify-between gap-4 py-2">
-									<dt class="text-muted-foreground">User ID</dt>
+									<dt class="text-muted-foreground">{t('settings.profile.userId')}</dt>
 									<dd class="font-mono text-foreground">{user?.uid}</dd>
 								</div>
 								<div class="flex justify-between gap-4 py-2">
-									<dt class="text-muted-foreground">Role</dt>
-									<dd class="text-foreground">{user?.admin ? 'Administrator' : 'User'}</dd>
+									<dt class="text-muted-foreground">{t('settings.profile.role')}</dt>
+									<dd class="text-foreground">
+										{user?.admin ? t('settings.profile.administrator') : t('settings.profile.user')}
+									</dd>
 								</div>
 							</dl>
 							<p class="mt-3 text-xs text-muted-foreground">
-								This is your account on this server. You sign in to the dashboard with the same
-								password as on the console and over SSH.
+								{t('settings.profile.accountHint')}
 							</p>
 						</div>
 					</Tabs.Content>
@@ -440,12 +475,13 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<Lock class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									Password
+									{t('settings.security.password')}
 								</p>
 							</div>
 							<p class="text-xs text-muted-foreground">
-								To change your password, run <code class="font-mono text-foreground">passwd</code> on
-								the server's console or over SSH.
+								{t('settings.security.passwordHintBefore')}
+								<code class="font-mono text-foreground">passwd</code>
+								{t('settings.security.passwordHintAfter')}
 							</p>
 						</div>
 
@@ -453,7 +489,7 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<ShieldCheck class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									Two-Factor Authentication
+									{t('settings.security.twoFactor')}
 								</p>
 							</div>
 
@@ -467,9 +503,13 @@
 									<div class="flex items-center gap-2.5">
 										<ShieldCheck class="h-4 w-4 text-muted-foreground" />
 										<div>
-											<p class="text-sm font-medium text-foreground">Authenticator App</p>
+											<p class="text-sm font-medium text-foreground">
+												{t('settings.security.authenticatorApp')}
+											</p>
 											<p class="text-xs text-muted-foreground">
-												{security.totpEnrolled ? 'Enabled' : 'Not configured'}
+												{security.totpEnrolled
+													? t('common.enabled')
+													: t('settings.security.notConfigured')}
 											</p>
 										</div>
 									</div>
@@ -481,7 +521,7 @@
 											onclick={() => openCodeDialog('disable')}
 										>
 											<Minus class="h-3 w-3" />
-											Disable
+											{t('common.disable')}
 										</Button>
 									{:else}
 										<Button
@@ -491,7 +531,7 @@
 											onclick={() => (totpDialogOpen = true)}
 										>
 											<Plus class="h-3 w-3" />
-											Set Up
+											{t('settings.security.setUp')}
 										</Button>
 									{/if}
 								</div>
@@ -502,11 +542,11 @@
 										<div class="flex items-center gap-2.5">
 											<Key class="h-4 w-4 text-muted-foreground" />
 											<div>
-												<p class="text-sm font-medium text-foreground">Recovery Codes</p>
+												<p class="text-sm font-medium text-foreground">
+													{t('settings.security.recoveryCodes')}
+												</p>
 												<p class="text-xs text-muted-foreground">
-													{security.recoveryCodesLeft === 1
-														? '1 code left'
-														: `${security.recoveryCodesLeft} codes left`}
+													{tn('settings.security.codesLeft', security.recoveryCodesLeft)}
 												</p>
 											</div>
 										</div>
@@ -517,7 +557,7 @@
 											onclick={() => openCodeDialog('regenerate')}
 										>
 											<RefreshCw class="h-3 w-3" />
-											New codes
+											{t('settings.security.newCodes')}
 										</Button>
 									</div>
 								{/if}
@@ -529,13 +569,15 @@
 											<div class="flex items-center gap-2.5">
 												<Fingerprint class="h-4 w-4 text-muted-foreground" />
 												<div>
-													<p class="text-sm font-medium text-foreground">Passkeys</p>
+													<p class="text-sm font-medium text-foreground">
+														{t('settings.security.passkeys')}
+													</p>
 													<p class="text-xs text-muted-foreground">
 														{security.passkeys.length > 0
-															? `${security.passkeys.length} registered`
-															: 'Not configured'}
+															? tn('settings.security.passkeysRegistered', security.passkeys.length)
+															: t('settings.security.notConfigured')}
 														{#if security.passkeyHostname}
-															· tied to
+															{t('settings.security.tiedTo')}
 															<span class="font-medium text-foreground"
 																>{security.passkeyHostname}</span
 															>
@@ -550,7 +592,7 @@
 												onclick={() => (passkeyDialogOpen = true)}
 											>
 												<Plus class="h-3 w-3" />
-												Add
+												{t('settings.security.addPasskey')}
 											</Button>
 										</div>
 
@@ -562,11 +604,17 @@
 													>
 														<Fingerprint class="size-4 shrink-0 text-muted-foreground" />
 														<div class="min-w-0">
-															<p class="truncate text-sm text-foreground">{pk.name || 'Unnamed'}</p>
+															<p class="truncate text-sm text-foreground">
+																{pk.name || t('settings.security.unnamed')}
+															</p>
 															<p class="text-xs text-muted-foreground">
-																Added {formatDate(pk.created_at)}
+																{t('settings.security.passkeyAdded', {
+																	date: formatDate(pk.created_at) ?? ''
+																})}
 																{#if pk.last_used_at}
-																	· last used {formatDate(pk.last_used_at)}
+																	{t('settings.security.passkeyLastUsed', {
+																		date: formatDate(pk.last_used_at) ?? ''
+																	})}
 																{/if}
 															</p>
 														</div>
@@ -574,7 +622,9 @@
 															variant="ghost"
 															size="sm"
 															class="ml-auto h-7 w-7 shrink-0 p-0 text-red-400 hover:text-red-300"
-															aria-label={`Remove ${pk.name || 'passkey'}`}
+															aria-label={t('settings.security.removePasskeyLabel', {
+																name: pk.name || t('settings.security.passkeyFallback')
+															})}
 															onclick={() => removePasskey(pk.id)}
 															disabled={removingPasskey === pk.id}
 														>
@@ -593,7 +643,7 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-red-500/10 pb-2">
 								<LogOut class="size-4 text-red-400" />
 								<p class="text-xs font-semibold tracking-wider text-red-400/80 uppercase">
-									Session
+									{t('settings.security.session')}
 								</p>
 							</div>
 							<form method="POST" action="/logout">
@@ -602,7 +652,7 @@
 									class="flex w-full items-center justify-center gap-2 rounded-xs border border-red-500/20 bg-transparent px-4 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
 								>
 									<LogOut class="size-4" />
-									Sign Out
+									{t('settings.security.signOut')}
 								</button>
 							</form>
 						</div>
@@ -613,7 +663,7 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<Key class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									SSH Keys
+									{t('settings.tabs.keys')}
 								</p>
 								<a
 									href="https://docs.ultramarine-linux.org/server/ssh"
@@ -621,7 +671,7 @@
 									rel="noopener noreferrer"
 									class="ml-auto text-[11px] font-medium text-primary transition-colors hover:text-primary/80"
 								>
-									SSH docs
+									{t('settings.keys.docs')}
 								</a>
 							</div>
 
@@ -662,19 +712,22 @@
 									</div>
 								</div>
 							{:else}
-								<p class="py-2 text-center text-xs text-muted-foreground">No SSH keys added.</p>
+								<p class="py-2 text-center text-xs text-muted-foreground">
+									{t('settings.keys.empty')}
+								</p>
 							{/if}
 
 							<div class="mt-3 flex flex-col gap-2 border-t border-border/50 pt-3">
 								<Input
 									bind:value={newKeyName}
-									placeholder="Key name"
+									placeholder={t('settings.keys.namePlaceholder')}
 									class="h-8 text-xs"
 									onfocus={() => (newKeyNameFocused = true)}
 									onblur={() => (newKeyNameFocused = false)}
 								/>
 								<textarea
 									bind:value={newKeyValue}
+									{...autofillAttributes(undefined)}
 									placeholder="ssh-ed25519 AAAA..."
 									rows="3"
 									class="w-full resize-none border border-border bg-muted px-3 py-2 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
@@ -688,10 +741,10 @@
 								>
 									{#if sshKeyAdding}
 										<Loader2 class="h-3 w-3 animate-spin" />
-										Adding...
+										{t('settings.keys.adding')}
 									{:else}
 										<Plus class="h-3 w-3" />
-										Add Key
+										{t('settings.keys.add')}
 									{/if}
 								</Button>
 							</div>
@@ -703,7 +756,7 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<Key class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									API Tokens
+									{t('settings.tabs.api')}
 								</p>
 							</div>
 
@@ -712,7 +765,7 @@
 									class="mb-3 border border-amber-300 bg-amber-100 p-3 dark:border-amber-800/50 dark:bg-amber-950/20"
 								>
 									<p class="text-xs font-medium text-amber-800 dark:text-amber-400">
-										Copy this token now. It won't be shown again.
+										{t('settings.api.copyNow')}
 									</p>
 									<div class="mt-2 flex items-center gap-2">
 										<code
@@ -723,6 +776,7 @@
 										<button
 											type="button"
 											class="shrink-0 text-muted-foreground hover:text-foreground"
+											aria-label={t('common.copy')}
 											onclick={() => copyToken('new-token', generatedToken)}
 										>
 											{#if copiedTokenId === 'new-token'}
@@ -757,7 +811,7 @@
 													<p class="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
 														um-stack-****...****
 														<span class="ml-2 font-sans text-muted-foreground"
-															>Created {token.created}</span
+															>{t('settings.api.created', { date: token.created })}</span
 														>
 													</p>
 												</div>
@@ -767,18 +821,24 @@
 													class="h-7 shrink-0 px-2 text-xs text-red-400 hover:text-red-300"
 													onclick={() => revokeToken(token.id)}
 												>
-													Revoke
+													{t('settings.api.revoke')}
 												</Button>
 											</div>
 										{/each}
 									</div>
 								</div>
 							{:else}
-								<p class="py-2 text-center text-xs text-muted-foreground">No API tokens.</p>
+								<p class="py-2 text-center text-xs text-muted-foreground">
+									{t('settings.api.empty')}
+								</p>
 							{/if}
 
 							<div class="mt-3 flex items-center gap-3 border-t border-border/50 pt-3">
-								<Input bind:value={newTokenName} placeholder="Token name" class="h-8 text-xs" />
+								<Input
+									bind:value={newTokenName}
+									placeholder={t('settings.api.namePlaceholder')}
+									class="h-8 text-xs"
+								/>
 								<Button
 									variant="outline"
 									size="sm"
@@ -787,7 +847,7 @@
 									disabled={!newTokenName.trim()}
 								>
 									<Plus class="h-3 w-3" />
-									Generate
+									{t('settings.api.generate')}
 								</Button>
 							</div>
 						</div>
@@ -798,11 +858,11 @@
 							<div class="mb-3 flex items-center gap-2 border-b border-border/50 pb-2">
 								<SunMoon class="size-4 text-primary" />
 								<p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-									Appearance
+									{t('settings.appearance.heading')}
 								</p>
 							</div>
 							<div class="flex flex-col gap-1.5">
-								<Label>Theme</Label>
+								<Label>{t('settings.appearance.theme')}</Label>
 								<div class="grid grid-cols-3 gap-2">
 									{#each themeOptions as option (option.value)}
 										{@const Icon = option.icon}
@@ -816,17 +876,17 @@
 												: 'border-border text-muted-foreground hover:border-ring hover:text-foreground'}"
 										>
 											<Icon class="h-4 w-4" />
-											{option.label}
+											{t(option.labelKey)}
 										</button>
 									{/each}
 								</div>
 								<p class="mt-1.5 text-xs text-muted-foreground">
-									Auto follows your system's light/dark setting.
+									{t('settings.appearance.themeHint')}
 								</p>
 							</div>
 							<fieldset class="mt-4 border-t border-border/50 pt-4">
 								<legend class="float-left mb-1.5 w-full text-sm leading-none font-medium">
-									High contrast
+									{t('settings.appearance.contrast')}
 								</legend>
 								<div class="clear-both grid grid-cols-3 gap-2">
 									{#each contrastOptions as option (option.value)}
@@ -841,17 +901,42 @@
 												: 'border-border text-muted-foreground hover:border-ring hover:text-foreground'}"
 										>
 											<Icon class="h-4 w-4" />
-											{option.label}
+											{t(option.labelKey)}
 										</button>
 									{/each}
 								</div>
 								<p class="mt-1.5 text-xs text-muted-foreground">
-									Stronger colors, borders and focus outlines. Auto follows your system's contrast
-									setting{contrast.preference === 'auto'
-										? ` (currently ${contrast.systemPrefersMore ? 'on' : 'off'})`
-										: ''}.
+									{contrast.preference === 'auto'
+										? t(
+												contrast.systemPrefersMore
+													? 'settings.appearance.contrastHintAutoOn'
+													: 'settings.appearance.contrastHintAutoOff'
+											)
+										: t('settings.appearance.contrastHint')}
 								</p>
 							</fieldset>
+							{#if locales.length > 1}
+								<div class="mt-4 flex flex-col gap-1.5 border-t border-border/50 pt-4">
+									<Label for="settings-language" class="flex items-center gap-1.5">
+										<Languages class="size-3.5 text-muted-foreground" />
+										{t('settings.appearance.language')}
+									</Label>
+									<select
+										id="settings-language"
+										class="h-9 w-full border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60"
+										value={currentLocale()}
+										disabled={changingLocale}
+										onchange={(event) => changeLocale(event.currentTarget.value)}
+									>
+										{#each locales as locale (locale)}
+											<option value={locale} lang={locale}>{localeName(locale)}</option>
+										{/each}
+									</select>
+									<p class="mt-1.5 text-xs text-muted-foreground">
+										{t('settings.appearance.languageHint')}
+									</p>
+								</div>
+							{/if}
 						</div>
 					</Tabs.Content>
 				</div>
@@ -881,17 +966,17 @@
 		<Dialog.Content class="border-border bg-background sm:max-w-md">
 			<Dialog.Header>
 				<Dialog.Title>
-					{codeAction === 'disable' ? 'Disable authenticator app' : 'New recovery codes'}
+					{codeAction === 'disable'
+						? t('settings.security.disableTitle')
+						: t('settings.security.newCodesTitle')}
 				</Dialog.Title>
 				<Dialog.Description>
 					{#if regeneratedCodes.length > 0}
-						Your old recovery codes no longer work.
+						{t('settings.security.oldCodesInvalid')}
 					{:else if codeAction === 'disable'}
-						Enter a current authenticator code or a recovery code to turn off two-factor
-						authentication. Your recovery codes stop working too.
+						{t('settings.security.disableDescription')}
 					{:else}
-						Enter a current authenticator code or a recovery code. Your old recovery codes will stop
-						working.
+						{t('settings.security.regenerateDescription')}
 					{/if}
 				</Dialog.Description>
 			</Dialog.Header>
@@ -916,7 +1001,7 @@
 					}}
 				>
 					<div class="flex rounded-xs border border-border bg-background/40 p-1">
-						{#each [['totp', 'Authenticator code'], ['recovery_code', 'Recovery code']] as [method, label] (method)}
+						{#each codeMethods as [method, labelKey] (method)}
 							<button
 								type="button"
 								class={[
@@ -931,14 +1016,16 @@
 									codeError = '';
 								}}
 							>
-								{label}
+								{t(labelKey)}
 							</button>
 						{/each}
 					</div>
 
 					<div class="flex flex-col gap-1.5">
 						<Label for="security-code">
-							{codeMethod === 'totp' ? 'Authenticator code' : 'Recovery code'}
+							{codeMethod === 'totp'
+								? t('settings.security.authenticatorCode')
+								: t('settings.security.recoveryCode')}
 						</Label>
 						{#if codeMethod === 'totp'}
 							<Input
@@ -970,7 +1057,7 @@
 							onclick={() => (codeDialogOpen = false)}
 							disabled={codeSubmitting}
 						>
-							Cancel
+							{t('common.cancel')}
 						</Button>
 						<Button
 							variant={codeAction === 'disable' ? 'destructive' : 'default'}
@@ -981,7 +1068,9 @@
 							{#if codeSubmitting}
 								<Loader2 class="h-3 w-3 animate-spin" />
 							{/if}
-							{codeAction === 'disable' ? 'Disable' : 'Create new codes'}
+							{codeAction === 'disable'
+								? t('common.disable')
+								: t('settings.security.createNewCodes')}
 						</Button>
 					</Dialog.Footer>
 				</form>

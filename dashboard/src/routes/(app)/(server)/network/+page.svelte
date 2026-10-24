@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -38,7 +39,7 @@
 		try {
 			result = await getManagedHostNetwork();
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to load network information.');
+			error = getErrorMessage(err, t('network.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -48,16 +49,16 @@
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-xl font-semibold tracking-tight text-foreground">Network</h1>
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('network.title')}</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				Interfaces, DNS configuration, and routes from this host.
+				{t('network.description')}
 			</p>
 		</div>
 		<Button variant="outline" size="sm" class="gap-2" onclick={refresh} disabled={loading}>
 			{#if loading}<Loader2 class="size-3.5 animate-spin" />{:else}<RefreshCw
 					class="size-3.5"
 				/>{/if}
-			Refresh
+			{t('common.refresh')}
 		</Button>
 	</div>
 
@@ -69,18 +70,18 @@
 
 	<section class="mt-4 overflow-hidden border border-border">
 		<div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium">
-			Interfaces ({result.interfaces.length})
+			{t('network.interfaces', { count: result.interfaces.length })}
 		</div>
 		{#if result.interfaces.length === 0}<p class="p-4 text-xs text-muted-foreground">
-				No interfaces reported.
+				{t('network.noInterfaces')}
 			</p>{:else}
 			<div class="overflow-auto">
 				<table class="w-full min-w-[520px] text-left text-xs">
 					<thead class="border-b border-border text-muted-foreground"
 						><tr
-							><th class="px-3 py-2">Name</th><th class="px-3 py-2">State</th><th class="px-3 py-2"
-								>MAC</th
-							></tr
+							><th class="px-3 py-2">{t('common.name')}</th><th class="px-3 py-2"
+								>{t('network.state')}</th
+							><th class="px-3 py-2">MAC</th></tr
 						></thead
 					><tbody
 						>{#each result.interfaces as item}{@const entry = record(item)}<tr
@@ -99,10 +100,12 @@
 		<section class="overflow-hidden border border-border">
 			<div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium">DNS</div>
 			<pre class="max-h-80 overflow-auto p-3 text-xs whitespace-pre-wrap">{result.resolvConf ??
-					'DNS configuration unavailable.'}</pre>
+					t('network.dnsUnavailable')}</pre>
 		</section>
 		<section class="overflow-hidden border border-border">
-			<div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium">Routes</div>
+			<div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium">
+				{t('network.routes')}
+			</div>
 			<pre class="max-h-80 overflow-auto p-3 text-xs">{json(result.routes)}</pre>
 		</section>
 	</div>

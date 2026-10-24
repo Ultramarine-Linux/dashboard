@@ -4,6 +4,7 @@
  * validation that blocks cook until required fields are filled, and
  * conversion into the typed `values` map sent to the agent.
  */
+import { t } from '$lib/i18n';
 import type { AppRecipe, AppRecipeParameter } from './catalog';
 
 export type AppValueMap = Record<string, string | number | boolean>;
@@ -44,21 +45,25 @@ function validateParameter(
 	if (parameter.type === 'integer') {
 		const number = typeof value === 'number' ? value : Number(value);
 		if (value === '' || !Number.isFinite(number)) {
-			return parameter.required ? `${parameter.label} is required.` : null;
+			return parameter.required ? t('apps.params.required', { label: parameter.label }) : null;
 		}
-		if (!Number.isInteger(number)) return `${parameter.label} must be a whole number.`;
+		if (!Number.isInteger(number)) return t('apps.params.wholeNumber', { label: parameter.label });
 		if (parameter.min !== null && number < parameter.min) {
-			return `${parameter.label} must be at least ${parameter.min}.`;
+			return t('apps.params.min', { label: parameter.label, min: parameter.min });
 		}
 		if (parameter.max !== null && number > parameter.max) {
-			return `${parameter.label} must be at most ${parameter.max}.`;
+			return t('apps.params.max', { label: parameter.label, max: parameter.max });
 		}
 		return null;
 	}
 	const text = String(value);
-	if (parameter.required && !text.trim()) return `${parameter.label} is required.`;
+	if (parameter.required && !text.trim())
+		return t('apps.params.required', { label: parameter.label });
 	if (parameter.type === 'choice' && text && !parameter.options.includes(text)) {
-		return `${parameter.label} must be one of: ${parameter.options.join(', ')}.`;
+		return t('apps.params.oneOf', {
+			label: parameter.label,
+			options: parameter.options.join(', ')
+		});
 	}
 	return null;
 }

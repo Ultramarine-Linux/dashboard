@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -43,7 +44,7 @@
 		try {
 			result = await getManagedHostStorage();
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to load storage information.');
+			error = getErrorMessage(err, t('storage.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -53,16 +54,16 @@
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-xl font-semibold tracking-tight text-foreground">Storage</h1>
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('storage.title')}</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				Mounts, partitions, and ZFS discovery from this host.
+				{t('storage.description')}
 			</p>
 		</div>
 		<Button variant="outline" size="sm" class="gap-2" onclick={refresh} disabled={loading}>
 			{#if loading}<Loader2 class="size-3.5 animate-spin" />{:else}<RefreshCw
 					class="size-3.5"
 				/>{/if}
-			Refresh
+			{t('common.refresh')}
 		</Button>
 	</div>
 
@@ -75,18 +76,20 @@
 	<div class="mt-4 grid gap-4 xl:grid-cols-2">
 		<section class="overflow-hidden border border-border">
 			<div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium">
-				Mounted filesystems ({result.mounts.length})
+				{t('storage.mountedFilesystems', { count: result.mounts.length })}
 			</div>
 			{#if result.mounts.length === 0}<p class="p-4 text-xs text-muted-foreground">
-					No mount data reported.
+					{t('storage.noMounts')}
 				</p>{:else}
 				<div class="overflow-auto">
 					<table class="w-full min-w-[640px] text-left text-xs">
 						<thead class="border-b border-border text-muted-foreground"
 							><tr
-								><th class="px-3 py-2">Source</th><th class="px-3 py-2">Target</th><th
-									class="px-3 py-2">Filesystem</th
-								><th class="px-3 py-2">Options</th></tr
+								><th class="px-3 py-2">{t('storage.source')}</th><th class="px-3 py-2"
+									>{t('storage.target')}</th
+								><th class="px-3 py-2">{t('storage.filesystem')}</th><th class="px-3 py-2"
+									>{t('storage.options')}</th
+								></tr
 							></thead
 						><tbody
 							>{#each result.mounts as item}<tr class="border-b border-border last:border-0"
@@ -104,10 +107,10 @@
 
 		<section class="overflow-hidden border border-border">
 			<div class="border-b border-border bg-muted/30 px-3 py-2 text-xs font-medium">
-				Partitions ({result.partitions.length})
+				{t('storage.partitions', { count: result.partitions.length })}
 			</div>
 			{#if result.partitions.length === 0}<p class="p-4 text-xs text-muted-foreground">
-					No partition data reported.
+					{t('storage.noPartitions')}
 				</p>{:else}
 				<pre class="max-h-80 overflow-auto p-3 text-xs">{json(result.partitions)}</pre>
 			{/if}
@@ -119,7 +122,7 @@
 		{#if result.zfs}<pre class="max-h-96 overflow-auto p-3 text-xs">{json(
 					result.zfs
 				)}</pre>{:else}<p class="p-4 text-xs text-muted-foreground">
-				ZFS discovery is unavailable on this agent.
+				{t('storage.zfsUnavailable')}
 			</p>{/if}
 	</section>
 </section>
