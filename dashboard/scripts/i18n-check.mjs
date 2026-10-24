@@ -1,60 +1,87 @@
 #!/usr/bin/env node
-// Checks the translation catalogs in src/lib/i18n/langs:
-//  - every other locale only contains keys that exist in en.json
-//  - every locale keeps the same {{placeholders}} as en.json
+// Checks the translation catalogs in src/lib/i18n/langs (nested i18next v4 JSON):
+//  - every value is a string or a nested object
+//  - other locales only contain keys that exist in en.json; plural keys may
+//    use any CLDR form (`_zero`, `_two`, `_few`, `_many`) of a base that is
+//    plural in en.json
+//  - translations keep the same {{placeholders}} as English
+//  - en.json never repeats a placeholder (i18nya only fills the first one)
 //  - reports how complete each locale is
-// Exits non-zero on errors. Missing keys in source are caught by `pnpm check`
-// because `t()` only accepts keys from en.json.
+// Exits non-zero on errors. Keys missing from en.json but used in code are
+// caught by `pnpm check`, because `t()` only accepts keys from en.json.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const dir = new URL('../src/lib/i18n/langs/', import.meta.url).pathname;
-const load = (file) => JSON.parse(readFileSync(join(dir, file), 'utf8'));
-const placeholders = (s) =>
-	[...s.matchAll(/\{\{(\w+)\}\}/g)]
-		.map((m) => m[1])
-		.sort()
-		.join(',');
-
-const en = load('en.json');
-const enKeys = Object.keys(en);
+const pluralForms = ['zero', 'one', 'two', 'few', 'many', 'other'];
+const pluralSuffix = new RegExp(`_(${pluralForms.join('|')})$`);
 let errors = 0;
 
-for (const file of readdirSync(dir).filter((f) => f.endsWith('.json') && f !== 'en.json')) {
-	const locale = file.slice(0, -5);
-	const catalog = load(file);
+function problem(message) {
+	console.error(message);
+	errors++;
+}
+
+function flatten(locale, node, prefix = '', out = {}) {
+	for (const [key, value] of Object.entries(node)) {
+		const path = prefix + key;
+		if (typeof value === 'string') out[path] = value;
+		else if (value && typeof value === 'object' && !Array.isArray(value))
+			flatten(locale, value, `${path}.`, out);
+		else problem(`${locale}: "${path}" must be a string or an object`);
+	}
+	return out;
+}
+
+function load(locale) {
+	const raw = readFileSync(join(dir, `${locale}.json`), 'utf8');
+	try {
+		return flatten(locale, JSON.parse(raw));
+	} catch (cause) {
+		problem(`${locale}: invalid JSON (${cause.message})`);
+		return {};
+	}
+}
+
+const placeholders = (s) => [...new Set(s.match(/\{\{\w+\}\}/g) ?? [])].sort().join(',');
+
+const en = load('en');
+const enKeys = Object.keys(en);
+const pluralBases = new Set(
+	enKeys.filter((key) => key.endsWith('_other')).map((key) => key.slice(0, -'_other'.length))
+);
+
+for (const [key, value] of Object.entries(en)) {
+	const names = value.match(/\{\{\w+\}\}/g) ?? [];
+	if (new Set(names).size !== names.length) problem(`en: "${key}" repeats a placeholder`);
+}
+
+const locales = readdirSync(dir)
+	.filter((file) => file.endsWith('.json') && file !== 'en.json')
+	.map((file) => file.slice(0, -5));
+
+for (const locale of locales) {
+	if (locale.includes('_'))
+		problem(`${locale}: use a hyphenated BCP 47 file name (e.g. pt-BR.json)`);
+	const catalog = load(locale);
 	let translated = 0;
 	for (const [key, value] of Object.entries(catalog)) {
-		if (!(key in en)) {
-			console.error(`${locale}: unknown key "${key}"`);
-			errors++;
+		const base = key.replace(pluralSuffix, '');
+		const isPlural = base !== key && pluralBases.has(base);
+		if (!(key in en) && !isPlural) {
+			problem(`${locale}: unknown key "${key}"`);
 			continue;
 		}
-		if (typeof value !== 'string') {
-			console.error(`${locale}: "${key}" is not a string`);
-			errors++;
-			continue;
-		}
-		if (
-			!key.match(/\.(zero|one|two|few|many|other)$/) &&
-			placeholders(value) !== placeholders(en[key])
-		) {
-			console.error(`${locale}: "${key}" placeholders differ from en.json`);
-			errors++;
-		}
-		if (value) translated++;
+		if (!value) continue;
+		// Plural forms may drop {{count}} (e.g. "one file" instead of "1 file").
+		const reference = isPlural ? en[`${base}_other`] : en[key];
+		const expected = placeholders(isPlural ? reference.replace('{{count}}', '') : reference);
+		const actual = placeholders(isPlural ? value.replace('{{count}}', '') : value);
+		if (expected !== actual) problem(`${locale}: "${key}" placeholders differ from English`);
+		if (key in en) translated++;
 	}
 	const pct = ((translated / enKeys.length) * 100).toFixed(1);
 	console.log(`${locale}: ${translated}/${enKeys.length} (${pct}%)`);
-}
-
-for (const [key, value] of Object.entries(en)) {
-	const names = value.match(/\{\{(\w+)\}\}/g) ?? [];
-	if (new Set(names).size !== names.length) {
-		// i18nya only replaces the first occurrence of each placeholder.
-		console.error(`en: "${key}" repeats a placeholder`);
-		errors++;
-	}
 }
 
 if (errors) {

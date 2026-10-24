@@ -42,7 +42,7 @@ export function t(key: TranslationKey, its?: Interpolations): string {
 	return translate(currentLocale(), key, its);
 }
 
-/** Translate a pluralized key (`<key>.one`, `<key>.other`, ...) for `count`. */
+/** Translate a pluralized key (`<key>_one`, `<key>_other`, ...) for `count`. */
 export function tn(key: PluralKey, count: number, its?: Interpolations): string {
 	return translatePlural(currentLocale(), key, count, its);
 }
