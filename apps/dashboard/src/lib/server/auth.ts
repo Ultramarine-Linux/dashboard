@@ -7,6 +7,7 @@ import { getRequestEvent } from '$app/server';
 
 import { initDrizzle, type Database } from '$lib/server/db';
 import { getRuntimeEnv } from '$lib/server/env';
+import { HOSTNAME_NOT_CONFIGURED, oidcBaseURL } from '$lib/server/origin';
 import { ulid } from '$lib/server/id';
 import { dashboardBrand } from '$lib/branding';
 
@@ -101,7 +102,14 @@ const lazyDb = new Proxy({} as Database, {
 
 function buildAuth() {
 	const env = getRuntimeEnv();
-	const baseURL = dev ? getRequestEvent().url.origin : env.ORIGIN;
+	const baseURL = oidcBaseURL({
+		development: dev,
+		origin: env.ORIGIN ?? undefined,
+		// Only read on the dev server, inside the request that built the instance.
+		requestOrigin: () => getRequestEvent().url.origin
+	});
+	// The hook answers the OIDC endpoints itself in this case.
+	if (!baseURL) throw new Error(`ORIGIN is not set: ${HOSTNAME_NOT_CONFIGURED}`);
 	const ssoIssuer = getSsoIssuer(baseURL);
 	const trustedSsoClients = parseTrustedSsoClients(env.SSO_TRUSTED_CLIENTS);
 

@@ -1,13 +1,16 @@
 import { error, redirect, type Handle, type RequestEvent, type ServerInit } from '@sveltejs/kit';
-import { building } from '$app/environment';
+import { building, dev } from '$app/environment';
 import { initDatabase } from '$lib/server/db';
 import { instrument } from '$lib/server/observability';
+import { hostnameNotConfigured } from '$lib/server/env';
+import { hostnameNotConfiguredResponse } from '$lib/server/origin';
 import { accessibilityFixtureEnabled } from '$lib/server/accessibility-fixtures';
 import { canAccessRoute, routeAccess } from '$lib/permissions';
 import { clearSessionCookie, readSessionToken } from '$lib/server/session';
 import {
 	ACCESSIBILITY_FIXTURE_TOKEN,
 	checkTetraConfiguration,
+	closeTetraOnShutdown,
 	getTetra,
 	isTetraError
 } from '$lib/server/tetra';
@@ -65,12 +68,19 @@ const handleSession: Handle = async ({ event, resolve }) => {
 
 	// Better Auth only serves the OIDC provider for apps; logins go to Tetra.
 	if (isOidcEndpoint(pathname)) {
+		// The issuer comes from ORIGIN, which Tetra writes once the server's
+		// hostname is set. Pages work without it; single sign-on can't.
+		if (hostnameNotConfigured()) return hostnameNotConfiguredResponse();
 		const [{ initAuth }, { svelteKitHandler }] = await Promise.all([
 			import('$lib/server/auth'),
 			import('better-auth/svelte-kit')
 		]);
 		return svelteKitHandler({ event, resolve, auth: initAuth(), building });
 	}
+
+	// Health checks don't need a session, and shouldn't wait on `session.info`
+	// when a browser with a session cookie opens the page.
+	if (pathname === '/health') return resolve(event);
 
 	const reachable = await loadSession(event);
 	const access = routeAccess(pathname);
@@ -96,6 +106,9 @@ const handleSession: Handle = async ({ event, resolve }) => {
 export const init: ServerInit = async () => {
 	if (building) return;
 	checkTetraConfiguration();
+	// adapter-node emits the shutdown event; the dev server doesn't, and would
+	// stack a listener on every reload.
+	if (!dev) closeTetraOnShutdown();
 	await initDatabase();
 };
 

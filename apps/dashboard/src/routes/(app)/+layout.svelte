@@ -183,9 +183,23 @@
 			</div>
 		</header>
 
+		{#if data.hostnameNotConfigured}
+			<div
+				role="status"
+				class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
+			>
+				<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+				<p>
+					This server's hostname is not configured, so apps can't sign in with Dashboard (single
+					sign-on). Set the server's hostname to turn it on. Dashboard restarts on its own once it
+					is set.
+				</p>
+			</div>
+		{/if}
+
 		{#if data.newerDatabase}
 			<div
-				role="alert"
+				role="status"
 				class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
 			>
 				<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />

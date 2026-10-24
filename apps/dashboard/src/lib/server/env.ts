@@ -1,9 +1,11 @@
 import { env as privateEnv } from '$env/dynamic/private';
 import { dev } from '$app/environment';
 import { resolveBetterAuthSecret } from '$lib/server/runtime-secret';
+import { configuredOrigin } from '$lib/server/origin';
 
 export type RuntimeEnv = {
-	ORIGIN: string;
+	/** Null until the server's hostname is configured; see origin.ts. */
+	ORIGIN: string | null;
 	BETTER_AUTH_SECRET: string;
 	AUTUMN_ENABLED?: string;
 	AUTUMN_SECRET?: string;
@@ -14,12 +16,6 @@ export type RuntimeEnv = {
 	BETTER_AUTH_SECRET_FILE?: string;
 	UM_DASHBOARD_STATE_DIR?: string;
 };
-
-function required(name: keyof RuntimeEnv, value: string | undefined): string {
-	if (!value) throw new Error(`${name} is not set`);
-
-	return value;
-}
 
 export function getBetterAuthSecret() {
 	return resolveBetterAuthSecret({
@@ -32,7 +28,7 @@ export function getBetterAuthSecret() {
 
 export function getRuntimeEnv(): RuntimeEnv {
 	return {
-		ORIGIN: required('ORIGIN', privateEnv.ORIGIN),
+		ORIGIN: configuredOrigin(privateEnv.ORIGIN),
 		BETTER_AUTH_SECRET: getBetterAuthSecret(),
 		AUTUMN_ENABLED: privateEnv.AUTUMN_ENABLED,
 		AUTUMN_SECRET: privateEnv.AUTUMN_SECRET,
@@ -43,4 +39,12 @@ export function getRuntimeEnv(): RuntimeEnv {
 		BETTER_AUTH_SECRET_FILE: privateEnv.BETTER_AUTH_SECRET_FILE,
 		UM_DASHBOARD_STATE_DIR: privateEnv.UM_DASHBOARD_STATE_DIR
 	};
+}
+
+/**
+ * A production build without `ORIGIN`: the server's hostname is not configured
+ * yet, so single sign-on is unavailable. The dev server uses request origins.
+ */
+export function hostnameNotConfigured(): boolean {
+	return !dev && configuredOrigin(privateEnv.ORIGIN) === null;
 }

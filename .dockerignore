@@ -1,19 +1,25 @@
-# Dependencies and generated build output
-node_modules
-.pnpm-store
-.svelte-kit
-build
-dist
-coverage
-playwright-report
-test-results
+# Dependencies and generated build output, at any depth. node_modules is
+# architecture specific: images install and compile their own.
+**/node_modules
+**/.pnpm-store
+**/.svelte-kit
+**/build
+**/dist
+**/coverage
+**/playwright-report
+**/test-results
 
 # Local environment and runtime credentials
-.env
-.env.*
-!.env.example
-!.env.test
-.dev.vars
-.dev.vars.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.test
+**/.dev.vars
+**/.dev.vars.*
+# Version control and local notes
+.git
+**/*.local.md
+.local
+
+# Left behind by the removed WSS enrollment stack.
 apps/dashboard/dev/certs
-apps/dashboard/dev/.env

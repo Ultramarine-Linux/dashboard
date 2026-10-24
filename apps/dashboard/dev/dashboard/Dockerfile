@@ -1,31 +1,28 @@
-# Build the Dashboard from the repository root supplied as build context.
-FROM node:22-bookworm-slim AS build
+# Development server (vite dev) for the compose stack. Only a dev server can
+# use TETRA_MOCK=1: production builds refuse to start with it set. Build from
+# the repository root; dev/compose.yaml mounts src/ and static/ over the
+# copies below for live reload.
+FROM docker.io/library/node:24-trixie-slim
 
-WORKDIR /app
+# pnpm runs better-sqlite3's node-gyp step on install. It uses the bundled
+# prebuilt binary when there is one, but node-gyp still needs these.
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends python3 make g++ \
+	&& rm -rf /var/lib/apt/lists/*
+
+# Dashboard refuses a state directory others can read. A new named volume
+# takes this directory's mode on first use.
+RUN install -d -m 0700 /var/lib/ultramarine-dashboard
+
+WORKDIR /src
 ENV CI=true
-RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN pnpm install --frozen-lockfile --config.confirmModulesPurge=false
-COPY . .
-RUN pnpm run build
+COPY package.json ./
+RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
+COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/dashboard/package.json apps/dashboard/package.json
+RUN pnpm install --frozen-lockfile --filter ultramarine-dashboard...
+COPY apps/dashboard apps/dashboard
 
-FROM node:22-bookworm-slim AS deps
-WORKDIR /app
-ENV NODE_ENV=production
-RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY apps/dashboard/package.json ./apps/dashboard/package.json
-RUN pnpm install --filter ultramarine-dashboard... --prod=false --frozen-lockfile --config.confirmModulesPurge=false
-COPY --from=build /app/apps/dashboard/build ./build
-COPY --from=build /app/apps/dashboard/package.json ./package.json
-FROM node:22-bookworm-slim AS runtime
-WORKDIR /app/apps/dashboard
-ENV NODE_ENV=production
-COPY --from=deps /app/node_modules /app/node_modules
-COPY --from=deps /app/apps/dashboard/node_modules ./node_modules
-COPY --from=build /app/apps/dashboard/build ./build
-COPY --from=build /app/apps/dashboard/package.json ./package.json
-# Dashboard applies these migrations itself on startup.
-COPY --from=build /app/apps/dashboard/drizzle ./drizzle
-EXPOSE 3000
-CMD ["node", "build"]
+WORKDIR /src/apps/dashboard
+EXPOSE 3972
+CMD ["pnpm", "exec", "vite", "dev", "--host", "0.0.0.0", "--port", "3972", "--strictPort"]

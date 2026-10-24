@@ -1,22 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
-# Lightweight stack health check. Connecting Dashboard to Tetra is
-# intentionally separate because it requires an authenticated Dashboard user.
+# Checks /health on the running stack: the database opens, every migration is
+# applied, and Tetra (the mock, or the one on the socket) answers.
+url=${DASHBOARD_URL:-http://127.0.0.1:3972}
 
-printf '%s\n' 'Checking Dashboard HTTP endpoint...'
-curl --fail --silent --show-error http://127.0.0.1:3000/health >/dev/null
-
-printf '%s\n' 'Checking Dashboard SQLite database...'
-podman compose --env-file .env exec -T dashboard sh -ec \
-  'test -f /var/lib/ultramarine-dashboard/dashboard.db'
-
-printf '%s\n' 'Checking Tetra TLS listener...'
-openssl s_client \
-  -connect 127.0.0.1:7780 \
-  -CAfile certs/ca.crt \
-  -verify_return_error \
-  -servername tetra \
-  </dev/null >/dev/null
-
-printf '%s\n' 'Dashboard and Tetra are reachable. Connect them from the Dashboard setup page.'
+printf 'Checking %s/health...\n' "$url"
+if ! body=$(curl --silent --show-error --max-time 15 --fail-with-body "$url/health"); then
+  printf '%s\n' "$body" >&2
+  exit 1
+fi
+printf '%s\n' "$body"

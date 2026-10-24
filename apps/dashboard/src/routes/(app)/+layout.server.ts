@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { getFeatureFlags } from '$lib/server/feature-flags';
 import { getNewerDatabaseWarning } from '$lib/server/db';
+import { hostnameNotConfigured } from '$lib/server/env';
 import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureFeatureFlags
@@ -24,6 +25,7 @@ export const load: LayoutServerLoad = async ({ locals, depends }) => {
 		permissions: locals.permissions ?? {},
 		featureFlags,
 		// Only administrators can act on it, so only they see it.
-		newerDatabase: locals.user.admin ? getNewerDatabaseWarning() : null
+		newerDatabase: locals.user.admin ? getNewerDatabaseWarning() : null,
+		hostnameNotConfigured: locals.user.admin && hostnameNotConfigured()
 	};
 };
