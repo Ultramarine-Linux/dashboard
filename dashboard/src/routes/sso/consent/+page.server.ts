@@ -40,7 +40,8 @@ export const actions: Actions = {
 
 		const data = (await response.json()) as { redirectURI?: string };
 		if (data.redirectURI) {
-			throw redirect(303, data.redirectURI);
+			// The client's registered redirect URI, which Better Auth has checked.
+			throw redirect(303, data.redirectURI, { external: true });
 		}
 
 		return { error: 'SSO authorization did not return a redirect URL.' };

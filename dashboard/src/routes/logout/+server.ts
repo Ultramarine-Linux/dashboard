@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { clearSessionCookie, readSessionToken } from '$lib/server/session';
-import { getTetra } from '$lib/server/tetra';
+import { clearSessionCookie, readSessionToken } from '#lib/server/session.js';
+import { getTetra } from '#lib/server/tetra/index.js';
 
 export const POST: RequestHandler = async ({ cookies }) => {
 	const token = readSessionToken(cookies);

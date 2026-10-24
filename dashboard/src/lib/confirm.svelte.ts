@@ -3,7 +3,7 @@
 // action is enabled. A single <ConfirmDialog /> host (mounted in the app
 // layout) reads this controller and drives the dialog with bind:open.
 
-import { t } from '$lib/i18n';
+import { t } from '#lib/i18n/index.js';
 
 type ConfirmRequest = {
 	title: string;

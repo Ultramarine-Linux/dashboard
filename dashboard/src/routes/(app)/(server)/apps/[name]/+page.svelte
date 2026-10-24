@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { formatDateTime, t } from '$lib/i18n';
+	import { formatDateTime, t } from '#lib/i18n/index.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getAppRecipe } from '$lib/apps/catalog';
+	import { getAppRecipe } from '#lib/apps/catalog.js';
 	import {
 		defaultRecipeValues,
 		validateRecipeValues,
 		valuesForSubmit,
 		type AppValueMap
-	} from '$lib/apps/params';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { confirmDestructive } from '$lib/confirm.svelte';
+	} from '#lib/apps/params.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { confirmDestructive } from '#lib/confirm.svelte.js';
 	import {
 		getManagedHostApp,
 		getManagedHostAppServiceLogs,
@@ -25,17 +25,17 @@
 		type ManagedHostAppService,
 		type ManagedHostAppWriteResult,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import StatusBadge from '$lib/components/status-badge.svelte';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import StatusBadge from '#lib/components/status-badge.svelte';
 	import ArrowLeft from '~icons/lucide/arrow-left';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Pencil from '~icons/lucide/pencil';
 	import RefreshCw from '~icons/lucide/refresh-cw';
 	import ScrollText from '~icons/lucide/scroll-text';
 	import Trash2 from '~icons/nucleo/trash';
-	import AppCookResult from '$lib/hosts/apps/AppCookResult.svelte';
-	import AppValuesForm from '$lib/hosts/apps/AppValuesForm.svelte';
+	import AppCookResult from '#lib/hosts/apps/AppCookResult.svelte';
+	import AppValuesForm from '#lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
 		host: HostSummary;

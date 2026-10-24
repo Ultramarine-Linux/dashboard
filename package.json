@@ -28,6 +28,6 @@
 		"backport:dashboard:apply-since-fork": "pnpm --filter ultramarine-dashboard backport:dashboard:apply-since-fork"
 	},
 	"devDependencies": {
-		"@types/node": "^26.5.1"
+		"@types/node": "^26.6.5"
 	}
 }

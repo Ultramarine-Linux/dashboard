@@ -1,13 +1,13 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import { getFeatureFlags } from '$lib/server/feature-flags';
-import { getNewerDatabaseWarning } from '$lib/server/db';
-import { hostnameNotConfigured } from '$lib/server/env';
-import { getHostSummary, type HostSummary } from '$lib/remote/managed-hosts.remote';
+import { getFeatureFlags } from '#lib/server/feature-flags.js';
+import { getNewerDatabaseWarning } from '#lib/server/db/index.js';
+import { hostnameNotConfigured } from '#lib/server/env.js';
+import { getHostSummary, type HostSummary } from '#lib/remote/managed-hosts.remote.js';
 import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureFeatureFlags
-} from '$lib/server/accessibility-fixtures';
+} from '#lib/server/accessibility-fixtures.js';
 
 export const load: LayoutServerLoad = async ({ locals, depends }) => {
 	depends('app:feature-flags');

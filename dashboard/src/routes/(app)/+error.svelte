@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
-	import { goto } from '$app/navigation';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import { resolve } from '$app/paths';
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 
 	const isNotFound = $derived(page.status === 404);
 	const isServerError = $derived(page.status >= 500);
@@ -39,8 +38,6 @@
 				>{t('error.tryAgain')}</Button
 			>
 		{/if}
-		<Button variant="outline" size="sm" onclick={() => goto(resolve('/'))}
-			>{t('error.goHome')}</Button
-		>
+		<Button variant="outline" size="sm" href={resolve('')}>{t('error.goHome')}</Button>
 	</div>
 </div>

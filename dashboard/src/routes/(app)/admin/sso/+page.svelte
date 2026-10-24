@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { autofillAttributes } from '$lib/components/ui/input';
+	import { autofillAttributes } from '#lib/components/ui/input/index.js';
 	import { untrack } from 'svelte';
-	import { t, tn, formatDateTime } from '$lib/i18n';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Switch } from '$lib/components/ui/switch';
+	import { t, tn, formatDateTime } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
 	import {
 		AdminSsoState,
 		type AdminSsoPageData,
 		type SsoClientInput
-	} from '$lib/state/admin-sso.svelte';
-	import type { SsoClient } from '$lib/remote/sso-clients.remote';
+	} from '#lib/state/admin-sso.svelte.js';
+	import type { SsoClient } from '#lib/remote/sso-clients.remote.js';
 	import Check from '~icons/lucide/check';
 	import Copy from '~icons/lucide/copy';
 	import Loader2 from '~icons/lucide/loader-2';

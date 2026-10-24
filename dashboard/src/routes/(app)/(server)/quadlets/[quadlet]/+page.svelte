@@ -5,11 +5,11 @@
 		type HostSummary,
 		type ManagedHostQuadletDetail,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import { t } from '$lib/i18n';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { t } from '#lib/i18n/index.js';
 	import Loader2 from '~icons/lucide/loader-2';
-	import QuadletEditor from '$lib/hosts/quadlets/QuadletEditor.svelte';
+	import QuadletEditor from '#lib/hosts/quadlets/QuadletEditor.svelte';
 
 	type PageData = {
 		host: HostSummary;

@@ -8,10 +8,10 @@ import Send from '~icons/nucleo/send';
 import Server from '~icons/nucleo/server';
 import User from '~icons/nucleo/user';
 import Network from '~icons/nucleo/network';
-import type { IconComponent } from '$lib';
-import type { FeatureFlags } from '$lib/feature-flags';
-import { canAccessRoute, type Permissions } from '$lib/permissions';
-import type { TranslationKey } from '$lib/i18n';
+import type { IconComponent } from '#lib';
+import type { FeatureFlags } from '#lib/feature-flags.js';
+import { canAccessRoute, type Permissions } from '#lib/permissions.js';
+import type { TranslationKey } from '#lib/i18n/index.js';
 
 export type HostTab =
 	| 'services'

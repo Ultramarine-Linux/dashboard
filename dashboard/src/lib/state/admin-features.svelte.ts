@@ -1,8 +1,8 @@
 import { invalidate } from '$app/navigation';
-import { getErrorMessage } from '$lib/utils';
-import { t } from '$lib/i18n';
-import { defaultFeatureFlags, type FeatureFlagKey, type FeatureFlags } from '$lib/feature-flags';
-import { updateFeatureFlag } from '$lib/remote/feature-flags.remote';
+import { getErrorMessage } from '#lib/utils.js';
+import { t } from '#lib/i18n/index.js';
+import { defaultFeatureFlags, type FeatureFlagKey, type FeatureFlags } from '#lib/feature-flags.js';
+import { updateFeatureFlag } from '#lib/remote/feature-flags.remote.js';
 
 export type AdminFeaturesPageData = {
 	featureFlags?: FeatureFlags;

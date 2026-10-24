@@ -1,6 +1,6 @@
 /// <reference types="unplugin-icons/types/svelte" />
-import type { Permissions } from '$lib/permissions';
-import type { TetraSession } from '$lib/server/tetra/protocol';
+import type { Permissions } from '#lib/permissions.js';
+import type { TetraSession } from '#lib/server/tetra/protocol.js';
 
 declare global {
 	namespace App {

@@ -1,5 +1,5 @@
-import { dev } from '$app/environment';
-import { env as privateEnv } from '$env/dynamic/private';
+import { dev } from '$app/env';
+import { TETRA_MOCK, ACCESSIBILITY_FIXTURES, TETRA_SOCKET_PATH } from '$app/env/private';
 import { DEFAULT_TETRA_SOCKET, SocketTetraClient } from './client';
 import { MockTetra } from './mock';
 import type { TetraClient } from './protocol';
@@ -46,8 +46,8 @@ export function resolveTetraMode(options: {
 function currentMode() {
 	return resolveTetraMode({
 		development: dev,
-		mock: privateEnv.TETRA_MOCK,
-		fixtures: privateEnv.ACCESSIBILITY_FIXTURES
+		mock: TETRA_MOCK,
+		fixtures: ACCESSIBILITY_FIXTURES
 	});
 }
 
@@ -69,7 +69,7 @@ export function getTetra(): TetraClient {
 			client = new MockTetra();
 			break;
 		case 'socket':
-			client = new SocketTetraClient(privateEnv.TETRA_SOCKET_PATH?.trim() || DEFAULT_TETRA_SOCKET);
+			client = new SocketTetraClient(TETRA_SOCKET_PATH?.trim() || DEFAULT_TETRA_SOCKET);
 	}
 	return client;
 }

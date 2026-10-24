@@ -3,12 +3,18 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { dev } from '$app/environment';
-import { env as privateEnv } from '$env/dynamic/private';
+import { dev } from '$app/env';
+
+import {
+	UM_DASHBOARD_DB_PATH,
+	UM_DASHBOARD_STATE_DIR,
+	UM_DASHBOARD_MIGRATIONS_DIR
+} from '$app/env/private';
+
 import * as schema from './schema';
 import { MIGRATIONS_TABLE, prepareDatabaseForMigration, type PrepareResult } from './snapshots';
-import { resolveStateDir } from '$lib/server/runtime-secret';
-import { timingLog } from '$lib/server/observability';
+import { resolveStateDir } from '#lib/server/runtime-secret.js';
+import { timingLog } from '#lib/server/observability.js';
 
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -24,16 +30,17 @@ let startupState: PrepareResult | null = null;
  * state directory (`/var/lib/ultramarine-dashboard/dashboard.db` in production).
  */
 export function resolveDatabasePath() {
-	const configured = privateEnv.UM_DASHBOARD_DB_PATH?.trim();
+	const configured = UM_DASHBOARD_DB_PATH?.trim();
 	if (configured) return resolve(configured);
+
 	return join(
-		resolveStateDir({ stateDir: privateEnv.UM_DASHBOARD_STATE_DIR, development: dev }),
+		resolveStateDir({ stateDir: UM_DASHBOARD_STATE_DIR, development: dev }),
 		DATABASE_FILE_NAME
 	);
 }
 
 export function resolveMigrationsFolder() {
-	return resolve(privateEnv.UM_DASHBOARD_MIGRATIONS_DIR?.trim() || 'drizzle');
+	return resolve(UM_DASHBOARD_MIGRATIONS_DIR?.trim() || 'drizzle');
 }
 
 export function openSqlite(path: string) {

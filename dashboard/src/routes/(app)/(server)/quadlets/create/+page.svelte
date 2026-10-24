@@ -1,22 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Switch } from '$lib/components/ui/switch';
-	import { Textarea } from '$lib/components/ui/textarea';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import {
 		saveManagedHostQuadlet,
 		type HostSummary,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
-	import { t, tn, type TranslationKey } from '$lib/i18n';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
+	import { t, tn, type TranslationKey } from '#lib/i18n/index.js';
 	import Eye from '~icons/lucide/eye';
 	import EyeOff from '~icons/lucide/eye-off';
 	import Loader2 from '~icons/lucide/loader-2';
-	import QuadletEditor from '$lib/hosts/quadlets/QuadletEditor.svelte';
+	import QuadletEditor from '#lib/hosts/quadlets/QuadletEditor.svelte';
 	import {
 		buildRecipeDetail,
 		defaultComposeOptions,
@@ -28,7 +28,7 @@
 		type NextcloudOptions,
 		type NginxSiteOptions,
 		type QuadletRecipeOption
-	} from '$lib/hosts/quadlets/recipes';
+	} from '#lib/hosts/quadlets/recipes.js';
 
 	type PageData = {
 		host: HostSummary;

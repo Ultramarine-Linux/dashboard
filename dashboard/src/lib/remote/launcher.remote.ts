@@ -1,7 +1,7 @@
 import { command } from '$app/server';
 import { type } from 'arktype';
-import { requireAdmin, requireUser, tetraCall } from '$lib/server/session';
-import type { LauncherEntry, LauncherVisibility } from '$lib/permissions';
+import { requireAdmin, requireUser, tetraCall } from '#lib/server/session.js';
+import type { LauncherEntry, LauncherVisibility } from '#lib/permissions.js';
 
 /** The Services page: only the entries Tetra says this user can see. */
 export const listLauncherEntries = command(async (): Promise<LauncherEntry[]> => {

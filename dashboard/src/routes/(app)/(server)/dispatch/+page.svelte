@@ -1,14 +1,17 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { dispatchManagedHostCommand, type HostSummary } from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
+	import { t } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import {
+		dispatchManagedHostCommand,
+		type HostSummary
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Send from '~icons/lucide/send';
-	import { parseHostCapabilities } from '$lib/hosts/capabilities';
+	import { parseHostCapabilities } from '#lib/hosts/capabilities.js';
 
 	type PageData = {
 		host: HostSummary;
