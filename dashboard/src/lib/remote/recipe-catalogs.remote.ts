@@ -1,8 +1,8 @@
 import { command } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
-import { requireAdmin } from '$lib/server/session';
-import { serverT } from '$lib/server/i18n';
+import { requireAdmin } from '#lib/server/session.js';
+import { serverT } from '#lib/server/i18n.js';
 import {
 	addRecipeCatalog as addCatalog,
 	CatalogError,
@@ -11,7 +11,7 @@ import {
 	refreshAllRecipeCatalogs,
 	refreshRecipeCatalog,
 	removeRecipeCatalog as removeCatalog
-} from '$lib/server/recipes';
+} from '#lib/server/recipes/index.js';
 
 const addParams = type({
 	url: 'string',

@@ -1,14 +1,14 @@
 import { fail, redirect, type RequestEvent } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { remoteAddress, safeRedirectTarget, setSessionCookie } from '$lib/server/session';
-import { Stash } from '$lib/server/stash';
+import { remoteAddress, safeRedirectTarget, setSessionCookie } from '#lib/server/session.js';
+import { Stash } from '#lib/server/stash.js';
 import {
 	getTetra,
 	isTetraError,
 	type AuthenticatedResult,
 	type SecondFactorMethod
-} from '$lib/server/tetra';
-import { serverT } from '$lib/server/i18n';
+} from '#lib/server/tetra/index.js';
+import { serverT } from '#lib/server/i18n.js';
 
 type PendingLogin = { pending: string; username: string; methods: SecondFactorMethod[] };
 

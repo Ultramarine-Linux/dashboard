@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MockTetra, totpCode } from './mock';
 import { TetraError, type AuthenticatedResult } from './protocol';
-import type { LauncherEntryInput, LauncherVisibility } from '$lib/permissions';
+import type { LauncherEntryInput, LauncherVisibility } from '#lib/permissions.js';
 
 const NOW = 1_800_000_000;
 const SECRET = 'JBSWY3DPEHPK3PXP';

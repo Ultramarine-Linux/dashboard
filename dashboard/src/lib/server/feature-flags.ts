@@ -1,4 +1,4 @@
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { error } from '@sveltejs/kit';
 import {
 	defaultFeatureFlags,
@@ -6,9 +6,9 @@ import {
 	featureFlagKeys,
 	type FeatureFlagKey,
 	type FeatureFlags
-} from '$lib/feature-flags';
-import { timingLog } from '$lib/server/observability';
-import { serverT } from '$lib/server/i18n';
+} from '#lib/feature-flags.js';
+import { timingLog } from '#lib/server/observability.js';
+import { serverT } from '#lib/server/i18n.js';
 
 let inMemoryFeatureFlags: FeatureFlags | null = null;
 

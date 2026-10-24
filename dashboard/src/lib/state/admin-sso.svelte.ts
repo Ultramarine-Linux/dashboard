@@ -1,14 +1,14 @@
 import { invalidate } from '$app/navigation';
 import { toast } from 'svelte-sonner';
-import { getErrorMessage } from '$lib/utils';
-import { t } from '$lib/i18n';
+import { getErrorMessage } from '#lib/utils.js';
+import { t } from '#lib/i18n/index.js';
 import {
 	createSsoClient,
 	deleteSsoClient,
 	rotateSsoClientSecret,
 	updateSsoClient,
 	type SsoClient
-} from '$lib/remote/sso-clients.remote';
+} from '#lib/remote/sso-clients.remote.js';
 
 export type AdminSsoPageData = {
 	ssoClients?: SsoClient[];

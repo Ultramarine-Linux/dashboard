@@ -5,7 +5,7 @@
  * only relays this JSON; Tetra creates and checks every challenge.
  */
 
-import { t } from '$lib/i18n';
+import { t } from '#lib/i18n/index.js';
 
 type JsonObject = Record<string, unknown>;
 type OptionsJson = { publicKey: JsonObject; mediation?: string };

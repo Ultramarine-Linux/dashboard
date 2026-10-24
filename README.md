@@ -78,7 +78,7 @@ nested JSON files in `dashboard/src/lib/i18n/langs`, one per BCP 47 locale
 them. `en.json` is the source of truth; other locales fall back to it key by
 key.
 
-- In components, `import { t, tn, formatDateTime } from '$lib/i18n'` and use
+- In components, `import { t, tn, formatDateTime } from '#lib/i18n/index.js'` and use
   `t('ns.key', { name })`, where `ns.key` is the dotted path into `en.json`
   and `{{name}}` is a placeholder in the string. Each placeholder may appear
   only once per string.
@@ -87,7 +87,7 @@ key.
   formatted number. Other languages add the CLDR forms they need (`_few`,
   `_many`, ...).
 - On the server (hooks, `load`, actions, remote functions), use
-  `serverT('ns.key')` from `$lib/server/i18n`.
+  `serverT('ns.key')` from `#lib/server/i18n.js`.
 - A key can't be both a string and a parent of other keys (use `x.label`).
 - New languages show up in **Account settings → Appearance → Language**. The
   locale is picked from the `locale` cookie, then `Accept-Language`, then

@@ -1,5 +1,5 @@
 import { error, type Cookies, type RequestEvent } from '@sveltejs/kit';
-import { dev } from '$app/environment';
+import { dev } from '$app/env';
 import { getRequestEvent } from '$app/server';
 import {
 	getTetra,
@@ -9,8 +9,8 @@ import {
 	type TetraOp,
 	type TetraParams,
 	type TetraResult
-} from '$lib/server/tetra';
-import { serverT } from '$lib/server/i18n';
+} from '#lib/server/tetra/index.js';
+import { serverT } from '#lib/server/i18n.js';
 
 /**
  * Tetra issues session tokens; the dashboard only keeps them in an httpOnly

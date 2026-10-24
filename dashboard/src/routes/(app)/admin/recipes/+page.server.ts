@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { listRecipeCatalogs } from '$lib/server/recipes';
+import { listRecipeCatalogs } from '#lib/server/recipes/index.js';
 
 export const load: PageServerLoad = async ({ depends }) => {
 	depends('app:recipes');

@@ -6,15 +6,20 @@
  * once read. Requests never wait on the network, except an administrator's
  * explicit refresh or add.
  */
-import { dev } from '$app/environment';
-import { env } from '$env/dynamic/private';
+import { dev } from '$app/env';
+import {
+	RECIPES_REFRESH_INTERVAL,
+	RECIPES_URL,
+	UM_DASHBOARD_RECIPES_SEED_DIR,
+	UM_DASHBOARD_STATE_DIR
+} from '$app/env/private';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { asc, eq } from 'drizzle-orm';
-import { initDrizzle } from '$lib/server/db';
-import { recipeCatalogs } from '$lib/server/db/schema';
-import { resolveStateDir } from '$lib/server/runtime-secret';
-import { accessibilityFixtureEnabled } from '$lib/server/accessibility-fixtures';
+import { initDrizzle } from '#lib/server/db/index.js';
+import { recipeCatalogs } from '#lib/server/db/schema.js';
+import { resolveStateDir } from '#lib/server/runtime-secret.js';
+import { accessibilityFixtureEnabled } from '#lib/server/accessibility-fixtures.js';
 import {
 	categoryName,
 	localizeRecipe,
@@ -25,8 +30,8 @@ import {
 	type RecipeCatalogSummary,
 	type RecipeDefinition,
 	type RecipeTier
-} from '$lib/apps/catalog';
-import type { HostAppManifest } from '$lib/apps/types';
+} from '#lib/apps/catalog.js';
+import type { HostAppManifest } from '#lib/apps/types.js';
 import {
 	CatalogError,
 	DEFAULT_RECIPES_URL,
@@ -49,7 +54,7 @@ import {
 import { FIXTURE_CATALOG_URL, fixtureCatalog } from './fixtures';
 
 export { CatalogError } from './core';
-export type { RecipeCatalogSummary } from '$lib/apps/catalog';
+export type { RecipeCatalogSummary } from '#lib/apps/catalog.js';
 
 /** The built-in Fyra Labs catalog. */
 export const FYRA_CATALOG_ID = 'fyra';
@@ -88,10 +93,7 @@ const shutdown = new AbortController();
 let warnedUrl = false;
 
 function recipesDir() {
-	return join(
-		resolveStateDir({ stateDir: env.UM_DASHBOARD_STATE_DIR, development: dev }),
-		'recipes'
-	);
+	return join(resolveStateDir({ stateDir: UM_DASHBOARD_STATE_DIR, development: dev }), 'recipes');
 }
 
 function catalogDir(id: string) {
@@ -99,7 +101,7 @@ function catalogDir(id: string) {
 }
 
 function builtinUrl(): string {
-	const configured = env.RECIPES_URL?.trim();
+	const configured = RECIPES_URL?.trim();
 	if (!configured) return DEFAULT_RECIPES_URL;
 	try {
 		return normalizeCatalogUrl(configured, { allowHttp: dev });
@@ -113,7 +115,7 @@ function builtinUrl(): string {
 }
 
 /** Minutes between background refreshes; 0 disables them. */
-export function refreshIntervalMinutes(value = env.RECIPES_REFRESH_INTERVAL): number {
+export function refreshIntervalMinutes(value = RECIPES_REFRESH_INTERVAL): number {
 	if (value === undefined || value.trim() === '') return DEFAULT_REFRESH_MINUTES;
 	const minutes = Number(value);
 	if (!Number.isFinite(minutes) || minutes < 0) {
@@ -422,7 +424,7 @@ type SchedulerGlobal = { [scheduler]?: ReturnType<typeof setInterval> };
  */
 export async function startRecipeCatalogs(target: NodeJS.EventEmitter = process) {
 	if (accessibilityFixtureEnabled) return;
-	const seedDir = env.UM_DASHBOARD_RECIPES_SEED_DIR?.trim();
+	const seedDir = UM_DASHBOARD_RECIPES_SEED_DIR?.trim();
 	if (seedDir) {
 		try {
 			if (

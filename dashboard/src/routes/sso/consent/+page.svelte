@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Button } from '$lib/components/ui/button';
-	import { t, type TranslationKey } from '$lib/i18n';
-	import { dashboardBrand, pageTitle } from '$lib/branding';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { t, type TranslationKey } from '#lib/i18n/index.js';
+	import { dashboardBrand, pageTitle } from '#lib/branding.js';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();

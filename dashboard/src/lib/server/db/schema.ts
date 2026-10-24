@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
-import { ulid } from '$lib/server/id';
+import { ulid } from '#lib/server/id.js';
 
 export * from './auth.schema';
 

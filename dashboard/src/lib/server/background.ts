@@ -1,5 +1,5 @@
 import { getRequestEvent } from '$app/server';
-import { instrument } from '$lib/server/observability';
+import { instrument } from '#lib/server/observability.js';
 
 export function runInBackground(work: Promise<unknown>, label?: string) {
 	const event = getRequestEvent();

@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
 	import { toast } from 'svelte-sonner';
-	import { formatDateTime, t, tn } from '$lib/i18n';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { confirmDestructive } from '$lib/confirm.svelte';
+	import { formatDateTime, t, tn } from '#lib/i18n/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { confirmDestructive } from '#lib/confirm.svelte.js';
 	import {
 		addRecipeCatalog,
 		refreshRecipeCatalogs,
 		removeRecipeCatalog
-	} from '$lib/remote/recipe-catalogs.remote';
-	import type { RecipeCatalogSummary } from '$lib/apps/catalog';
-	import { getErrorMessage } from '$lib/utils';
+	} from '#lib/remote/recipe-catalogs.remote.js';
+	import type { RecipeCatalogSummary } from '#lib/apps/catalog.js';
+	import { getErrorMessage } from '#lib/utils.js';
 	import AlertTriangle from '~icons/nucleo/alert-triangle';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';

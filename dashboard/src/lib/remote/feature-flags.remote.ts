@@ -1,7 +1,7 @@
 import { command } from '$app/server';
 import { type } from 'arktype';
-import { requireAdmin } from '$lib/server/session';
-import { setFeatureFlag } from '$lib/server/feature-flags';
+import { requireAdmin } from '#lib/server/session.js';
+import { setFeatureFlag } from '#lib/server/feature-flags.js';
 
 const updateFeatureFlagParams = type({
 	flag: "'apps'",

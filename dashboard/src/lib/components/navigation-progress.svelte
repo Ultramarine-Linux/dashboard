@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { navigating } from '$app/state';
-	import { t } from '$lib/i18n';
+	import { t } from '#lib/i18n/index.js';
 
 	const APPEAR_DELAY_MS = 120;
 	const TRICKLE_INTERVAL_MS = 200;

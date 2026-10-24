@@ -2,9 +2,9 @@ import type {
 	ManagedHostQuadletDetail,
 	ManagedHostQuadletResource,
 	ManagedHostQuadletScope
-} from '$lib/remote/managed-hosts.remote';
+} from '#lib/remote/managed-hosts.remote.js';
 import { parse as parseYaml } from 'yaml';
-import { t, type TranslationKey } from '$lib/i18n';
+import { t, type TranslationKey } from '#lib/i18n/index.js';
 
 export type NginxSiteOptions = {
 	appId: string;

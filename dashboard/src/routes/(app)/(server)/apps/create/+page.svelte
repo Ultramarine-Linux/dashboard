@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { formatNumber, t, tn } from '$lib/i18n';
+	import { formatNumber, t, tn } from '#lib/i18n/index.js';
 	import { goto, invalidate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { recipeKey, type AppRecipe, type RecipeCatalogKind } from '$lib/apps/catalog';
+	import { recipeKey, type AppRecipe, type RecipeCatalogKind } from '#lib/apps/catalog.js';
 	import {
 		defaultRecipeValues,
 		isValidAppName,
@@ -10,25 +10,25 @@
 		validateRecipeValues,
 		valuesForSubmit,
 		type AppValueMap
-	} from '$lib/apps/params';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import Icon from '$lib/components/icon.svelte';
+	} from '#lib/apps/params.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import Icon from '#lib/components/icon.svelte';
 	import {
 		createManagedHostApp,
 		type HostSummary,
 		type ManagedHostAppWriteResult,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { refreshRecipeCatalogs } from '$lib/remote/recipe-catalogs.remote';
-	import { getErrorMessage } from '$lib/utils';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { refreshRecipeCatalogs } from '#lib/remote/recipe-catalogs.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import RefreshCw from '~icons/lucide/refresh-cw';
-	import { parseHostCapabilities } from '$lib/hosts/capabilities';
-	import AppCookResult from '$lib/hosts/apps/AppCookResult.svelte';
-	import AppValuesForm from '$lib/hosts/apps/AppValuesForm.svelte';
+	import { parseHostCapabilities } from '#lib/hosts/capabilities.js';
+	import AppCookResult from '#lib/hosts/apps/AppCookResult.svelte';
+	import AppValuesForm from '#lib/hosts/apps/AppValuesForm.svelte';
 
 	type PageData = {
 		host: HostSummary;

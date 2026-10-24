@@ -1,9 +1,9 @@
 import { command, getRequestEvent } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
-import { requireUser, tetraCall } from '$lib/server/session';
-import type { PasskeySummary, WebAuthnOptionsJson } from '$lib/server/tetra';
-import { serverT } from '$lib/server/i18n';
+import { requireUser, tetraCall } from '#lib/server/session.js';
+import type { PasskeySummary, WebAuthnOptionsJson } from '#lib/server/tetra/index.js';
+import { serverT } from '#lib/server/i18n.js';
 
 export type AccountSecurity = {
 	totpEnrolled: boolean;

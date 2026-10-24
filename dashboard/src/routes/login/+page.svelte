@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { enhance, deserialize } from '$app/forms';
-	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { applyAction, enhance, deserialize, type SubmitFunction } from '$app/forms';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import AlertCircle from '~icons/nucleo/alert-circle';
 	import Eye from '~icons/nucleo/eye';
@@ -10,15 +9,14 @@
 	import Fingerprint from '~icons/nucleo/fingerprint';
 	import ShieldCheck from '~icons/nucleo/shield-check';
 	import type { ActionData, PageData } from './$types';
-	import type { SubmitFunction } from '@sveltejs/kit';
-	import { t } from '$lib/i18n';
-	import { dashboardBrand, pageTitle } from '$lib/branding';
+	import { t } from '#lib/i18n/index.js';
+	import { dashboardBrand, pageTitle } from '#lib/branding.js';
 	import {
 		assertionToJson,
 		passkeysSupported,
 		requestOptionsFromJson,
 		webAuthnErrorMessage
-	} from '$lib/webauthn';
+	} from '#lib/webauthn.js';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -64,12 +62,14 @@
 				passkeyError =
 					(begin.type === 'failure' && (begin.data?.error as string)) ||
 					t('login.passkeyStartFailed');
+
 				return;
 			}
 
 			const credential = (await navigator.credentials.get(
 				requestOptionsFromJson(begin.data.options as Parameters<typeof requestOptionsFromJson>[0])
 			)) as PublicKeyCredential | null;
+
 			if (!credential) {
 				passkeyError = t('login.passkeyNoneSelected');
 				return;
@@ -80,9 +80,11 @@
 			body.set('redirectTo', data.redirectTo);
 			const result = await postAction('passkeyFinish', body);
 			if (result.type === 'redirect') {
-				await goto(result.location, { invalidateAll: true });
+				// Like an enhanced form; goto would reject `/`, which is an endpoint.
+				await applyAction(result);
 				return;
 			}
+
 			passkeyError =
 				(result.type === 'failure' && (result.data?.error as string)) ||
 				t('login.passkeySignInFailed');

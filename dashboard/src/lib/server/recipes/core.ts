@@ -1,7 +1,7 @@
 /**
  * Recipe catalog fetching, verification and on-disk cache.
  *
- * This file only imports Node builtins; keep it free of `$lib` imports so it
+ * This file only imports Node builtins; keep it free of `#lib` imports so it
  * stays easy to test in isolation.
  *
  * A catalog is published as `<base>/index.json` plus one content-addressed

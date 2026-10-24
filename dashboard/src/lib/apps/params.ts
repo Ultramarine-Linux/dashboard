@@ -4,8 +4,8 @@
  * validation that blocks cook until required fields are filled, and
  * conversion into the typed `values` map sent to the agent.
  */
-import { t } from '$lib/i18n';
-import type { AppRecipeParameter } from './catalog';
+import { t } from '#lib/i18n/index.js';
+import type { AppRecipeParameter } from './catalog.js';
 
 /** Only the parameters matter here: catalog recipes and installed apps' recipes both work. */
 type RecipeParameters = { parameters: AppRecipeParameter[] };

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
-	import { Button } from '$lib/components/ui/button';
-	import type { ManagedHostAppWriteResult } from '$lib/remote/managed-hosts.remote';
+	import { t } from '#lib/i18n/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import type { ManagedHostAppWriteResult } from '#lib/remote/managed-hosts.remote.js';
 	import ChevronDown from '~icons/lucide/chevron-down';
 	import ChevronUp from '~icons/lucide/chevron-up';
 	import type { Snippet } from 'svelte';

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { formatDateTime, t, tn } from '$lib/i18n';
+	import { formatDateTime, t, tn } from '#lib/i18n/index.js';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button } from '$lib/components/ui/button';
-	import SegmentedControl from '$lib/components/segmented-control.svelte';
-	import StatusBadge from '$lib/components/status-badge.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import SegmentedControl from '#lib/components/segmented-control.svelte';
+	import StatusBadge from '#lib/components/status-badge.svelte';
 	import {
 		listManagedHostApps,
 		type HostSummary,
 		type ManagedHostAppListItem,
 		type ManagedHostQuadletScope
-	} from '$lib/remote/managed-hosts.remote';
-	import { getErrorMessage } from '$lib/utils';
+	} from '#lib/remote/managed-hosts.remote.js';
+	import { getErrorMessage } from '#lib/utils.js';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';
 	import RefreshCw from '~icons/lucide/refresh-cw';
@@ -56,9 +56,8 @@
 	function setScope(nextScope: ManagedHostQuadletScope) {
 		scope = nextScope;
 		goto(`/apps?scope=${nextScope}`, {
-			replaceState: true,
-			keepFocus: true,
-			noScroll: true
+			replace: true,
+			reset: false
 		});
 	}
 

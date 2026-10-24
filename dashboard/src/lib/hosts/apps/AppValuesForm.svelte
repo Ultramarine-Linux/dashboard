@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
-	import type { AppRecipeParameter } from '$lib/apps/catalog';
-	import type { AppValueMap } from '$lib/apps/params';
-	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
-	import { Switch } from '$lib/components/ui/switch';
+	import { t } from '#lib/i18n/index.js';
+	import type { AppRecipeParameter } from '#lib/apps/catalog.js';
+	import type { AppValueMap } from '#lib/apps/params.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Label } from '#lib/components/ui/label/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
 
 	let {
 		recipe,

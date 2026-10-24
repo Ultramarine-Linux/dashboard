@@ -6,7 +6,7 @@
  * Services page is written against; the mock implements them until Tetra does.
  */
 
-import type { LauncherEntry, LauncherEntryInput, Permissions } from '$lib/permissions';
+import type { LauncherEntry, LauncherEntryInput, Permissions } from '#lib/permissions.js';
 
 export const TETRA_PROTOCOL_VERSION = '2026-10-session-v1';
 

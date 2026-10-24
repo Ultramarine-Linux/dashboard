@@ -2,14 +2,14 @@
  * App recipes as the pages see them, and the pure helpers that build them.
  *
  * Recipe catalogs (the Fyra Labs one and any an administrator adds) are
- * fetched and cached by the server (`$lib/server/recipes`). Pages get
+ * fetched and cached by the server (`#lib/server/recipes`). Pages get
  * recipes already translated into the request's locale from a `load`
  * function, without the recipe YAML or templates: those only travel from the
  * server to Tetra, in `apps.create`.
  *
  * Recipe text (names, descriptions, parameter labels, placeholders, choice
  * labels and category names) is translated in the recipe catalogs, not in
- * `$lib/i18n/langs`.
+ * `#lib/i18n/langs`.
  */
 import { parse } from 'yaml';
 

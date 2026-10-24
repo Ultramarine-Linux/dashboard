@@ -1,14 +1,14 @@
 import { command, query } from '$app/server';
 import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
-import { requireAdmin, requireUser, tetraCall } from '$lib/server/session';
-import { isTetraError } from '$lib/server/tetra';
+import { requireAdmin, requireUser, tetraCall } from '#lib/server/session.js';
+import { isTetraError } from '#lib/server/tetra/index.js';
 import {
 	accessibilityFixtureEnabled,
 	accessibilityFixtureHost
-} from '$lib/server/accessibility-fixtures';
-import type { RecipeDefinition } from '$lib/apps/catalog';
-import { isValidAppName } from '$lib/apps/params';
+} from '#lib/server/accessibility-fixtures.js';
+import type { RecipeDefinition } from '#lib/apps/catalog.js';
+import { isValidAppName } from '#lib/apps/params.js';
 import {
 	parseAppDetailResponse,
 	parseAppSummaries,
@@ -17,10 +17,14 @@ import {
 	type HostAppFileEntry,
 	type HostAppManifest,
 	type HostServiceState
-} from '$lib/apps/types';
-import { requestLocale, serverT } from '$lib/server/i18n';
-import { recipeDisplayNames, recipeForInstall, recipeForManifest } from '$lib/server/recipes';
-import { fixtureCatalog, FIXTURE_CATALOG_URL } from '$lib/server/recipes/fixtures';
+} from '#lib/apps/types.js';
+import { requestLocale, serverT } from '#lib/server/i18n.js';
+import {
+	recipeDisplayNames,
+	recipeForInstall,
+	recipeForManifest
+} from '#lib/server/recipes/index.js';
+import { fixtureCatalog, FIXTURE_CATALOG_URL } from '#lib/server/recipes/fixtures.js';
 
 /** A module action's outcome, as the pages expect it. */
 export type AgentResponse = {
