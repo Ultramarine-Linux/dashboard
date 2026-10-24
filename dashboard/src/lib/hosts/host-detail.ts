@@ -11,6 +11,7 @@ import Network from '~icons/nucleo/network';
 import type { IconComponent } from '$lib';
 import type { FeatureFlags } from '$lib/feature-flags';
 import { canAccessRoute, type Permissions } from '$lib/permissions';
+import type { TranslationKey } from '$lib/i18n';
 
 export type HostTab =
 	| 'services'
@@ -26,27 +27,27 @@ export type HostTab =
 
 export type HostTabGroup = 'workloads' | 'system';
 
-export const hostTabGroups: { id: HostTabGroup; label: string }[] = [
-	{ id: 'workloads', label: 'Workloads' },
-	{ id: 'system', label: 'System' }
+export const hostTabGroups: { id: HostTabGroup; labelKey: TranslationKey }[] = [
+	{ id: 'workloads', labelKey: 'nav.workloads' },
+	{ id: 'system', labelKey: 'nav.system' }
 ];
 
 export const hostTabs: {
 	id: HostTab;
-	label: string;
+	labelKey: TranslationKey;
 	icon: IconComponent;
 	group: HostTabGroup;
 }[] = [
-	{ id: 'services', label: 'Services', icon: Layers, group: 'workloads' },
-	{ id: 'apps', label: 'Apps', icon: Grid, group: 'workloads' },
-	{ id: 'podman', label: 'Podman', icon: Box, group: 'workloads' },
-	{ id: 'quadlets', label: 'Quadlets', icon: FileText, group: 'workloads' },
-	{ id: 'proxy', label: 'Reverse Proxy', icon: Globe, group: 'workloads' },
-	{ id: 'overview', label: 'Overview', icon: Activity, group: 'system' },
-	{ id: 'users', label: 'Users', icon: User, group: 'system' },
-	{ id: 'storage', label: 'Storage', icon: Server, group: 'system' },
-	{ id: 'network', label: 'Network', icon: Network, group: 'system' },
-	{ id: 'dispatch', label: 'Dispatch', icon: Send, group: 'system' }
+	{ id: 'services', labelKey: 'nav.services', icon: Layers, group: 'workloads' },
+	{ id: 'apps', labelKey: 'nav.apps', icon: Grid, group: 'workloads' },
+	{ id: 'podman', labelKey: 'nav.podman', icon: Box, group: 'workloads' },
+	{ id: 'quadlets', labelKey: 'nav.quadlets', icon: FileText, group: 'workloads' },
+	{ id: 'proxy', labelKey: 'nav.proxy', icon: Globe, group: 'workloads' },
+	{ id: 'overview', labelKey: 'nav.overview', icon: Activity, group: 'system' },
+	{ id: 'users', labelKey: 'nav.users', icon: User, group: 'system' },
+	{ id: 'storage', labelKey: 'nav.storage', icon: Server, group: 'system' },
+	{ id: 'network', labelKey: 'nav.network', icon: Network, group: 'system' },
+	{ id: 'dispatch', labelKey: 'nav.dispatch', icon: Send, group: 'system' }
 ];
 
 export type HostTabHref =

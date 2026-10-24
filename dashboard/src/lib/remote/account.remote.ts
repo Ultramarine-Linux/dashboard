@@ -3,6 +3,7 @@ import { error } from '@sveltejs/kit';
 import { type } from 'arktype';
 import { requireUser, tetraCall } from '$lib/server/session';
 import type { PasskeySummary, WebAuthnOptionsJson } from '$lib/server/tetra';
+import { serverT } from '$lib/server/i18n';
 
 export type AccountSecurity = {
 	totpEnrolled: boolean;
@@ -41,7 +42,7 @@ const passkeyRegistrations = new Map<string, { ceremony: string; expiresAt: numb
 
 function sessionKey() {
 	const { locals } = getRequestEvent();
-	if (!locals.session) error(401, 'Authentication required');
+	if (!locals.session) error(401, serverT('errors.authRequired'));
 	return locals.session.id;
 }
 
@@ -72,7 +73,7 @@ export const confirmTotpEnrollment = command(codeParams, async ({ code }) => {
 	const pending = totpEnrollments.get(key);
 	if (!pending || pending.expiresAt <= Date.now()) {
 		totpEnrollments.delete(key);
-		error(400, 'The setup expired. Start again.');
+		error(400, serverT('errors.setupExpired'));
 	}
 	const result = await tetraCall('account.totp_confirm', {
 		enrollment: pending.enrollment,
@@ -87,7 +88,7 @@ const verificationParams = type({ method: "'totp' | 'recovery_code'", code: 'str
 
 function verification(params: { method: 'totp' | 'recovery_code'; code: string }) {
 	const code = params.code.trim();
-	if (!code) error(400, 'Enter a code.');
+	if (!code) error(400, serverT('errors.enterCode'));
 	return params.method === 'recovery_code'
 		? { recovery_code: code }
 		: { code: code.replace(/\s/g, '') };
@@ -126,12 +127,12 @@ export const finishPasskeyRegistration = command(
 	async ({ name, credentialJson }) => {
 		requireUser();
 		const pending = takeFresh(passkeyRegistrations, sessionKey());
-		if (!pending) error(400, 'The passkey request expired. Try again.');
+		if (!pending) error(400, serverT('errors.passkeyExpired'));
 		let credential: unknown;
 		try {
 			credential = JSON.parse(credentialJson);
 		} catch {
-			error(400, 'The browser returned an invalid passkey response.');
+			error(400, serverT('errors.passkeyInvalidResponse'));
 		}
 		return tetraCall('account.passkey_register_finish', {
 			ceremony: pending.ceremony,

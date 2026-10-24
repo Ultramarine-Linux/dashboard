@@ -4,6 +4,7 @@ import type {
 	ManagedHostQuadletScope
 } from '$lib/remote/managed-hosts.remote';
 import { parse as parseYaml } from 'yaml';
+import { t, type TranslationKey } from '$lib/i18n';
 
 export type NginxSiteOptions = {
 	appId: string;
@@ -35,8 +36,8 @@ export type ComposeOptions = {
 
 export type QuadletRecipeOption = {
 	id: 'nginx-site' | 'nextcloud' | 'compose';
-	name: string;
-	description: string;
+	nameKey: TranslationKey;
+	descriptionKey: TranslationKey;
 	category: string;
 };
 
@@ -48,20 +49,20 @@ export type RecipeDetail = ManagedHostQuadletDetail & {
 export const quadletRecipeOptions: QuadletRecipeOption[] = [
 	{
 		id: 'nginx-site',
-		name: 'Nginx static site',
-		description: 'Serve mutable site files with a Quadlet-managed nginx container.',
+		nameKey: 'quadlets.recipes.nginxSite.name',
+		descriptionKey: 'quadlets.recipes.nginxSite.description',
 		category: 'Web'
 	},
 	{
 		id: 'nextcloud',
-		name: 'Nextcloud',
-		description: 'Run Nextcloud with MariaDB, optional Redis, managed volumes, and web defaults.',
+		nameKey: 'quadlets.recipes.nextcloud.name',
+		descriptionKey: 'quadlets.recipes.nextcloud.description',
 		category: 'Apps'
 	},
 	{
 		id: 'compose',
-		name: 'Compose specification',
-		description: 'Paste a Compose file and generate equivalent Quadlet container resources.',
+		nameKey: 'quadlets.recipes.compose.name',
+		descriptionKey: 'quadlets.recipes.compose.description',
 		category: 'Import'
 	}
 ];
@@ -129,7 +130,7 @@ export function validateComposeOptions(options: ComposeOptions): string {
 		if (compose.error) return compose.error;
 		return '';
 	} catch (err) {
-		return err instanceof Error ? err.message : 'Compose YAML could not be parsed.';
+		return err instanceof Error ? err.message : t('quadlets.recipes.compose.parseFailed');
 	}
 }
 
@@ -481,19 +482,20 @@ type ComposeVolume =
 	  };
 
 function parseCompose(text: string): { compose?: ComposeSpec; error: string } {
-	if (!text.trim()) return { error: 'Paste a Compose specification.' };
+	if (!text.trim()) return { error: t('quadlets.recipes.compose.empty') };
 	const value = parseYaml(text) as unknown;
-	if (!isRecord(value)) return { error: 'Compose YAML must be a mapping.' };
+	if (!isRecord(value)) return { error: t('quadlets.recipes.compose.notMapping') };
 	if (!isRecord(value.services) || Object.keys(value.services).length === 0) {
-		return { error: 'Compose YAML must define at least one service.' };
+		return { error: t('quadlets.recipes.compose.noServices') };
 	}
 
 	const services: Record<string, ComposeService> = {};
 	for (const [name, service] of Object.entries(value.services)) {
-		if (!isRecord(service)) return { error: `Service "${name}" must be a mapping.` };
+		if (!isRecord(service))
+			return { error: t('quadlets.recipes.compose.serviceNotMapping', { name }) };
 		if (typeof service.image !== 'string' || !service.image.trim()) {
 			return {
-				error: `Service "${name}" needs an image. Compose build-only services are not converted yet.`
+				error: t('quadlets.recipes.compose.serviceNeedsImage', { name })
 			};
 		}
 		services[name] = {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { t, tn, formatDateTime } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
@@ -103,9 +104,7 @@
 	}
 
 	function formatDate(date: Date) {
-		return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-			date
-		);
+		return formatDateTime(date);
 	}
 </script>
 
@@ -113,12 +112,12 @@
 	<div class="flex flex-col gap-5 p-5">
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<div>
-				<h1 class="text-xl font-semibold tracking-tight text-foreground">SSO Clients</h1>
+				<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('admin.sso.title')}</h1>
 				<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
-					Manage OpenID Connect clients for services hosted on your Ultramarine server.
+					{t('admin.sso.subtitle')}
 				</p>
 				<p class="mt-2 text-xs text-muted-foreground">
-					Issuer URL:
+					{t('admin.sso.issuerUrl')}
 					<code class="border border-border bg-muted/30 px-1.5 py-0.5 text-foreground">
 						/api/auth
 					</code>
@@ -131,7 +130,8 @@
 				onclick={startCreate}
 				disabled={creating || editingId !== null}
 			>
-				<Plus class="size-3.5" /> New client
+				<Plus class="size-3.5" />
+				{t('admin.sso.newClient')}
 			</Button>
 		</div>
 
@@ -147,13 +147,16 @@
 			<div class="border border-amber-700/60 bg-amber-950/40 p-4">
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<p class="text-sm font-medium text-amber-200">Copy this client secret now</p>
+						<p class="text-sm font-medium text-amber-200">{t('admin.sso.secretTitle')}</p>
 						<p class="mt-1 text-xs text-amber-100/80">
-							For security, the dashboard will not show this secret again.
+							{t('admin.sso.secretHint')}
 						</p>
 					</div>
 					<Button variant="outline" size="sm" class="gap-1.5" onclick={copySecret}>
-						{#if copiedSecret}<Check class="size-3.5" /> Copied{:else}<Copy class="size-3.5" /> Copy{/if}
+						{#if copiedSecret}<Check class="size-3.5" /> {t('common.copied')}{:else}<Copy
+								class="size-3.5"
+							/>
+							{t('common.copy')}{/if}
 					</Button>
 				</div>
 				<code
@@ -168,10 +171,10 @@
 			<div class="border border-border/60 bg-background/30 p-4">
 				<div class="mb-4">
 					<h2 class="text-sm font-semibold text-foreground">
-						{editingId ? 'Edit SSO client' : 'Create SSO client'}
+						{editingId ? t('admin.sso.editTitle') : t('admin.sso.createTitle')}
 					</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Use one redirect URL per line. Client secrets are generated automatically.
+						{t('admin.sso.formHint')}
 					</p>
 				</div>
 
@@ -183,39 +186,39 @@
 					}}
 				>
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground">
-						Name
+						{t('admin.sso.fieldName')}
 						<Input bind:value={form.name} placeholder="Grafana" required />
 					</label>
 
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground">
-						Client ID
+						{t('admin.sso.fieldClientId')}
 						<Input
 							bind:value={form.clientId}
-							placeholder="Auto-generated"
+							placeholder={t('admin.sso.clientIdPlaceholder')}
 							disabled={editingId !== null}
 						/>
 					</label>
 
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground">
-						Client type
+						{t('admin.sso.fieldClientType')}
 						<select
 							bind:value={form.type}
 							class="h-8 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
 						>
-							<option value="web">Web</option>
-							<option value="public">Public</option>
-							<option value="native">Native</option>
-							<option value="user-agent-based">User agent based</option>
+							<option value="web">{t('admin.sso.typeWeb')}</option>
+							<option value="public">{t('admin.sso.typePublic')}</option>
+							<option value="native">{t('admin.sso.typeNative')}</option>
+							<option value="user-agent-based">{t('admin.sso.typeUserAgentBased')}</option>
 						</select>
 					</label>
 
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground">
-						Icon URL
+						{t('admin.sso.fieldIconUrl')}
 						<Input bind:value={form.icon} placeholder="https://service.example/icon.svg" />
 					</label>
 
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground lg:col-span-2">
-						Redirect URLs
+						{t('admin.sso.fieldRedirectUrls')}
 						<textarea
 							bind:value={form.redirectUrls}
 							class="min-h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
@@ -224,7 +227,7 @@
 					</label>
 
 					<label class="space-y-1.5 text-xs font-medium text-muted-foreground lg:col-span-2">
-						Metadata JSON
+						{t('admin.sso.fieldMetadata')}
 						<textarea
 							bind:value={form.metadata}
 							class="min-h-16 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
@@ -233,13 +236,14 @@
 
 					<div class="flex items-center gap-2 lg:col-span-2">
 						<Switch bind:checked={form.disabled} />
-						<span class="text-sm text-foreground">Disabled</span>
+						<span class="text-sm text-foreground">{t('common.disabled')}</span>
 					</div>
 
 					<div class="flex items-center justify-end gap-2 lg:col-span-2">
-						<Button type="button" variant="outline" onclick={resetForm}>Cancel</Button>
+						<Button type="button" variant="outline" onclick={resetForm}>{t('common.cancel')}</Button
+						>
 						<Button type="submit" loading={admin.ssoClientSaving[editingId ?? 'create']}>
-							{editingId ? 'Save changes' : 'Create client'}
+							{editingId ? t('admin.sso.saveChanges') : t('admin.sso.createClient')}
 						</Button>
 					</div>
 				</form>
@@ -250,11 +254,11 @@
 			<table class="w-full text-left text-sm">
 				<thead class="border-b border-border/60 bg-muted/30 text-xs text-muted-foreground">
 					<tr>
-						<th class="px-4 py-2 font-medium">Client</th>
-						<th class="px-4 py-2 font-medium">Redirect URLs</th>
-						<th class="px-4 py-2 font-medium">State</th>
-						<th class="px-4 py-2 font-medium">Usage</th>
-						<th class="px-4 py-2 text-right font-medium">Actions</th>
+						<th class="px-4 py-2 font-medium">{t('admin.sso.colClient')}</th>
+						<th class="px-4 py-2 font-medium">{t('admin.sso.fieldRedirectUrls')}</th>
+						<th class="px-4 py-2 font-medium">{t('admin.sso.colState')}</th>
+						<th class="px-4 py-2 font-medium">{t('admin.sso.colUsage')}</th>
+						<th class="px-4 py-2 text-right font-medium">{t('common.actions')}</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-border/50">
@@ -265,7 +269,7 @@
 									<p class="font-medium text-foreground">{client.name}</p>
 									<p class="font-mono text-xs text-muted-foreground">{client.clientId}</p>
 									<p class="text-[11px] text-muted-foreground">
-										Created {formatDate(client.createdAt)}
+										{t('admin.sso.created', { date: formatDate(client.createdAt) })}
 									</p>
 								</div>
 							</td>
@@ -279,17 +283,19 @@
 							<td class="px-4 py-3 align-top">
 								<div class="flex flex-col gap-1 text-xs">
 									<span class={client.disabled ? 'text-red-400' : 'text-emerald-400'}>
-										{client.disabled ? 'Disabled' : 'Enabled'}
+										{client.disabled ? t('common.disabled') : t('common.enabled')}
 									</span>
 									<span class="text-muted-foreground">{client.type}</span>
 									<span class="text-muted-foreground">
-										Secret {client.clientSecretSet ? 'set' : 'missing'}
+										{client.clientSecretSet
+											? t('admin.sso.secretSet')
+											: t('admin.sso.secretMissing')}
 									</span>
 								</div>
 							</td>
 							<td class="px-4 py-3 align-top text-xs text-muted-foreground">
-								<div>{client.accessTokenCount} token{client.accessTokenCount === 1 ? '' : 's'}</div>
-								<div>{client.consentCount} consent{client.consentCount === 1 ? '' : 's'}</div>
+								<div>{tn('admin.sso.tokens', client.accessTokenCount)}</div>
+								<div>{tn('admin.sso.consents', client.consentCount)}</div>
 							</td>
 							<td class="px-4 py-3 align-top">
 								<div class="flex justify-end gap-1.5">
@@ -297,7 +303,7 @@
 										variant="outline"
 										size="icon-sm"
 										onclick={() => startEdit(client)}
-										aria-label="Edit client"
+										aria-label={t('admin.sso.editClient')}
 									>
 										<Pencil class="size-3.5" />
 									</Button>
@@ -306,7 +312,7 @@
 										size="icon-sm"
 										loading={admin.ssoClientSaving[`rotate:${client.id}`]}
 										onclick={() => admin.rotateSsoClientSecret(client.id)}
-										aria-label="Rotate secret"
+										aria-label={t('admin.sso.rotateSecret')}
 									>
 										<RefreshCw class="size-3.5" />
 									</Button>
@@ -315,10 +321,10 @@
 										size="icon-sm"
 										loading={admin.ssoClientSaving[`delete:${client.id}`]}
 										onclick={() => {
-											if (confirm(`Delete SSO client ${client.name}?`))
+											if (confirm(t('admin.sso.confirmDelete', { name: client.name })))
 												admin.deleteSsoClient(client.id);
 										}}
-										aria-label="Delete client"
+										aria-label={t('admin.sso.deleteClient')}
 									>
 										<Trash class="size-3.5" />
 									</Button>
@@ -332,7 +338,7 @@
 
 		{#if sortedClients.length === 0}
 			<div class="rounded-md border border-border/60 p-8 text-center text-sm text-muted-foreground">
-				No SSO clients yet. Create one to connect services like Grafana, Gitea, or Jellyfin.
+				{t('admin.sso.empty')}
 			</div>
 		{/if}
 	</div>

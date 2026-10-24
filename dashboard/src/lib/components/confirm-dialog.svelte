@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { confirmController } from '$lib/confirm.svelte';
+	import { t } from '$lib/i18n';
 
 	let typed = $state('');
 
@@ -43,7 +44,7 @@
 	<div class="fixed inset-0 z-[100] flex items-center justify-center p-4">
 		<button
 			type="button"
-			aria-label="Cancel"
+			aria-label={t('common.cancel')}
 			class="absolute inset-0 bg-black/50"
 			onclick={() => decide(false)}
 		></button>
@@ -59,7 +60,9 @@
 			{#if needsWord}
 				<div class="mt-4 space-y-1.5">
 					<label for="confirm-name-input" class="block text-xs text-muted-foreground">
-						Type <span class="font-mono text-foreground">{req?.confirmWord}</span> to confirm
+						{t('confirm.typeBefore')}
+						<span class="font-mono text-foreground">{req?.confirmWord}</span>
+						{t('confirm.typeAfter')}
 					</label>
 					<Input
 						id="confirm-name-input"
@@ -74,7 +77,9 @@
 				</div>
 			{/if}
 			<div class="mt-5 flex justify-end gap-2">
-				<Button variant="outline" size="sm" onclick={() => decide(false)}>Cancel</Button>
+				<Button variant="outline" size="sm" onclick={() => decide(false)}
+					>{t('common.cancel')}</Button
+				>
 				<Button
 					id="confirm-ok-btn"
 					variant="destructive"
@@ -82,7 +87,7 @@
 					disabled={!canConfirm}
 					onclick={() => decide(true)}
 				>
-					{req?.confirmLabel ?? 'Delete'}
+					{req?.confirmLabel ?? t('common.delete')}
 				</Button>
 			</div>
 		</div>

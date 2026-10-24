@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import type { HostSummary } from '$lib/remote/managed-hosts.remote';
@@ -17,7 +18,7 @@
 	}
 
 	function formatOs(value: string | null | undefined) {
-		if (!value) return 'Unknown';
+		if (!value) return t('common.unknown');
 		const normalized = value.trim().toLowerCase();
 		if (normalized.includes('ultramarine')) return 'Ultramarine';
 		if (normalized === 'linux') return 'Linux';
@@ -33,20 +34,22 @@
 <div
 	class="min-h-0 flex-1 overflow-auto bg-background"
 	role="region"
-	aria-label="Host overview"
+	aria-label={t('overview.regionLabel')}
 	tabindex="0"
 >
 	<div class="grid border-b border-border bg-background lg:grid-cols-[320px_1fr]">
 		<section class="border-b border-border p-4 sm:p-6 lg:border-r lg:border-b-0">
-			<h1 class="text-xl font-semibold tracking-tight text-foreground">Host Details</h1>
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">
+				{t('overview.hostDetails')}
+			</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				This server, as reported by Tetra over its local socket.
+				{t('overview.hostDetailsDescription')}
 			</p>
 
 			<div class="mt-5 divide-y divide-border border border-border">
-				{#each [['Hostname', host.hostname ?? 'Unknown'], ['OS', formatOs(host.os)], ['Arch', host.arch ?? 'Unknown']] as [label, value] (label)}
+				{#each [['overview.hostname', host.hostname ?? t('common.unknown')], ['overview.os', formatOs(host.os)], ['overview.arch', host.arch ?? t('common.unknown')]] as const as [labelKey, value] (labelKey)}
 					<div class="flex items-center justify-between gap-4 px-4 py-3">
-						<span class="text-xs text-muted-foreground">{label}</span>
+						<span class="text-xs text-muted-foreground">{t(labelKey)}</span>
 						<span class="truncate text-right text-xs font-medium text-foreground">{value}</span>
 					</div>
 				{/each}
@@ -56,9 +59,9 @@
 		<section class="p-4 sm:p-6">
 			<div class="flex items-center justify-between gap-4">
 				<div>
-					<h2 class="text-sm font-semibold text-foreground">Capabilities</h2>
+					<h2 class="text-sm font-semibold text-foreground">{t('overview.capabilities')}</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Modules exposed by this Tetra agent via `agent.capabilities`.
+						{t('overview.capabilitiesDescription')}
 					</p>
 				</div>
 				<Button
@@ -71,7 +74,7 @@
 					<ChevronDown
 						class="size-3 transition-transform {showRawCapabilities ? 'rotate-180' : ''}"
 					/>
-					Raw JSON
+					{t('overview.rawJson')}
 				</Button>
 			</div>
 
@@ -115,9 +118,9 @@
 			{:else}
 				<div class="mt-4 border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
 					{#if parsed.raw}
-						No structured module list available. Showing the raw payload below.
+						{t('overview.noStructuredModules')}
 					{:else}
-						This agent reported no enabled modules.
+						{t('overview.noModules')}
 					{/if}
 				</div>
 			{/if}
@@ -126,7 +129,7 @@
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
 				<pre
 					role="region"
-					aria-label="Host capabilities JSON"
+					aria-label={t('overview.capabilitiesJsonLabel')}
 					tabindex="0"
 					class="mt-4 max-h-136 overflow-auto border border-border bg-muted/30 p-4 text-xs leading-relaxed text-foreground">{formatJson(
 						host.capabilities

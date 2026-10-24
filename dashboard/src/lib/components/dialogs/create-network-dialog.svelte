@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -20,25 +21,27 @@
 <Dialog.Root bind:open>
 	<Dialog.Content class="border-border bg-background sm:max-w-md">
 		<Dialog.Header>
-			<Dialog.Title>Create Private Network</Dialog.Title>
-			<Dialog.Description>Create an isolated network for your servers.</Dialog.Description>
+			<Dialog.Title>{t('dialogs.createNetworkTitle')}</Dialog.Title>
+			<Dialog.Description>{t('dialogs.createNetworkDescription')}</Dialog.Description>
 		</Dialog.Header>
 		<div class="flex flex-col gap-4 py-4">
 			<div class="flex flex-col gap-2">
-				<Label>Name</Label>
-				<Input bind:value={name} placeholder="my-network" />
+				<Label>{t('common.name')}</Label>
+				<Input bind:value={name} placeholder={t('dialogs.networkNamePlaceholder')} />
 			</div>
 			<div class="flex flex-col gap-2">
-				<Label>CIDR Block</Label>
+				<Label>{t('dialogs.cidrBlock')}</Label>
 				<Input bind:value={cidr} placeholder="10.0.0.0/16" />
 				<p class="text-xs text-muted-foreground">
-					Private IPv4 range. Must not overlap existing networks.
+					{t('dialogs.cidrHint')}
 				</p>
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Button variant="outline" size="sm" onclick={() => (open = false)}>Cancel</Button>
-			<Button size="sm" onclick={onSubmit} disabled={!name.trim()}>Create</Button>
+			<Button variant="outline" size="sm" onclick={() => (open = false)}
+				>{t('common.cancel')}</Button
+			>
+			<Button size="sm" onclick={onSubmit} disabled={!name.trim()}>{t('common.create')}</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

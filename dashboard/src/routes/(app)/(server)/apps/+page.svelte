@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatDateTime, t, tn } from '$lib/i18n';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getAppRecipe } from '$lib/apps/catalog';
@@ -46,7 +47,7 @@
 			if (requestKey === scope) apps = nextApps;
 		} catch (err) {
 			if (requestKey === scope) {
-				actionError = getErrorMessage(err, 'Failed to load apps.');
+				actionError = getErrorMessage(err, t('apps.loadFailed'));
 			}
 		} finally {
 			if (requestKey === scope) loading = false;
@@ -66,33 +67,38 @@
 		goto(`/apps/${encodeURIComponent(app.name)}?scope=${scope}`);
 	}
 
-	const scopeOptions: { value: ManagedHostQuadletScope; label: string }[] = [
-		{ value: 'user', label: 'User' },
-		{ value: 'system', label: 'System' }
-	];
+	const scopeOptions = $derived<{ value: ManagedHostQuadletScope; label: string }[]>([
+		{ value: 'user', label: t('apps.scopeUser') },
+		{ value: 'system', label: t('apps.scopeSystem') }
+	]);
 </script>
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-xl font-semibold tracking-tight text-foreground">Apps</h1>
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('apps.title')}</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				Cook recipes into installed apps and manage their lifecycle.
+				{t('apps.subtitle')}
 			</p>
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<SegmentedControl label="Scope" options={scopeOptions} value={scope} onchange={setScope} />
+			<SegmentedControl
+				label={t('apps.scope')}
+				options={scopeOptions}
+				value={scope}
+				onchange={setScope}
+			/>
 			<Button variant="outline" size="sm" class="gap-2" onclick={loadApps} disabled={loading}>
 				{#if loading}
 					<Loader2 class="size-3.5 animate-spin" />
 				{:else}
 					<RefreshCw class="size-3.5" />
 				{/if}
-				Refresh
+				{t('common.refresh')}
 			</Button>
 			<Button size="sm" class="gap-2" onclick={() => goto(`/apps/create?scope=${scope}`)}>
 				<Plus class="size-3.5" />
-				New app
+				{t('apps.newApp')}
 			</Button>
 		</div>
 	</div>
@@ -107,12 +113,12 @@
 		{#if loading && apps.length === 0}
 			<div class="flex items-center gap-2 p-4 text-xs text-muted-foreground">
 				<Loader2 class="size-3.5 animate-spin" />
-				Loading apps
+				{t('apps.loadingApps')}
 			</div>
 		{:else if apps.length === 0}
 			<div class="p-4 text-xs text-muted-foreground">
-				<p>No apps installed for this scope yet.</p>
-				<p class="mt-1">Use New app to cook one from a recipe.</p>
+				<p>{t('apps.emptyTitle')}</p>
+				<p class="mt-1">{t('apps.emptyHint')}</p>
 			</div>
 		{:else}
 			<div class="divide-y divide-border">
@@ -128,14 +134,14 @@
 								<StatusBadge status={app.status} />
 							</div>
 							<span class="shrink-0 text-xs text-muted-foreground">
-								Updated {new Date(app.updatedAt * 1000).toLocaleString()}
+								{t('apps.updatedAt', { date: formatDateTime(app.updatedAt * 1000) })}
 							</span>
 						</div>
 						<p class="mt-1 text-xs text-muted-foreground">
 							{getAppRecipe(app.recipeId)?.name ?? app.recipeId} · v{app.recipeVersion}
 						</p>
 						<p class="mt-1 text-xs text-muted-foreground">
-							{app.services.length === 1 ? '1 service' : `${app.services.length} services`}
+							{tn('apps.services', app.services.length)}
 							{#if app.services.length > 0}
 								— {app.services.map((service) => `${service.name} (${service.sub})`).join(', ')}
 							{/if}

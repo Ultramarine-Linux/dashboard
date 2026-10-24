@@ -14,6 +14,7 @@
 	import * as Command from '$lib/components/ui/command';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { dashboardBrand, pageTitle } from '$lib/branding';
+	import { t, type TranslationKey } from '$lib/i18n';
 	import type { FeatureFlags } from '$lib/feature-flags';
 	import type { IconComponent } from '$lib';
 	import {
@@ -47,21 +48,25 @@
 
 	const hostTabsForUser = $derived(visibleHostTabs(data.permissions, featureFlags));
 
-	const adminItems: NavItem[] = [
-		{ icon: Key, label: 'Single sign-on', href: '/admin/sso' },
-		{ icon: Flag, label: 'Feature flags', href: '/admin/features' }
+	const adminItems: { icon: IconComponent; labelKey: TranslationKey; href: NavHref }[] = [
+		{ icon: Key, labelKey: 'nav.sso', href: '/admin/sso' },
+		{ icon: Flag, labelKey: 'nav.features', href: '/admin/features' }
 	];
 
 	const navGroups = $derived.by<NavGroup[]>(() => {
 		const groups: NavGroup[] = hostTabGroups
 			.map((group) => ({
-				label: group.label,
+				label: t(group.labelKey),
 				items: hostTabsForUser
 					.filter((tab) => tab.group === group.id)
-					.map((tab) => ({ icon: tab.icon, label: tab.label, href: hostTabHref(tab.id) }))
+					.map((tab) => ({ icon: tab.icon, label: t(tab.labelKey), href: hostTabHref(tab.id) }))
 			}))
 			.filter((group) => group.items.length > 0);
-		if (data.isAdmin) groups.push({ label: 'Administration', items: adminItems });
+		if (data.isAdmin)
+			groups.push({
+				label: t('nav.administration'),
+				items: adminItems.map(({ labelKey, ...item }) => ({ ...item, label: t(labelKey) }))
+			});
 		return groups;
 	});
 
@@ -127,12 +132,12 @@
 			}))
 		)
 	);
-	const accountCommands: CommandEntry[] = [
-		{ icon: User, label: 'Profile', action: () => openUserSettings('profile') },
-		{ icon: Key, label: 'SSH Keys', action: () => openUserSettings('keys') },
-		{ icon: Key, label: 'API Tokens', action: () => openUserSettings('api') },
-		{ icon: Lock, label: 'Security', action: () => openUserSettings('security') }
-	];
+	const accountCommands = $derived<CommandEntry[]>([
+		{ icon: User, label: t('settings.tabs.profile'), action: () => openUserSettings('profile') },
+		{ icon: Key, label: t('settings.tabs.keys'), action: () => openUserSettings('keys') },
+		{ icon: Key, label: t('settings.tabs.api'), action: () => openUserSettings('api') },
+		{ icon: Lock, label: t('settings.tabs.security'), action: () => openUserSettings('security') }
+	]);
 
 	function matchesCommandSearch(values: (string | null | undefined)[]) {
 		if (!normalizedCommandSearch) return true;
@@ -170,11 +175,11 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-	<title>{pageTitle(activeNav?.item.label ?? 'Dashboard')}</title>
+	<title>{pageTitle(activeNav?.item.label ?? t('shell.dashboard'))}</title>
 </svelte:head>
 
 {#snippet sidebarNav(onNavigate?: () => void)}
-	<nav class="flex flex-col gap-5 px-3 py-4" aria-label="Main">
+	<nav class="flex flex-col gap-5 px-3 py-4" aria-label={t('shell.mainNav')}>
 		{#each navGroups as group (group.label)}
 			<div class="flex flex-col gap-0.5">
 				<p
@@ -213,7 +218,7 @@
 		<div class="mx-3 mt-3 flex items-center gap-2.5 border border-border bg-background px-3 py-2.5">
 			<div class="min-w-0 flex-1">
 				<p class="truncate text-sm font-medium text-foreground">
-					{host.hostname ?? 'This server'}
+					{host.hostname ?? t('shell.thisServer')}
 				</p>
 				{#if host.os}
 					<p class="truncate text-xs text-muted-foreground">{host.os}</p>
@@ -237,11 +242,11 @@
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-sm leading-tight font-medium text-foreground">{user?.username}</p>
 			<p class="truncate text-xs leading-tight text-muted-foreground">
-				{user?.admin ? 'Administrator' : 'User'}
+				{user?.admin ? t('shell.role.admin') : t('shell.role.user')}
 			</p>
 		</div>
 		<Settings class="size-4 shrink-0 text-muted-foreground" />
-		<span class="sr-only">Open account settings</span>
+		<span class="sr-only">{t('shell.openAccountSettings')}</span>
 	</button>
 {/snippet}
 
@@ -251,7 +256,7 @@
 	<div class="flex h-screen overflow-hidden bg-background">
 		<aside
 			class="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar lg:flex"
-			aria-label="Sidebar"
+			aria-label={t('shell.sidebar')}
 		>
 			<a href={resolve('/')} class="flex h-14 shrink-0 items-center gap-2.5 px-5">
 				<img src={dashboardBrand.logo} alt="" class="size-6" />
@@ -277,7 +282,7 @@
 						class="-ml-1 inline-flex size-8 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
 						type="button"
 						onclick={() => (mobileNavOpen = true)}
-						aria-label="Open navigation"
+						aria-label={t('shell.openNavigation')}
 					>
 						<Menu class="size-4" />
 					</button>
@@ -300,7 +305,7 @@
 						onclick={openCommandPalette}
 					>
 						<Search class="size-3.5" />
-						<span class="flex-1 text-left">Search…</span>
+						<span class="flex-1 text-left">{t('shell.search')}</span>
 						<kbd
 							class="border border-border bg-background px-1.5 font-mono text-[10px] text-muted-foreground"
 							>⌘K</kbd
@@ -310,7 +315,7 @@
 						class="inline-flex size-8 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
 						type="button"
 						onclick={openCommandPalette}
-						aria-label="Search"
+						aria-label={t('shell.searchLabel')}
 					>
 						<Search class="size-4" />
 					</button>
@@ -320,8 +325,8 @@
 							type="button"
 							onclick={refreshHost}
 							disabled={refreshingHost}
-							title="Refresh server"
-							aria-label="Refresh server"
+							title={t('shell.refreshServer')}
+							aria-label={t('shell.refreshServer')}
 						>
 							{#if refreshingHost}
 								<Loader2 class="size-3.5 animate-spin" />
@@ -334,7 +339,7 @@
 						class="lg:hidden"
 						type="button"
 						onclick={() => openUserSettings()}
-						aria-label="Account settings"
+						aria-label={t('shell.accountSettings')}
 					>
 						<Avatar.Root class="size-8 border border-border">
 							<Avatar.Fallback class="bg-primary/15 text-xs font-medium text-foreground">
@@ -351,11 +356,7 @@
 					class="flex shrink-0 items-start gap-2 border-b border-amber-300 bg-amber-100 px-4 py-2 text-xs text-amber-900 lg:px-6 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300"
 				>
 					<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-					<p>
-						This server's hostname is not configured, so apps can't sign in with Dashboard (single
-						sign-on). Set the server's hostname to turn it on. Dashboard restarts on its own once it
-						is set.
-					</p>
+					<p>{t('shell.hostnameNotConfigured')}</p>
 				</div>
 			{/if}
 
@@ -366,11 +367,10 @@
 				>
 					<AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
 					<p>
-						The dashboard database is from a newer version of Dashboard (schema {data.newerDatabase
-							.dbVersion}; this version knows {data.newerDatabase.appVersion}), and no snapshot from
-						this version was found to restore. Dashboard is running on it without migrating, so some
-						features may not work. Upgrade Dashboard again, or restore a snapshot as described in
-						MIGRATIONS.md.
+						{t('shell.newerDatabase', {
+							dbVersion: data.newerDatabase.dbVersion,
+							appVersion: data.newerDatabase.appVersion
+						})}
 					</p>
 				</div>
 			{/if}
@@ -401,11 +401,11 @@
 	<ConfirmDialog />
 
 	<Command.Dialog bind:open={commandOpen}>
-		<Command.Input bind:value={commandSearch} placeholder="Search dashboard..." />
+		<Command.Input bind:value={commandSearch} placeholder={t('shell.commandPlaceholder')} />
 		<Command.List class="max-h-[350px] bg-background">
-			<Command.Empty>No results found.</Command.Empty>
+			<Command.Empty>{t('shell.noResults')}</Command.Empty>
 			{#if filteredNavigateCommands.length > 0}
-				<Command.Group heading="Navigate">
+				<Command.Group heading={t('shell.commandNavigate')}>
 					{#each filteredNavigateCommands as command (command.label)}
 						<Command.Item value={command.label} class="gap-2" onSelect={() => runCommand(command)}>
 							<command.icon class="h-3.5 w-3.5 text-muted-foreground" />
@@ -417,7 +417,7 @@
 				<Command.Separator class="bg-muted" />
 			{/if}
 			{#if filteredAccountCommands.length > 0}
-				<Command.Group heading="Account">
+				<Command.Group heading={t('shell.commandAccount')}>
 					{#each filteredAccountCommands as command (command.label)}
 						<Command.Item value={command.label} class="gap-2" onSelect={() => runCommand(command)}>
 							<command.icon class="h-3.5 w-3.5 text-muted-foreground" />

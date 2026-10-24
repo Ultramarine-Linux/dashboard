@@ -1,4 +1,11 @@
-import { error, redirect, type Handle, type RequestEvent, type ServerInit } from '@sveltejs/kit';
+import {
+	error,
+	redirect,
+	type Handle,
+	type HandleServerError,
+	type RequestEvent,
+	type ServerInit
+} from '@sveltejs/kit';
 import { building, dev } from '$app/environment';
 import { initDatabase } from '$lib/server/db';
 import { instrument } from '$lib/server/observability';
@@ -6,6 +13,7 @@ import { hostnameNotConfigured } from '$lib/server/env';
 import { hostnameNotConfiguredResponse } from '$lib/server/origin';
 import { accessibilityFixtureEnabled } from '$lib/server/accessibility-fixtures';
 import { canAccessRoute, routeAccess } from '$lib/permissions';
+import { defaultLocale, localeCookie, negotiateLocale, translate } from '$lib/i18n/core';
 import { clearSessionCookie, readSessionToken } from '$lib/server/session';
 import {
 	ACCESSIBILITY_FIXTURE_TOKEN,
@@ -63,6 +71,25 @@ async function loadSession(event: RequestEvent): Promise<boolean> {
 	}
 }
 
+/** Pick the UI locale and fill in `<html lang>`. Wraps `resolve` for the next handler. */
+function withLocale(handle: Handle): Handle {
+	return ({ event, resolve }) => {
+		const locale = negotiateLocale(
+			event.cookies.get(localeCookie),
+			event.request.headers.get('accept-language')
+		);
+		event.locals.locale = locale;
+		return handle({
+			event,
+			resolve: (event, opts) =>
+				resolve(event, {
+					...opts,
+					transformPageChunk: ({ html }) => html.replace('%lang%', locale)
+				})
+		});
+	};
+}
+
 const handleSession: Handle = async ({ event, resolve }) => {
 	const { pathname } = event.url;
 
@@ -86,7 +113,7 @@ const handleSession: Handle = async ({ event, resolve }) => {
 	const access = routeAccess(pathname);
 
 	if (access !== 'public' && !event.locals.user) {
-		if (!reachable) error(503, 'Dashboard cannot reach Tetra on this server.');
+		if (!reachable) error(503, translate(event.locals.locale, 'errors.tetraUnreachable'));
 		const redirectTo = `${pathname}${event.url.search}`;
 		redirect(
 			303,
@@ -97,7 +124,7 @@ const handleSession: Handle = async ({ event, resolve }) => {
 	if (event.locals.user && pathname === '/login') redirect(303, '/');
 
 	if (!canAccessRoute(pathname, event.locals.permissions)) {
-		error(403, 'You do not have permission to view this page.');
+		error(403, translate(event.locals.locale, 'errors.forbidden'));
 	}
 
 	return resolve(event);
@@ -112,4 +139,13 @@ export const init: ServerInit = async () => {
 	await initDatabase();
 };
 
-export const handle: Handle = handleSession;
+export const handle: Handle = withLocale(handleSession);
+
+/** Unexpected errors: log them, and show the visitor a translated, detail-free message. */
+export const handleError: HandleServerError = ({ error, event, status }) => {
+	if (status !== 404) console.error(error);
+	const locale = event.locals.locale ?? defaultLocale;
+	return {
+		message: translate(locale, status === 404 ? 'errors.notFound' : 'errors.internal')
+	};
+};

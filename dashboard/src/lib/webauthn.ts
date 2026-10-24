@@ -5,6 +5,8 @@
  * only relays this JSON; Tetra creates and checks every challenge.
  */
 
+import { t } from '$lib/i18n';
+
 type JsonObject = Record<string, unknown>;
 type OptionsJson = { publicKey: JsonObject; mediation?: string };
 
@@ -116,10 +118,10 @@ export function passkeysSupported() {
 /** A readable message for a failed or cancelled browser ceremony. */
 export function webAuthnErrorMessage(error: unknown, fallback: string) {
 	if (error instanceof DOMException) {
-		if (error.name === 'NotAllowedError') return 'The passkey request was cancelled or timed out.';
-		if (error.name === 'InvalidStateError') return 'This passkey is already registered.';
+		if (error.name === 'NotAllowedError') return t('webauthn.cancelled');
+		if (error.name === 'InvalidStateError') return t('webauthn.alreadyRegistered');
 		if (error.name === 'SecurityError') {
-			return 'This browser address does not match the hostname passkeys are tied to.';
+			return t('webauthn.hostnameMismatch');
 		}
 	}
 	return error instanceof Error && error.message ? error.message : fallback;

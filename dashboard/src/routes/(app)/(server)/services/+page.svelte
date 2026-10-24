@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, tn } from '$lib/i18n';
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { Badge } from '$lib/components/ui/badge';
@@ -39,7 +40,7 @@
 		try {
 			entries = await listLauncherEntries();
 		} catch (err) {
-			loadError = getErrorMessage(err, 'Failed to load services.');
+			loadError = getErrorMessage(err, t('services.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -64,7 +65,7 @@
 			// Start from Tetra's current entry, not the list loaded earlier.
 			fillEditor(await getLauncherEntry({ id }));
 		} catch (err) {
-			loadError = getErrorMessage(err, 'Failed to load the service.');
+			loadError = getErrorMessage(err, t('services.loadOneFailed'));
 		}
 	}
 
@@ -99,7 +100,7 @@
 			editorOpen = false;
 			await load();
 		} catch (err) {
-			saveError = getErrorMessage(err, 'Failed to save the service.');
+			saveError = getErrorMessage(err, t('services.saveFailed'));
 		} finally {
 			saving = false;
 		}
@@ -107,25 +108,25 @@
 
 	async function remove(entry: LauncherEntry) {
 		const ok = await confirmDestructive({
-			title: 'Remove service',
-			description: `${entry.name} will no longer appear on anyone's Services page. The app itself is not changed.`,
-			confirmLabel: 'Remove service'
+			title: t('services.removeTitle'),
+			description: t('services.removeDescription', { name: entry.name }),
+			confirmLabel: t('services.removeTitle')
 		});
 		if (!ok) return;
 		try {
 			await removeLauncherEntry({ id: entry.id });
 			entries = entries.filter((item) => item.id !== entry.id);
 		} catch (err) {
-			loadError = getErrorMessage(err, 'Failed to remove the service.');
+			loadError = getErrorMessage(err, t('services.removeFailed'));
 		}
 	}
 
 	function visibilityLabel(value: LauncherVisibility | undefined) {
 		if (!value) return null;
-		if (value.kind === 'everyone') return 'Everyone';
-		if (value.kind === 'admins') return 'Administrators';
+		if (value.kind === 'everyone') return t('services.visibilityEveryone');
+		if (value.kind === 'admins') return t('services.visibilityAdmins');
 		const count = value.users.length + value.groups.length;
-		return count === 1 ? '1 user or group' : `${count} users and groups`;
+		return tn('services.usersAndGroups', count);
 	}
 
 	function isImageUrl(value: string | null) {
@@ -142,23 +143,21 @@
 </script>
 
 <svelte:head>
-	<title>{pageTitle('Services')}</title>
+	<title>{pageTitle(t('services.title'))}</title>
 </svelte:head>
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
-			<h1 class="text-xl font-semibold tracking-tight text-foreground">Services</h1>
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('services.title')}</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
-				{isAdmin
-					? 'The apps and links people on this server can open. Choose who sees each one.'
-					: 'Apps and links shared with you on this server.'}
+				{isAdmin ? t('services.descriptionAdmin') : t('services.descriptionUser')}
 			</p>
 		</div>
 		{#if isAdmin}
 			<Button size="sm" class="h-7 gap-1.5 text-xs" onclick={() => fillEditor()}>
 				<Plus class="h-3 w-3" />
-				Add service
+				{t('services.add')}
 			</Button>
 		{/if}
 	</div>
@@ -171,17 +170,16 @@
 
 	{#if loading}
 		<div class="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
-			<Loader2 class="size-3 animate-spin" /> Loading services…
+			<Loader2 class="size-3 animate-spin" />
+			{t('services.loading')}
 		</div>
 	{:else if entries.length === 0 && !loadError}
 		<div class="mt-6 border border-dashed border-border p-8 text-center">
 			<p class="text-sm text-foreground">
-				{isAdmin ? 'No services yet' : 'No services have been shared with you yet'}
+				{isAdmin ? t('services.emptyAdmin') : t('services.emptyUser')}
 			</p>
 			<p class="mt-1 text-xs text-muted-foreground">
-				{isAdmin
-					? 'Add an app or link, then choose who can see it.'
-					: 'Ask an administrator of this server to share one with you.'}
+				{isAdmin ? t('services.emptyHintAdmin') : t('services.emptyHintUser')}
 			</p>
 		</div>
 	{:else}
@@ -207,7 +205,7 @@
 									{visibilityLabel(entry.visibility)}
 								</Badge>
 								{#if entry.public}
-									<Badge variant="outline" class="text-[10px]">Public page</Badge>
+									<Badge variant="outline" class="text-[10px]">{t('services.publicPage')}</Badge>
 								{/if}
 							</div>
 						{/if}
@@ -218,7 +216,7 @@
 								variant="ghost"
 								size="sm"
 								class="h-7 w-7 p-0"
-								aria-label={`Edit ${entry.name}`}
+								aria-label={t('services.editAria', { name: entry.name })}
 								onclick={() => editEntry(entry.id)}
 							>
 								<Pencil class="h-3 w-3" />
@@ -227,7 +225,7 @@
 								variant="ghost"
 								size="sm"
 								class="h-7 w-7 p-0 text-red-400 hover:text-red-300"
-								aria-label={`Remove ${entry.name}`}
+								aria-label={t('services.removeAria', { name: entry.name })}
 								onclick={() => remove(entry)}
 							>
 								<Trash2 class="h-3 w-3" />
@@ -240,7 +238,7 @@
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							Open
+							{t('services.open')}
 							<ExternalLink class="h-3 w-3" />
 						</Button>
 					</div>
@@ -254,9 +252,9 @@
 	<Dialog.Root bind:open={editorOpen}>
 		<Dialog.Content class="border-border bg-background sm:max-w-md">
 			<Dialog.Header>
-				<Dialog.Title>{editingId ? 'Edit service' : 'Add service'}</Dialog.Title>
+				<Dialog.Title>{editingId ? t('services.edit') : t('services.add')}</Dialog.Title>
 				<Dialog.Description>
-					Link an app on this server or any other address. Only the people you choose see it.
+					{t('services.dialogDescription')}
 				</Dialog.Description>
 			</Dialog.Header>
 
@@ -268,11 +266,11 @@
 				}}
 			>
 				<div class="flex flex-col gap-1.5">
-					<Label for="service-name">Name</Label>
+					<Label for="service-name">{t('common.name')}</Label>
 					<Input id="service-name" bind:value={name} placeholder="Nextcloud" required />
 				</div>
 				<div class="flex flex-col gap-1.5">
-					<Label for="service-url">Address</Label>
+					<Label for="service-url">{t('services.address')}</Label>
 					<Input
 						id="service-url"
 						bind:value={url}
@@ -282,33 +280,33 @@
 					/>
 				</div>
 				<div class="flex flex-col gap-1.5">
-					<Label for="service-icon">Icon URL (optional)</Label>
+					<Label for="service-icon">{t('services.iconUrl')}</Label>
 					<Input id="service-icon" bind:value={icon} placeholder="https://…/icon.svg" />
 				</div>
 				<fieldset class="flex flex-col gap-1.5">
-					<legend class="mb-1.5 text-sm font-medium">Who can see it</legend>
-					{#each [['everyone', 'Everyone with an account'], ['admins', 'Administrators only'], ['members', 'Specific users and groups']] as [value, label] (value)}
+					<legend class="mb-1.5 text-sm font-medium">{t('services.whoCanSee')}</legend>
+					{#each [['everyone', 'services.visibilityOptionEveryone'], ['admins', 'services.visibilityOptionAdmins'], ['members', 'services.visibilityOptionMembers']] as const as [value, labelKey] (value)}
 						<label class="flex items-center gap-2 text-sm">
 							<input type="radio" name="visibility" {value} bind:group={visibility} />
-							{label}
+							{t(labelKey)}
 						</label>
 					{/each}
 				</fieldset>
 				{#if visibility === 'members'}
 					<div class="flex flex-col gap-1.5">
-						<Label for="service-users">Users</Label>
+						<Label for="service-users">{t('services.users')}</Label>
 						<Input id="service-users" bind:value={users} placeholder="alice, bob" />
 					</div>
 					<div class="flex flex-col gap-1.5">
-						<Label for="service-groups">Groups</Label>
+						<Label for="service-groups">{t('services.groups')}</Label>
 						<Input id="service-groups" bind:value={groups} placeholder="family" />
 					</div>
 				{/if}
 				<div class="flex items-center justify-between gap-4">
 					<Label for="service-public" class="flex flex-col items-start gap-0.5">
-						<span>Show on the public page</span>
+						<span>{t('services.showPublic')}</span>
 						<span class="text-xs font-normal text-muted-foreground">
-							Anyone who can reach the server sees the name and link.
+							{t('services.showPublicHint')}
 						</span>
 					</Label>
 					<Switch id="service-public" bind:checked={isPublic} />
@@ -318,10 +316,10 @@
 				{/if}
 				<Dialog.Footer>
 					<Button variant="outline" type="button" onclick={() => (editorOpen = false)}>
-						Cancel
+						{t('common.cancel')}
 					</Button>
 					<Button type="submit" disabled={saving || !name.trim() || !url.trim()}>
-						{saving ? 'Saving…' : 'Save'}
+						{saving ? t('services.saving') : t('common.save')}
 					</Button>
 				</Dialog.Footer>
 			</form>

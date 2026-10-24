@@ -1,3 +1,5 @@
+import type { TranslationKey } from '$lib/i18n';
+
 export const featureFlagKeys = ['apps'] as const;
 
 export type FeatureFlagKey = (typeof featureFlagKeys)[number];
@@ -11,12 +13,12 @@ export const developmentFeatureFlags: FeatureFlags = {
 	apps: true
 };
 
-export const featureFlagLabels: Record<FeatureFlagKey, string> = {
-	apps: 'Apps'
+export const featureFlagLabelKeys: Record<FeatureFlagKey, TranslationKey> = {
+	apps: 'admin.features.flagApps'
 };
 
-export const featureFlagDescriptions: Record<FeatureFlagKey, string> = {
-	apps: 'Enable recipe-based app lifecycle management on this server'
+export const featureFlagDescriptionKeys: Record<FeatureFlagKey, TranslationKey> = {
+	apps: 'admin.features.flagAppsDescription'
 };
 
 export type FeatureFlagCategory = 'host';
@@ -25,6 +27,6 @@ export const featureFlagCategories: Record<FeatureFlagCategory, FeatureFlagKey[]
 	host: ['apps']
 };
 
-export const featureFlagCategoryLabels: Record<FeatureFlagCategory, string> = {
-	host: 'Server Features'
+export const featureFlagCategoryLabelKeys: Record<FeatureFlagCategory, TranslationKey> = {
+	host: 'admin.features.categoryHost'
 };

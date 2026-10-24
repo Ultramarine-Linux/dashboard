@@ -3,6 +3,8 @@
 // action is enabled. A single <ConfirmDialog /> host (mounted in the app
 // layout) reads this controller and drives the dialog with bind:open.
 
+import { t } from '$lib/i18n';
+
 type ConfirmRequest = {
 	title: string;
 	description: string;
@@ -43,5 +45,5 @@ export function confirmDestructive(opts: {
 	confirmLabel?: string;
 	confirmWord?: string;
 }): Promise<boolean> {
-	return confirmController.ask({ confirmLabel: 'Delete', ...opts });
+	return confirmController.ask({ confirmLabel: t('common.delete'), ...opts });
 }

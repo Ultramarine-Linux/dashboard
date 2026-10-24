@@ -18,6 +18,7 @@ import {
 	type HostAppManifest,
 	type HostServiceState
 } from '$lib/apps/types';
+import { serverT } from '$lib/server/i18n';
 
 /** A module action's outcome, as the pages expect it. */
 export type AgentResponse = {
@@ -205,7 +206,7 @@ function getSystemOs(system: Record<string, unknown> | null | undefined, fallbac
 
 function mapPodmanResponse(response: AgentResponse): ManagedHostPodmanResult {
 	if (!response.ok) {
-		throw new Error(response.error || 'Podman command failed');
+		throw new Error(response.error || serverT('errors.hosts.podmanCommandFailed'));
 	}
 
 	const payload = isRecord(response.payload) ? response.payload : {};
@@ -472,7 +473,7 @@ function mapQuadletFile(value: unknown): ManagedHostQuadletFile | null {
 
 function mapQuadletList(response: AgentResponse): ManagedHostQuadletList {
 	if (!response.ok) {
-		throw new Error(response.error || 'Failed to list Quadlet files');
+		throw new Error(response.error || serverT('errors.hosts.listQuadletsFailed'));
 	}
 
 	const payload = isRecord(response.payload) ? response.payload : {};
@@ -488,7 +489,8 @@ function mapQuadletList(response: AgentResponse): ManagedHostQuadletList {
 }
 
 function mapQuadletRead(response: AgentResponse, filename: string) {
-	if (!response.ok) throw new Error(response.error || `Failed to read ${filename}`);
+	if (!response.ok)
+		throw new Error(response.error || serverT('errors.hosts.readFileFailed', { filename }));
 	const payload = isRecord(response.payload) ? response.payload : {};
 	return {
 		baseDir: typeof payload.base_dir === 'string' ? payload.base_dir : null,
@@ -513,7 +515,7 @@ function mapReverseProxySite(value: unknown): ManagedHostReverseProxySite | null
 
 function mapReverseProxyList(response: AgentResponse): ManagedHostReverseProxyList {
 	if (!response.ok) {
-		throw new Error(response.error || 'Failed to list reverse proxy sites');
+		throw new Error(response.error || serverT('errors.hosts.listProxySitesFailed'));
 	}
 
 	const payload = isRecord(response.payload) ? response.payload : {};
@@ -561,7 +563,7 @@ async function dispatchHostCommand(command: {
 }
 
 function mapManagedHostUsers(response: AgentResponse): ManagedHostUser[] {
-	if (!response.ok) throw new Error(response.error || 'Failed to list host users');
+	if (!response.ok) throw new Error(response.error || serverT('errors.hosts.listUsersFailed'));
 	const payload = isRecord(response.payload) ? response.payload : {};
 	if (!Array.isArray(payload.users)) return [];
 
@@ -606,10 +608,7 @@ export const createManagedHostUser = command(createHostUserParams, async (params
 	requireAdmin();
 	const username = params.username.trim();
 	if (!/^[a-z_][a-z0-9_-]{0,30}$/.test(username)) {
-		error(
-			400,
-			'Host usernames must start with a lowercase letter or underscore and contain only lowercase letters, numbers, underscores, or hyphens.'
-		);
+		error(400, serverT('errors.hosts.invalidUsername'));
 	}
 
 	const status = await dispatchHostCommand({
@@ -617,7 +616,7 @@ export const createManagedHostUser = command(createHostUserParams, async (params
 		action: 'status',
 		payload: { name: username }
 	});
-	if (status.ok) error(409, 'A host user with that username already exists.');
+	if (status.ok) error(409, serverT('errors.hosts.userExists'));
 
 	const response = await dispatchHostCommand({
 		module: 'users',
@@ -628,7 +627,7 @@ export const createManagedHostUser = command(createHostUserParams, async (params
 			home: params.home?.trim() || undefined
 		}
 	});
-	if (!response.ok) throw new Error(response.error || 'Failed to create host user');
+	if (!response.ok) throw new Error(response.error || serverT('errors.hosts.createUserFailed'));
 });
 
 async function getSystem(): Promise<Record<string, unknown> | null> {
@@ -673,7 +672,7 @@ export const getManagedHostStorage = command(async (): Promise<ManagedHostStorag
 		dispatchHostCommand({ module: 'storage', action: 'list', payload: {} }),
 		dispatchHostCommand({ module: 'storage', action: 'zfs', payload: {} })
 	]);
-	const list = responsePayload(listResponse, 'Failed to load storage inventory.');
+	const list = responsePayload(listResponse, serverT('errors.hosts.storageFailed'));
 	const zfs = zfsResponse.ok && isRecord(zfsResponse.payload) ? zfsResponse.payload : null;
 	return {
 		mounts: Array.isArray(list.mounts) ? list.mounts : [],
@@ -688,9 +687,9 @@ export const getManagedHostNetwork = command(async (): Promise<ManagedHostNetwor
 		dispatchHostCommand({ module: 'network', action: 'dns', payload: {} }),
 		dispatchHostCommand({ module: 'network', action: 'routes', payload: {} })
 	]);
-	const interfaces = responsePayload(responses[0], 'Failed to load network interfaces.');
-	const dns = responsePayload(responses[1], 'Failed to load DNS configuration.');
-	const routes = responsePayload(responses[2], 'Failed to load network routes.');
+	const interfaces = responsePayload(responses[0], serverT('errors.hosts.interfacesFailed'));
+	const dns = responsePayload(responses[1], serverT('errors.hosts.dnsFailed'));
+	const routes = responsePayload(responses[2], serverT('errors.hosts.routesFailed'));
 	return {
 		interfaces: Array.isArray(interfaces.interfaces) ? interfaces.interfaces : [],
 		resolvConf: typeof dns.resolv_conf === 'string' ? dns.resolv_conf : null,
@@ -703,7 +702,7 @@ export const dispatchManagedHostCommand = command(dispatchParams, async (params)
 		const parsed = JSON.parse(params.payloadJson);
 		payload = isRecord(parsed) ? parsed : {};
 	} catch {
-		error(400, 'Payload must be valid JSON');
+		error(400, serverT('errors.hosts.payloadInvalidJson'));
 	}
 
 	const response = await dispatchHostCommand({
@@ -722,7 +721,7 @@ export const listManagedHostPodman = command(
 	podmanListParams,
 	async (params): Promise<ManagedHostPodmanResult> => {
 		if (!['containers', 'images', 'volumes', 'networks'].includes(params.resource)) {
-			error(400, 'Unsupported Podman resource');
+			error(400, serverT('errors.hosts.unsupportedPodmanResource'));
 		}
 
 		const resource = params.resource as ManagedHostPodmanResource;
@@ -753,7 +752,7 @@ export const getManagedHostPodmanLogs = command(podmanLogsParams, async (params)
 		}
 	});
 
-	if (!response.ok) throw new Error(response.error || 'Failed to load container logs');
+	if (!response.ok) throw new Error(response.error || serverT('errors.hosts.containerLogsFailed'));
 	const payload = isRecord(response.payload) ? response.payload : {};
 	return typeof payload.stdout === 'string' ? payload.stdout : '';
 });
@@ -770,7 +769,7 @@ export const getManagedHostPodmanContainer = command(
 			payload: { name: params.name }
 		});
 		if (!inspectResponse.ok) {
-			throw new Error(inspectResponse.error || 'Failed to inspect container');
+			throw new Error(inspectResponse.error || serverT('errors.hosts.inspectContainerFailed'));
 		}
 
 		const logsResponse = await dispatchHostCommand({
@@ -779,7 +778,7 @@ export const getManagedHostPodmanContainer = command(
 			payload: { name: params.name, lines }
 		});
 		if (!logsResponse.ok) {
-			throw new Error(logsResponse.error || 'Failed to load container logs');
+			throw new Error(logsResponse.error || serverT('errors.hosts.containerLogsFailed'));
 		}
 
 		const inspectPayload = isRecord(inspectResponse.payload)
@@ -798,7 +797,7 @@ const podmanActionParams = type({
 });
 export const runManagedHostPodmanContainerAction = command(podmanActionParams, async (params) => {
 	if (!['start', 'stop', 'restart', 'remove'].includes(params.action)) {
-		error(400, 'Unsupported Podman container action');
+		error(400, serverT('errors.hosts.unsupportedContainerAction'));
 	}
 
 	if (accessibilityFixtureEnabled) {
@@ -815,7 +814,8 @@ export const runManagedHostPodmanContainerAction = command(podmanActionParams, a
 		payload: { name: params.name }
 	});
 
-	if (!response.ok) throw new Error(response.error || 'Podman container action failed');
+	if (!response.ok)
+		throw new Error(response.error || serverT('errors.hosts.containerActionFailed'));
 	return response;
 });
 
@@ -855,10 +855,11 @@ export const writeManagedHostReverseProxySite = command(
 				reload: true
 			}
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to save reverse proxy site');
+		if (!response.ok)
+			throw new Error(response.error || serverT('errors.hosts.saveProxySiteFailed'));
 		const payload = isRecord(response.payload) ? response.payload : {};
 		const site = mapReverseProxySite(payload.site);
-		if (!site) throw new Error('Reverse proxy site response was invalid');
+		if (!site) throw new Error(serverT('errors.hosts.proxySiteResponseInvalid'));
 		return {
 			...site,
 			filename: typeof payload.filename === 'string' ? payload.filename : site.filename,
@@ -880,7 +881,8 @@ export const deleteManagedHostReverseProxySite = command(
 			action: 'delete',
 			payload: { domain: params.domain, reload: true }
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to delete reverse proxy site');
+		if (!response.ok)
+			throw new Error(response.error || serverT('errors.hosts.deleteProxySiteFailed'));
 	}
 );
 
@@ -892,7 +894,7 @@ export const reloadManagedHostReverseProxy = command(async () => {
 		action: 'reload',
 		payload: {}
 	});
-	if (!response.ok) throw new Error(response.error || 'Failed to reload Caddy');
+	if (!response.ok) throw new Error(response.error || serverT('errors.hosts.reloadCaddyFailed'));
 	return response;
 });
 
@@ -902,7 +904,7 @@ function normalizeQuadletScope(scope: string): ManagedHostQuadletScope {
 	if (quadletScopeValues.includes(scope as ManagedHostQuadletScope)) {
 		return scope as ManagedHostQuadletScope;
 	}
-	error(400, 'Unsupported Quadlet scope');
+	error(400, serverT('errors.hosts.unsupportedQuadletScope'));
 }
 
 function parseCompanionFiles(filesJson: string): ManagedHostQuadletCompanionFile[] {
@@ -910,15 +912,17 @@ function parseCompanionFiles(filesJson: string): ManagedHostQuadletCompanionFile
 	try {
 		parsed = JSON.parse(filesJson);
 	} catch {
-		error(400, 'Companion files must be valid JSON');
+		error(400, serverT('errors.hosts.companionFilesInvalidJson'));
 	}
 
-	if (!Array.isArray(parsed)) error(400, 'Companion files must be a JSON array');
+	if (!Array.isArray(parsed)) error(400, serverT('errors.hosts.companionFilesNotArray'));
 	return parsed.map((item, index) => {
-		if (!isRecord(item)) error(400, `Companion file ${index + 1} must be an object`);
+		if (!isRecord(item))
+			error(400, serverT('errors.hosts.companionFileNotObject', { number: index + 1 }));
 		const filename = typeof item.filename === 'string' ? item.filename.trim() : '';
 		const contents = typeof item.contents === 'string' ? item.contents : '';
-		if (!filename) error(400, `Companion file ${index + 1} needs a filename`);
+		if (!filename)
+			error(400, serverT('errors.hosts.companionFileNeedsFilename', { number: index + 1 }));
 		return { filename, contents };
 	});
 }
@@ -928,16 +932,19 @@ function parseQuadletResources(resourcesJson: string): ManagedHostQuadletResourc
 	try {
 		parsed = JSON.parse(resourcesJson);
 	} catch {
-		error(400, 'Quadlet resources must be valid JSON');
+		error(400, serverT('errors.hosts.quadletResourcesInvalidJson'));
 	}
 
-	if (!Array.isArray(parsed)) error(400, 'Quadlet resources must be a JSON array');
+	if (!Array.isArray(parsed)) error(400, serverT('errors.hosts.quadletResourcesNotArray'));
 	return parsed.map((item, index) => {
-		if (!isRecord(item)) error(400, `Quadlet resource ${index + 1} must be an object`);
+		if (!isRecord(item))
+			error(400, serverT('errors.hosts.quadletResourceNotObject', { number: index + 1 }));
 		const filename = typeof item.filename === 'string' ? item.filename.trim() : '';
 		const contents = typeof item.contents === 'string' ? item.contents.trimEnd() + '\n' : '';
-		if (!filename) error(400, `Quadlet resource ${index + 1} needs a filename`);
-		if (!contents.trim()) error(400, `Quadlet resource ${index + 1} needs contents`);
+		if (!filename)
+			error(400, serverT('errors.hosts.quadletResourceNeedsFilename', { number: index + 1 }));
+		if (!contents.trim())
+			error(400, serverT('errors.hosts.quadletResourceNeedsContents', { number: index + 1 }));
 		return { filename, contents };
 	});
 }
@@ -979,7 +986,7 @@ export const getManagedHostQuadlet = command(
 	async (params): Promise<ManagedHostQuadletDetail> => {
 		const scope = normalizeQuadletScope(params.scope);
 		const filename = params.filename.trim();
-		if (!filename) error(400, 'Quadlet filename is required');
+		if (!filename) error(400, serverT('errors.hosts.quadletFilenameRequired'));
 		if (accessibilityFixtureEnabled) return fixtureQuadletDetail(filename, scope);
 
 		const listResponse = await dispatchHostCommand({
@@ -1039,8 +1046,8 @@ export const saveManagedHostQuadlet = command(quadletSaveParams, async (params) 
 	const resources = params.resourcesJson
 		? parseQuadletResources(params.resourcesJson)
 		: [{ filename, contents }];
-	if (!filename) error(400, 'Quadlet filename is required');
-	if (!contents.trim()) error(400, 'Quadlet contents are required');
+	if (!filename) error(400, serverT('errors.hosts.quadletFilenameRequired'));
+	if (!contents.trim()) error(400, serverT('errors.hosts.quadletContentsRequired'));
 	if (!resources.some((resource) => resource.filename === filename)) {
 		resources.unshift({ filename, contents });
 	}
@@ -1074,7 +1081,7 @@ export const saveManagedHostQuadlet = command(quadletSaveParams, async (params) 
 		}
 	});
 
-	if (!response.ok) throw new Error(response.error || 'Failed to save Quadlet bundle');
+	if (!response.ok) throw new Error(response.error || serverT('errors.hosts.saveQuadletFailed'));
 	return response;
 });
 
@@ -1218,15 +1225,15 @@ function parseAppValuesJson(valuesJson: string): Record<string, unknown> {
 	try {
 		parsed = JSON.parse(valuesJson);
 	} catch {
-		error(400, 'App values must be valid JSON');
+		error(400, serverT('errors.apps.valuesInvalidJson'));
 	}
-	if (!isRecord(parsed)) error(400, 'App values must be a JSON object');
+	if (!isRecord(parsed)) error(400, serverT('errors.apps.valuesNotObject'));
 	return parsed;
 }
 
 function mapAppWriteResult(payload: unknown): ManagedHostAppWriteResult {
 	const parsed = parseAppWriteResponse(payload);
-	if (!parsed) error(502, 'App write response was invalid');
+	if (!parsed) error(502, serverT('errors.apps.writeResponseInvalid'));
 	return {
 		manifest: parsed.app,
 		bundleDir: parsed.bundle_dir,
@@ -1258,7 +1265,7 @@ export const listManagedHostApps = command(
 			action: 'list',
 			payload: { scope }
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to list apps');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.listFailed'));
 		const apps = parseAppSummaries(response.payload);
 		const states = await dispatchAppServiceStates(scope);
 
@@ -1296,9 +1303,9 @@ export const getManagedHostApp = command(
 			action: 'get',
 			payload: { name: params.name, scope }
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to load app');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.loadFailed'));
 		const detail = parseAppDetailResponse(response.payload);
-		if (!detail) error(502, 'App detail response was invalid');
+		if (!detail) error(502, serverT('errors.apps.detailResponseInvalid'));
 		const states = await dispatchAppServiceStates(scope);
 		const { services, status } = mapAppServices(detail.services, states);
 
@@ -1327,15 +1334,12 @@ export const createManagedHostApp = command(
 		const scope = normalizeQuadletScope(params.scope);
 		const name = params.name.trim();
 		if (!isValidAppName(name)) {
-			error(
-				400,
-				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
-			);
+			error(400, serverT('errors.apps.invalidName'));
 		}
 		// Recipes come from the server-side catalog — clients pick an id,
 		// never ship recipe YAML.
 		const recipe = getAppRecipe(params.recipeId);
-		if (!recipe) error(400, 'Unknown recipe');
+		if (!recipe) error(400, serverT('errors.apps.unknownRecipe'));
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
 		requireAdmin();
@@ -1352,7 +1356,7 @@ export const createManagedHostApp = command(
 				converge: true
 			}
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to create app');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.createFailed'));
 		return mapAppWriteResult(response.payload);
 	}
 );
@@ -1369,10 +1373,7 @@ export const updateManagedHostApp = command(
 		const scope = normalizeQuadletScope(params.scope);
 		const name = params.name.trim();
 		if (!isValidAppName(name)) {
-			error(
-				400,
-				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
-			);
+			error(400, serverT('errors.apps.invalidName'));
 		}
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
@@ -1384,7 +1385,7 @@ export const updateManagedHostApp = command(
 			action: 'update',
 			payload: { name, scope, values, converge: true }
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to update app');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.updateFailed'));
 		return mapAppWriteResult(response.payload);
 	}
 );
@@ -1400,10 +1401,7 @@ export const removeManagedHostApp = command(
 		const scope = normalizeQuadletScope(params.scope);
 		const name = params.name.trim();
 		if (!isValidAppName(name)) {
-			error(
-				400,
-				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
-			);
+			error(400, serverT('errors.apps.invalidName'));
 		}
 		if (accessibilityFixtureEnabled) {
 			return {
@@ -1420,7 +1418,7 @@ export const removeManagedHostApp = command(
 			action: 'remove',
 			payload: { name, scope, converge: true }
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to remove app');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.removeFailed'));
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return {
 			name: typeof payload.name === 'string' ? payload.name : name,
@@ -1443,10 +1441,7 @@ export const getManagedHostAppServiceLogs = command(
 		const scope = normalizeQuadletScope(params.scope);
 		const name = params.name.trim();
 		if (!isValidAppName(name)) {
-			error(
-				400,
-				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
-			);
+			error(400, serverT('errors.apps.invalidName'));
 		}
 		if (accessibilityFixtureEnabled) return fixtureAppServiceLogs;
 
@@ -1455,11 +1450,11 @@ export const getManagedHostAppServiceLogs = command(
 			action: 'get',
 			payload: { name, scope }
 		});
-		if (!appResponse.ok) throw new Error(appResponse.error || 'Failed to load app');
+		if (!appResponse.ok) throw new Error(appResponse.error || serverT('errors.apps.loadFailed'));
 		const app = parseAppDetailResponse(appResponse.payload);
-		if (!app) error(502, 'App detail response was invalid');
+		if (!app) error(502, serverT('errors.apps.detailResponseInvalid'));
 		if (!app.services.some((service) => service === params.service)) {
-			error(404, 'Service is not part of this app');
+			error(404, serverT('errors.apps.serviceNotInApp'));
 		}
 
 		const response = await dispatchHostCommand({
@@ -1471,7 +1466,7 @@ export const getManagedHostAppServiceLogs = command(
 				lines: Math.max(1, Math.min(1000, Math.trunc(params.lines)))
 			}
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to load service logs');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.serviceLogsFailed'));
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return typeof payload.stdout === 'string' ? payload.stdout : '';
 	}
@@ -1489,10 +1484,7 @@ export const readManagedHostAppFile = command(
 		const scope = normalizeQuadletScope(params.scope);
 		const name = params.name.trim();
 		if (!isValidAppName(name)) {
-			error(
-				400,
-				'App names must start with an alphanumeric and contain only alphanumerics, `.`, `_`, `-`.'
-			);
+			error(400, serverT('errors.apps.invalidName'));
 		}
 		if (accessibilityFixtureEnabled) {
 			return { filename: params.filename, contents: '<h1>Hello from demo-web</h1>\n' };
@@ -1507,11 +1499,12 @@ export const readManagedHostAppFile = command(
 			action: 'get',
 			payload: { name, scope }
 		});
-		if (!detailResponse.ok) throw new Error(detailResponse.error || 'Failed to load app');
+		if (!detailResponse.ok)
+			throw new Error(detailResponse.error || serverT('errors.apps.loadFailed'));
 		const detail = parseAppDetailResponse(detailResponse.payload);
-		if (!detail) error(502, 'App detail response was invalid');
+		if (!detail) error(502, serverT('errors.apps.detailResponseInvalid'));
 		const file = detail.files.find((entry) => entry.filename === params.filename);
-		if (!file || !file.exists) error(404, 'App companion file was not found');
+		if (!file || !file.exists) error(404, serverT('errors.apps.fileNotFound'));
 
 		// App companion files live under `<app>/<filename>` in the Quadlet
 		// files base dir (see `quadlets.rs` `Read`).
@@ -1520,7 +1513,7 @@ export const readManagedHostAppFile = command(
 			action: 'read',
 			payload: { scope, filename: `${name}/${params.filename}`, companion: true }
 		});
-		if (!response.ok) throw new Error(response.error || 'Failed to read app file');
+		if (!response.ok) throw new Error(response.error || serverT('errors.apps.readFileFailed'));
 		const payload = isRecord(response.payload) ? response.payload : {};
 		return {
 			filename: params.filename,

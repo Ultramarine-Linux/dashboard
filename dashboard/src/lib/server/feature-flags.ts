@@ -8,6 +8,7 @@ import {
 	type FeatureFlags
 } from '$lib/feature-flags';
 import { timingLog } from '$lib/server/observability';
+import { serverT } from '$lib/server/i18n';
 
 let inMemoryFeatureFlags: FeatureFlags | null = null;
 
@@ -47,6 +48,6 @@ export async function requireFeatureFlag(flag: FeatureFlagKey): Promise<void> {
 	const flags = await getFeatureFlags();
 
 	if (!flags[flag]) {
-		error(404, 'Not found');
+		error(404, serverT('errors.notFound'));
 	}
 }

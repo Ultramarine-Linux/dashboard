@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -56,7 +57,7 @@
 			});
 			responseJson = formatJson(response);
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Command failed.');
+			actionError = getErrorMessage(err, t('dispatch.failed'));
 		} finally {
 			dispatching = false;
 		}
@@ -65,16 +66,16 @@
 
 <section class="min-h-0 flex-1 overflow-auto bg-background p-4 sm:p-6">
 	<div>
-		<h1 class="text-xl font-semibold tracking-tight text-foreground">Dispatch Command</h1>
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('dispatch.title')}</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Send a Tetra command envelope through the dashboard server.
+			{t('dispatch.description')}
 		</p>
 	</div>
 
 	<div class="mt-4 grid gap-4 lg:max-w-2xl">
 		<div class="grid gap-3 sm:grid-cols-2">
 			<div class="space-y-2">
-				<Label for="module">Module</Label>
+				<Label for="module">{t('dispatch.module')}</Label>
 				{#if modules.length > 0}
 					<select
 						id="module"
@@ -88,12 +89,12 @@
 				{:else}
 					<Input id="module" bind:value={moduleName} />
 					<p class="text-xs text-muted-foreground">
-						No capabilities cached for this host. Refresh from the host toolbar to populate.
+						{t('dispatch.noCapabilities')}
 					</p>
 				{/if}
 			</div>
 			<div class="space-y-2">
-				<Label for="action">Action</Label>
+				<Label for="action">{t('dispatch.action')}</Label>
 				{#if availableActions.length > 0}
 					<select
 						id="action"
@@ -111,7 +112,7 @@
 		</div>
 
 		<div class="space-y-2">
-			<Label for="payload">Payload JSON</Label>
+			<Label for="payload">{t('dispatch.payloadJson')}</Label>
 			<Textarea id="payload" class="min-h-32 font-mono text-xs" bind:value={payloadJson} />
 		</div>
 
@@ -127,7 +128,7 @@
 			{:else}
 				<Send class="size-4" />
 			{/if}
-			Dispatch
+			{t('dispatch.dispatch')}
 		</Button>
 
 		{#if responseJson}

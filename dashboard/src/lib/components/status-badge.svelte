@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t, type TranslationKey } from '$lib/i18n';
+
 	export type StatusTone = 'success' | 'neutral' | 'warning' | 'danger' | 'info';
 
 	const toneByStatus: Record<string, StatusTone> = {
@@ -31,6 +33,42 @@
 		error: 'danger',
 		unavailable: 'danger'
 	};
+
+	const labelKeyByStatus: Record<string, TranslationKey> = {
+		running: 'status.running',
+		active: 'status.active',
+		healthy: 'status.healthy',
+		up: 'status.up',
+		enabled: 'status.enabled',
+		available: 'status.available',
+		ok: 'status.ok',
+		exited: 'status.exited',
+		stopped: 'status.stopped',
+		inactive: 'status.inactive',
+		disabled: 'status.disabled',
+		dead: 'status.dead',
+		unknown: 'status.unknown',
+		created: 'status.created',
+		configured: 'status.configured',
+		paused: 'status.paused',
+		starting: 'status.starting',
+		activating: 'status.activating',
+		deactivating: 'status.deactivating',
+		restarting: 'status.restarting',
+		'auto-restart': 'status.autoRestart',
+		reloading: 'status.reloading',
+		degraded: 'status.degraded',
+		pending: 'status.pending',
+		unhealthy: 'status.unhealthy',
+		failed: 'status.failed',
+		error: 'status.error',
+		unavailable: 'status.unavailable'
+	};
+
+	export function statusLabel(status: string | null | undefined): string {
+		const key = labelKeyByStatus[(status ?? '').trim().toLowerCase()];
+		return key ? t(key) : (status ?? '');
+	}
 
 	export function statusTone(status: string | null | undefined): StatusTone {
 		return toneByStatus[(status ?? '').trim().toLowerCase()] ?? 'neutral';
@@ -82,5 +120,5 @@
 	)}
 >
 	<span class={cn('size-1.5', toneClasses[resolvedTone].dot)} aria-hidden="true"></span>
-	{status}
+	{statusLabel(status)}
 </span>

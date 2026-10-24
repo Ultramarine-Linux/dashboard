@@ -6,10 +6,14 @@
 	import { dashboardBrand } from '$lib/branding';
 	import { contrast } from '$lib/state/contrast.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
 	$effect(() => {
 		contrast.apply();
+	});
+
+	$effect(() => {
+		document.documentElement.lang = data.locale;
 	});
 
 	onMount(async () => {

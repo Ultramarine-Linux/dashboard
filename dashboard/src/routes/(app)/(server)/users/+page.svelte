@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/i18n';
 	import { untrack } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -36,7 +37,7 @@
 		try {
 			users = await listManagedHostUsers();
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to load host users.');
+			error = getErrorMessage(err, t('users.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -56,7 +57,7 @@
 			home = '';
 			await refresh();
 		} catch (err) {
-			error = getErrorMessage(err, 'Failed to create host user.');
+			error = getErrorMessage(err, t('users.createFailed'));
 		} finally {
 			creating = false;
 		}
@@ -65,10 +66,11 @@
 
 <div class="flex h-full min-h-0 flex-col overflow-auto bg-background">
 	<div class="border-b border-border p-4 sm:p-6">
-		<h1 class="text-xl font-semibold tracking-tight text-foreground">Host Users</h1>
+		<h1 class="text-xl font-semibold tracking-tight text-foreground">{t('users.title')}</h1>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Manage local accounts on {host.hostname ?? 'this server'}. Anyone with an account and a
-			password can sign in to the dashboard; Tetra decides what each account may see.
+			{host.hostname
+				? t('users.description', { host: host.hostname })
+				: t('users.descriptionThisServer')}
 		</p>
 	</div>
 
@@ -76,14 +78,14 @@
 		<section class="min-w-0 space-y-3">
 			<div class="flex items-center justify-between gap-3">
 				<div>
-					<h2 class="text-sm font-semibold text-foreground">Local accounts</h2>
-					<p class="text-xs text-muted-foreground">Read from the Tetra users module.</p>
+					<h2 class="text-sm font-semibold text-foreground">{t('users.localAccounts')}</h2>
+					<p class="text-xs text-muted-foreground">{t('users.localAccountsHint')}</p>
 				</div>
 				<Button variant="outline" size="sm" onclick={refresh} disabled={loading}>
 					{#if loading}<Loader2 class="size-3 animate-spin" />{:else}<RefreshCw
 							class="size-3"
 						/>{/if}
-					Refresh
+					{t('common.refresh')}
 				</Button>
 			</div>
 
@@ -91,9 +93,9 @@
 				<table class="w-full text-left text-sm">
 					<thead class="border-b border-border/60 bg-muted/30 text-xs text-muted-foreground">
 						<tr
-							><th class="px-3 py-2">Name</th><th class="px-3 py-2">UID</th><th class="px-3 py-2"
-								>Home</th
-							><th class="px-3 py-2">Shell</th></tr
+							><th class="px-3 py-2">{t('common.name')}</th><th class="px-3 py-2">UID</th><th
+								class="px-3 py-2">{t('users.home')}</th
+							><th class="px-3 py-2">{t('users.shell')}</th></tr
 						>
 					</thead>
 					<tbody class="divide-y divide-border/50">
@@ -119,14 +121,14 @@
 			}}
 		>
 			<div>
-				<h2 class="text-sm font-semibold text-foreground">Create host user</h2>
+				<h2 class="text-sm font-semibold text-foreground">{t('users.createTitle')}</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Set a password on the console with <code class="font-mono">passwd</code> before the account
-					can sign in.
+					{t('users.passwordHintBefore')} <code class="font-mono">passwd</code>
+					{t('users.passwordHintAfter')}
 				</p>
 			</div>
 			<div class="space-y-2">
-				<Label for="username">Username</Label><Input
+				<Label for="username">{t('users.username')}</Label><Input
 					id="username"
 					bind:value={username}
 					placeholder="alice"
@@ -134,10 +136,10 @@
 				/>
 			</div>
 			<div class="space-y-2">
-				<Label for="shell">Shell</Label><Input id="shell" bind:value={shell} />
+				<Label for="shell">{t('users.shell')}</Label><Input id="shell" bind:value={shell} />
 			</div>
 			<div class="space-y-2">
-				<Label for="home">Home directory</Label><Input
+				<Label for="home">{t('users.homeDirectory')}</Label><Input
 					id="home"
 					bind:value={home}
 					placeholder="/home/alice"
@@ -146,7 +148,7 @@
 			<Button type="submit" class="w-full" disabled={creating || !username.trim()}
 				>{#if creating}<Loader2 class="size-4 animate-spin" />{:else}<UserPlus
 						class="size-4"
-					/>{/if}Create user</Button
+					/>{/if}{t('users.createUser')}</Button
 			>
 		</form>
 	</div>

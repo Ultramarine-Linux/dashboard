@@ -10,6 +10,7 @@
 		type ManagedHostPodmanContainerDetail
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t, formatDateTime } from '$lib/i18n';
 	import StatusBadge from '$lib/components/status-badge.svelte';
 	import ArrowLeft from '~icons/lucide/arrow-left';
 	import Loader2 from '~icons/lucide/loader-2';
@@ -34,6 +35,14 @@
 	let draftSaved = $state(false);
 	let loadedKey = $state('');
 
+	const runtimeLabels: Record<string, () => string> = {
+		state: () => t('podman.table.state'),
+		status: () => t('common.status'),
+		image: () => t('podman.table.image'),
+		created: () => t('podman.container.created'),
+		id: () => t('podman.container.id')
+	};
+
 	const draftCommand = $derived(buildDraftCommand(container, env, binds, ports));
 
 	$effect(() => {
@@ -44,9 +53,9 @@
 	});
 
 	function formatDate(value: string | null) {
-		if (!value) return 'Unknown';
+		if (!value) return t('common.unknown');
 		const date = new Date(value);
-		return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+		return Number.isNaN(date.getTime()) ? value : formatDateTime(date);
 	}
 
 	function updateList(list: string[], index: number, value: string) {
@@ -118,7 +127,7 @@
 			draftSaved = false;
 			await scrollToHashTarget();
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to load container.');
+			actionError = getErrorMessage(err, t('podman.container.loadFailed'));
 		} finally {
 			loading = false;
 		}
@@ -143,7 +152,7 @@
 				class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
 			>
 				<ArrowLeft class="size-3" />
-				Containers
+				{t('podman.resources.containers')}
 			</a>
 			<div class="mt-1 flex min-w-0 items-center gap-2.5">
 				<h1 class="truncate text-xl font-semibold tracking-tight text-foreground">
@@ -160,7 +169,7 @@
 			{:else}
 				<RefreshCw class="size-3.5" />
 			{/if}
-			Refresh
+			{t('common.refresh')}
 		</Button>
 	</div>
 
@@ -173,25 +182,25 @@
 	{#if loading && !container}
 		<div class="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
 			<Loader2 class="size-3.5 animate-spin" />
-			Loading container
+			{t('podman.container.loading')}
 		</div>
 	{:else if container}
 		<div
 			class="mt-5 grid gap-px overflow-hidden border border-border bg-border lg:grid-cols-[20rem_1fr]"
 		>
 			<section class="bg-background p-4">
-				<h2 class="text-sm font-semibold text-foreground">Runtime</h2>
+				<h2 class="text-sm font-semibold text-foreground">{t('podman.container.runtime')}</h2>
 				<div class="mt-4 divide-y divide-border border border-border">
-					{#each [['State', container.state ?? 'Unknown'], ['Status', container.status ?? 'Unknown'], ['Image', container.image ?? 'Unknown'], ['Created', formatDate(container.createdAt)], ['ID', container.id ?? 'Unknown']] as [label, value] (label)}
+					{#each [['state', container.state ?? t('common.unknown')], ['status', container.status ?? t('common.unknown')], ['image', container.image ?? t('common.unknown')], ['created', formatDate(container.createdAt)], ['id', container.id ?? t('common.unknown')]] as [labelId, value] (labelId)}
 						<div class="flex items-center justify-between gap-4 px-3 py-2">
-							<span class="text-xs text-muted-foreground">{label}</span>
+							<span class="text-xs text-muted-foreground">{runtimeLabels[labelId]()}</span>
 							<span class="truncate text-right text-xs font-medium text-foreground">{value}</span>
 						</div>
 					{/each}
 				</div>
 
 				{#if Object.keys(container.labels).length > 0}
-					<h3 class="mt-5 text-xs font-semibold text-foreground">Labels</h3>
+					<h3 class="mt-5 text-xs font-semibold text-foreground">{t('podman.container.labels')}</h3>
 					<div class="mt-2 space-y-1 font-mono text-[11px] text-muted-foreground">
 						{#each Object.entries(container.labels) as [key, value] (key)}
 							<p class="truncate">{key}={value}</p>
@@ -203,18 +212,24 @@
 			<section class="bg-background p-4">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
-						<h2 class="text-sm font-semibold text-foreground">Configuration Draft</h2>
+						<h2 class="text-sm font-semibold text-foreground">
+							{t('podman.container.configDraft')}
+						</h2>
 						<p class="mt-1 text-xs text-muted-foreground">
-							Changes here are staged for a future recreate or Quadlet workflow.
+							{t('podman.container.configDraftHint')}
 						</p>
 					</div>
-					<Button size="sm" onclick={saveDraft}>{draftSaved ? 'Draft saved' : 'Save draft'}</Button>
+					<Button size="sm" onclick={saveDraft}
+						>{draftSaved
+							? t('podman.container.draftSaved')
+							: t('podman.container.saveDraft')}</Button
+					>
 				</div>
 
 				<div class="mt-4 grid gap-5 xl:grid-cols-3">
 					<div class="space-y-3">
 						<div class="flex items-center justify-between gap-2">
-							<Label>Environment</Label>
+							<Label>{t('podman.container.environment')}</Label>
 							<Button
 								variant="outline"
 								size="sm"
@@ -222,13 +237,13 @@
 								onclick={() => addListItem('env')}
 							>
 								<Plus class="size-3" />
-								Add
+								{t('common.add')}
 							</Button>
 						</div>
 						{#each env as value, index (`env-${index}`)}
 							<div class="flex gap-2">
 								<Input
-									aria-label={`Environment variable ${index + 1}`}
+									aria-label={t('podman.container.environmentVariableN', { n: index + 1 })}
 									class="font-mono text-xs"
 									{value}
 									oninput={(event) => (env = updateList(env, index, event.currentTarget.value))}
@@ -236,7 +251,7 @@
 								<Button
 									variant="outline"
 									size="sm"
-									aria-label="Remove environment variable"
+									aria-label={t('podman.container.removeEnvironmentVariable')}
 									class="h-9 w-9 shrink-0 p-0 text-destructive"
 									onclick={() => (env = removeListItem(env, index))}
 								>
@@ -248,7 +263,7 @@
 
 					<div class="space-y-3">
 						<div class="flex items-center justify-between gap-2">
-							<Label>Volume Binds</Label>
+							<Label>{t('podman.container.volumeBinds')}</Label>
 							<Button
 								variant="outline"
 								size="sm"
@@ -256,13 +271,13 @@
 								onclick={() => addListItem('bind')}
 							>
 								<Plus class="size-3" />
-								Add
+								{t('common.add')}
 							</Button>
 						</div>
 						{#each binds as value, index (`bind-${index}`)}
 							<div class="flex gap-2">
 								<Input
-									aria-label={`Volume bind ${index + 1}`}
+									aria-label={t('podman.container.volumeBindN', { n: index + 1 })}
 									class="font-mono text-xs"
 									{value}
 									oninput={(event) => (binds = updateList(binds, index, event.currentTarget.value))}
@@ -270,7 +285,7 @@
 								<Button
 									variant="outline"
 									size="sm"
-									aria-label="Remove volume bind"
+									aria-label={t('podman.container.removeVolumeBind')}
 									class="h-9 w-9 shrink-0 p-0 text-destructive"
 									onclick={() => (binds = removeListItem(binds, index))}
 								>
@@ -282,7 +297,7 @@
 
 					<div class="space-y-3">
 						<div class="flex items-center justify-between gap-2">
-							<Label>Ports</Label>
+							<Label>{t('podman.container.ports')}</Label>
 							<Button
 								variant="outline"
 								size="sm"
@@ -290,13 +305,13 @@
 								onclick={() => addListItem('port')}
 							>
 								<Plus class="size-3" />
-								Add
+								{t('common.add')}
 							</Button>
 						</div>
 						{#each ports as value, index (`port-${index}`)}
 							<div class="flex gap-2">
 								<Input
-									aria-label={`Port mapping ${index + 1}`}
+									aria-label={t('podman.container.portMappingN', { n: index + 1 })}
 									class="font-mono text-xs"
 									{value}
 									oninput={(event) => (ports = updateList(ports, index, event.currentTarget.value))}
@@ -304,7 +319,7 @@
 								<Button
 									variant="outline"
 									size="sm"
-									aria-label="Remove port mapping"
+									aria-label={t('podman.container.removePortMapping')}
 									class="h-9 w-9 shrink-0 p-0 text-destructive"
 									onclick={() => (ports = removeListItem(ports, index))}
 								>
@@ -316,7 +331,7 @@
 				</div>
 
 				<div class="mt-5">
-					<Label for="draft-command">Generated recreate command</Label>
+					<Label for="draft-command">{t('podman.container.generatedCommand')}</Label>
 					<Textarea
 						id="draft-command"
 						class="mt-2 min-h-32 font-mono text-xs"
@@ -329,21 +344,21 @@
 
 		<div class="mt-5 grid gap-5 xl:grid-cols-2">
 			<section id="logs" class="scroll-mt-5">
-				<h2 class="text-sm font-semibold text-foreground">Logs</h2>
+				<h2 class="text-sm font-semibold text-foreground">{t('podman.logs')}</h2>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
 				<pre
 					role="region"
-					aria-label="Container logs"
+					aria-label={t('podman.container.logsRegion')}
 					tabindex="0"
 					class="mt-3 max-h-[30rem] overflow-auto border border-border bg-muted/30 p-4 text-xs leading-relaxed text-foreground">{container.logs}</pre>
 			</section>
 
 			<section>
-				<h2 class="text-sm font-semibold text-foreground">Raw Inspect</h2>
+				<h2 class="text-sm font-semibold text-foreground">{t('podman.container.rawInspect')}</h2>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex - Axe requires keyboard access for this scrollable code region. -->
 				<pre
 					role="region"
-					aria-label="Raw container inspect JSON"
+					aria-label={t('podman.container.rawInspectRegion')}
 					tabindex="0"
 					class="mt-3 max-h-[30rem] overflow-auto border border-border bg-muted/30 p-4 text-xs leading-relaxed text-foreground">{JSON.stringify(
 						container.rawInspect,

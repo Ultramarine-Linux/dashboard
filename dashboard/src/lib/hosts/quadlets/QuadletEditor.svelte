@@ -13,6 +13,7 @@
 		type ManagedHostQuadletScope
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t } from '$lib/i18n';
 	import Loader2 from '~icons/lucide/loader-2';
 	import Plus from '~icons/lucide/plus';
 	import Trash2 from '~icons/nucleo/trash';
@@ -136,7 +137,7 @@
 			saved = true;
 			await goto(`/quadlets/${encodeURIComponent(filename)}`);
 		} catch (err) {
-			actionError = getErrorMessage(err, 'Failed to save Quadlet bundle.');
+			actionError = getErrorMessage(err, t('quadlets.editor.saveFailed'));
 		} finally {
 			saving = false;
 		}
@@ -146,19 +147,19 @@
 <div class="space-y-5">
 	<div class="grid gap-4 lg:grid-cols-[16rem_1fr]">
 		<div class="space-y-2">
-			<Label for="quadlet-scope">Scope</Label>
+			<Label for="quadlet-scope">{t('quadlets.scope.label')}</Label>
 			<select
 				id="quadlet-scope"
 				class="h-9 w-full border border-input bg-background px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
 				bind:value={scope}
 				onchange={() => (saved = false)}
 			>
-				<option value="user">User</option>
-				<option value="system">System</option>
+				<option value="user">{t('quadlets.scope.user')}</option>
+				<option value="system">{t('quadlets.scope.system')}</option>
 			</select>
 		</div>
 		<div class="space-y-2">
-			<Label for="quadlet-filename">Quadlet filename</Label>
+			<Label for="quadlet-filename">{t('quadlets.editor.filename')}</Label>
 			<Input
 				id="quadlet-filename"
 				class="font-mono"
@@ -169,18 +170,20 @@
 	</div>
 
 	{#if detail?.filesBaseDir}
-		<p class="font-mono text-xs text-muted-foreground">Files: {detail.filesBaseDir}</p>
+		<p class="font-mono text-xs text-muted-foreground">
+			{t('quadlets.filesDir', { path: detail.filesBaseDir })}
+		</p>
 	{/if}
 
 	<div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
 		<section class="min-w-0">
 			<div class="flex items-center justify-between gap-3">
-				<Label for="quadlet-contents">Quadlet specification</Label>
+				<Label for="quadlet-contents">{t('quadlets.editor.specification')}</Label>
 				<Button size="sm" class="gap-2" onclick={save} disabled={saving}>
 					{#if saving}
 						<Loader2 class="size-3.5 animate-spin" />
 					{/if}
-					{saved ? 'Saved' : 'Save'}
+					{saved ? t('common.saved') : t('common.save')}
 				</Button>
 			</div>
 			<Textarea
@@ -192,10 +195,10 @@
 		</section>
 
 		<section class="min-w-0">
-			<h2 class="text-sm font-semibold text-foreground">Parameters</h2>
+			<h2 class="text-sm font-semibold text-foreground">{t('quadlets.editor.parameters')}</h2>
 			<div class="mt-3 max-h-[30rem] space-y-3 overflow-auto border border-border p-3">
 				{#if parameters.length === 0}
-					<p class="text-xs text-muted-foreground">No editable key/value parameters found.</p>
+					<p class="text-xs text-muted-foreground">{t('quadlets.editor.noParameters')}</p>
 				{:else}
 					{#each parameters as parameter (parameter.id)}
 						<div class="space-y-1">
@@ -218,15 +221,14 @@
 	<section>
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<div>
-				<h2 class="text-sm font-semibold text-foreground">Companion Files</h2>
+				<h2 class="text-sm font-semibold text-foreground">{t('quadlets.companionFiles')}</h2>
 				<p class="mt-1 text-xs text-muted-foreground">
-					Files are written under the mutable bundle data directory, for example
-					/var/lib/tetra/quadlets/demo-web.
+					{t('quadlets.editor.companionHint', { path: '/var/lib/tetra/quadlets/demo-web' })}
 				</p>
 			</div>
 			<Button variant="outline" size="sm" class="gap-2" onclick={addFile}>
 				<Plus class="size-3.5" />
-				Add file
+				{t('quadlets.editor.addFile')}
 			</Button>
 		</div>
 
@@ -235,7 +237,7 @@
 				<div class="border border-border p-3">
 					<div class="flex gap-2">
 						<div class="min-w-0 flex-1 space-y-2">
-							<Label for={`file-name-${file.id}`}>Filename</Label>
+							<Label for={`file-name-${file.id}`}>{t('quadlets.editor.companionFilename')}</Label>
 							<Input
 								id={`file-name-${file.id}`}
 								class="font-mono text-xs"
@@ -246,7 +248,7 @@
 						<Button
 							variant="outline"
 							size="sm"
-							aria-label="Remove companion file"
+							aria-label={t('quadlets.editor.removeCompanionFile')}
 							class="mt-7 h-9 w-9 shrink-0 p-0 text-destructive dark:text-red-300"
 							onclick={() => removeFile(file.id)}
 						>
@@ -254,7 +256,7 @@
 						</Button>
 					</div>
 					<div class="mt-3 space-y-2">
-						<Label for={`file-contents-${file.id}`}>Contents</Label>
+						<Label for={`file-contents-${file.id}`}>{t('quadlets.editor.contents')}</Label>
 						<Textarea
 							id={`file-contents-${file.id}`}
 							class="min-h-40 font-mono text-xs leading-relaxed"

@@ -4,6 +4,7 @@ import { type } from 'arktype';
 import { eq, and } from 'drizzle-orm';
 import { initDrizzle } from '$lib/server/db';
 import { apiTokens } from '$lib/server/db/schema';
+import { serverT } from '$lib/server/i18n';
 
 type ListResult = {
 	id: string;
@@ -14,7 +15,7 @@ type ListResult = {
 
 export const listApiTokens = query(async () => {
 	const event = getRequestEvent();
-	if (!event?.locals.user) error(401, 'Authentication required');
+	if (!event?.locals.user) error(401, serverT('errors.authRequired'));
 
 	const db = initDrizzle();
 	const tokens = await db.query.apiTokens.findMany({
@@ -48,7 +49,7 @@ type CreateResult = { id: string; token: string };
 
 export const createApiToken = command(createParams, async (params) => {
 	const event = getRequestEvent();
-	if (!event?.locals.user) error(401, 'Authentication required');
+	if (!event?.locals.user) error(401, serverT('errors.authRequired'));
 
 	const db = initDrizzle();
 	const plainToken = generateToken();
@@ -71,14 +72,14 @@ const revokeParams = type({ tokenId: 'string' });
 
 export const revokeApiToken = command(revokeParams, async (params) => {
 	const event = getRequestEvent();
-	if (!event?.locals.user) error(401, 'Authentication required');
+	if (!event?.locals.user) error(401, serverT('errors.authRequired'));
 
 	const db = initDrizzle();
 	const token = await db.query.apiTokens.findFirst({
 		where: and(eq(apiTokens.id, params.tokenId), eq(apiTokens.userId, event.locals.user.id))
 	});
 
-	if (!token) error(404, 'API token not found');
+	if (!token) error(404, serverT('errors.apiTokenNotFound'));
 
 	await db
 		.delete(apiTokens)

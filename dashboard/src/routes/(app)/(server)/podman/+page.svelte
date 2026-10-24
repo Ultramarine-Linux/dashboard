@@ -10,6 +10,7 @@
 		type HostSummary
 	} from '$lib/remote/managed-hosts.remote';
 	import { getErrorMessage } from '$lib/utils';
+	import { t, type TranslationKey } from '$lib/i18n';
 	import SegmentedControl from '$lib/components/segmented-control.svelte';
 	import StatusBadge from '$lib/components/status-badge.svelte';
 	import FileText from '~icons/lucide/file-text';
@@ -35,12 +36,19 @@
 	let podmanError = $state('');
 	let podmanActionName = $state('');
 
-	const podmanResources: { id: PodmanResource; label: string }[] = [
-		{ id: 'containers', label: 'Containers' },
-		{ id: 'images', label: 'Images' },
-		{ id: 'volumes', label: 'Volumes' },
-		{ id: 'networks', label: 'Networks' }
+	const podmanResources: { id: PodmanResource; labelKey: TranslationKey }[] = [
+		{ id: 'containers', labelKey: 'podman.resources.containers' },
+		{ id: 'images', labelKey: 'podman.resources.images' },
+		{ id: 'volumes', labelKey: 'podman.resources.volumes' },
+		{ id: 'networks', labelKey: 'podman.resources.networks' }
 	];
+
+	const resourceNounKeys: Record<PodmanResource, TranslationKey> = {
+		containers: 'podman.resourceNoun.containers',
+		images: 'podman.resourceNoun.images',
+		volumes: 'podman.resourceNoun.volumes',
+		networks: 'podman.resourceNoun.networks'
+	};
 
 	function asRecord(value: unknown): Record<string, unknown> {
 		return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -54,7 +62,7 @@
 			if (Array.isArray(value)) return value.join(', ');
 			if (value !== undefined && value !== null && String(value).trim()) return String(value);
 		}
-		return 'Unknown';
+		return t('common.unknown');
 	}
 
 	function podmanRowKey(item: unknown, index: number) {
@@ -80,7 +88,7 @@
 			podmanData = result.data;
 			podmanCommand = result.command;
 		} catch (err) {
-			podmanError = getErrorMessage(err, 'Failed to load Podman resources.');
+			podmanError = getErrorMessage(err, t('podman.loadFailed'));
 		} finally {
 			podmanLoading = false;
 		}
@@ -90,10 +98,13 @@
 		if (podmanActionName) return;
 		if (action === 'remove') {
 			const ok = await confirmDestructive({
-				title: 'Remove container',
-				description: `This will remove ${name} from ${host.hostname ?? 'this server'}.`,
+				title: t('podman.removeContainerTitle'),
+				description: t('podman.removeContainerDescription', {
+					name,
+					host: host.hostname ?? t('podman.thisServer')
+				}),
 				confirmWord: name,
-				confirmLabel: 'Remove container'
+				confirmLabel: t('podman.removeContainerTitle')
 			});
 			if (!ok) return;
 		}
@@ -104,7 +115,7 @@
 			await runManagedHostPodmanContainerAction({ name, action });
 			await refreshPodman('containers');
 		} catch (err) {
-			podmanError = getErrorMessage(err, 'Podman action failed.');
+			podmanError = getErrorMessage(err, t('podman.actionFailed'));
 		} finally {
 			podmanActionName = '';
 		}
@@ -124,7 +135,7 @@
 	<div class="flex flex-wrap items-center justify-between gap-4">
 		<div>
 			<h1 class="text-xl font-semibold tracking-tight text-foreground">Podman</h1>
-			<p class="mt-1 text-sm text-muted-foreground">Inspect and manage containers on this host.</p>
+			<p class="mt-1 text-sm text-muted-foreground">{t('podman.subtitle')}</p>
 		</div>
 		<Button
 			variant="outline"
@@ -138,14 +149,17 @@
 			{:else}
 				<RefreshCw class="size-3.5" />
 			{/if}
-			Refresh
+			{t('common.refresh')}
 		</Button>
 	</div>
 
 	<SegmentedControl
 		class="mt-5"
-		label="Podman resource"
-		options={podmanResources.map((resource) => ({ value: resource.id, label: resource.label }))}
+		label={t('podman.resourceLabel')}
+		options={podmanResources.map((resource) => ({
+			value: resource.id,
+			label: t(resource.labelKey)
+		}))}
 		value={podmanResource}
 		onchange={(resource) => refreshPodman(resource)}
 		disabled={podmanLoading}
@@ -161,34 +175,36 @@
 		{#if podmanLoading && podmanData.length === 0}
 			<div class="flex items-center gap-2 p-4 text-xs text-muted-foreground">
 				<Loader2 class="size-3.5 animate-spin" />
-				Loading Podman {podmanResource}
+				{t('podman.loadingResource', { resource: t(resourceNounKeys[podmanResource]) })}
 			</div>
 		{:else if podmanData.length === 0}
-			<div class="p-4 text-xs text-muted-foreground">No Podman {podmanResource} found.</div>
+			<div class="p-4 text-xs text-muted-foreground">
+				{t('podman.noResources', { resource: t(resourceNounKeys[podmanResource]) })}
+			</div>
 		{:else}
 			<div class="overflow-auto">
 				<table class="w-full min-w-[720px] text-left text-xs">
 					<thead class="border-b border-border bg-muted/30 text-muted-foreground">
 						<tr>
 							{#if podmanResource === 'containers'}
-								<th class="px-3 py-2 font-medium">Name</th>
-								<th class="px-3 py-2 font-medium">Image</th>
-								<th class="px-3 py-2 font-medium">State</th>
-								<th class="px-3 py-2 font-medium">Status</th>
-								<th class="px-3 py-2 text-right font-medium">Actions</th>
+								<th class="px-3 py-2 font-medium">{t('common.name')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.image')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.state')}</th>
+								<th class="px-3 py-2 font-medium">{t('common.status')}</th>
+								<th class="px-3 py-2 text-right font-medium">{t('common.actions')}</th>
 							{:else if podmanResource === 'images'}
-								<th class="px-3 py-2 font-medium">Repository</th>
-								<th class="px-3 py-2 font-medium">Tag</th>
-								<th class="px-3 py-2 font-medium">Image ID</th>
-								<th class="px-3 py-2 font-medium">Size</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.repository')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.tag')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.imageId')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.size')}</th>
 							{:else if podmanResource === 'volumes'}
-								<th class="px-3 py-2 font-medium">Name</th>
-								<th class="px-3 py-2 font-medium">Driver</th>
-								<th class="px-3 py-2 font-medium">Mountpoint</th>
+								<th class="px-3 py-2 font-medium">{t('common.name')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.driver')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.mountpoint')}</th>
 							{:else}
-								<th class="px-3 py-2 font-medium">Name</th>
-								<th class="px-3 py-2 font-medium">Driver</th>
-								<th class="px-3 py-2 font-medium">Interface</th>
+								<th class="px-3 py-2 font-medium">{t('common.name')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.driver')}</th>
+								<th class="px-3 py-2 font-medium">{t('podman.table.interface')}</th>
 							{/if}
 						</tr>
 					</thead>
@@ -232,7 +248,7 @@
 													{:else}
 														<Square class="size-3" />
 													{/if}
-													Stop
+													{t('podman.stop')}
 												</Button>
 											{:else}
 												<Button
@@ -247,14 +263,14 @@
 													{:else}
 														<Play class="size-3" />
 													{/if}
-													Start
+													{t('podman.start')}
 												</Button>
 											{/if}
 											<Button
 												variant="ghost"
 												size="icon-sm"
-												title="Restart"
-												aria-label="Restart {name}"
+												title={t('podman.restart')}
+												aria-label={t('podman.restartNamed', { name })}
 												onclick={() => runContainerAction('restart', name)}
 												disabled={!!podmanActionName}
 											>
@@ -267,8 +283,8 @@
 											<Button
 												variant="ghost"
 												size="icon-sm"
-												title="Logs"
-												aria-label="Logs for {name}"
+												title={t('podman.logs')}
+												aria-label={t('podman.logsFor', { name })}
 												onclick={() => openContainer(name, 'logs')}
 											>
 												<FileText class="size-3.5" />
@@ -277,8 +293,8 @@
 												variant="ghost"
 												size="icon-sm"
 												class="text-destructive hover:bg-destructive/10 hover:text-destructive dark:text-red-300"
-												title="Remove"
-												aria-label="Remove {name}"
+												title={t('common.remove')}
+												aria-label={t('podman.removeNamed', { name })}
 												onclick={() => runContainerAction('remove', name)}
 												disabled={!!podmanActionName}
 											>
