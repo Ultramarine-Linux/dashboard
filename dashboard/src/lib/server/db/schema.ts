@@ -32,3 +32,15 @@ export const apiTokens = sqliteTable(
 	},
 	(table) => [index('api_tokens_user_id_index').on(table.userId)]
 );
+
+/**
+ * Recipe catalogs an administrator added. The built-in Fyra Labs catalog
+ * comes from `RECIPES_URL` and has no row; the cached catalogs themselves
+ * live under `<state dir>/recipes/<id>/`.
+ */
+export const recipeCatalogs = sqliteTable('recipe_catalogs', {
+	id: ulidPk(),
+	name: text('name').notNull(),
+	url: text('url').notNull().unique(),
+	createdAt: epochMs('created_at').notNull()
+});

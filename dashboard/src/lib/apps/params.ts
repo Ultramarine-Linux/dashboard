@@ -5,7 +5,10 @@
  * conversion into the typed `values` map sent to the agent.
  */
 import { t } from '#lib/i18n/index.js';
-import type { AppRecipe, AppRecipeParameter } from './catalog';
+import type { AppRecipeParameter } from './catalog.js';
+
+/** Only the parameters matter here: catalog recipes and installed apps' recipes both work. */
+type RecipeParameters = { parameters: AppRecipeParameter[] };
 
 export type AppValueMap = Record<string, string | number | boolean>;
 
@@ -19,7 +22,7 @@ export function generateRandom32(): string {
 }
 
 /** Initial form values: recipe defaults, with secrets pre-generated. */
-export function defaultRecipeValues(recipe: AppRecipe): AppValueMap {
+export function defaultRecipeValues(recipe: RecipeParameters): AppValueMap {
 	const values: AppValueMap = {};
 	for (const parameter of recipe.parameters) {
 		if (parameter.default !== null) {
@@ -69,7 +72,7 @@ function validateParameter(
 }
 
 /** Validation errors for the whole form; empty means cook may proceed. */
-export function validateRecipeValues(recipe: AppRecipe, values: AppValueMap): string[] {
+export function validateRecipeValues(recipe: RecipeParameters, values: AppValueMap): string[] {
 	const errors: string[] = [];
 	for (const parameter of recipe.parameters) {
 		const error = validateParameter(parameter, values[parameter.key] ?? '');
@@ -83,7 +86,10 @@ export function validateRecipeValues(recipe: AppRecipe, values: AppValueMap): st
  * parameters left empty are omitted entirely — notably `bundle_dir`, which
  * the agent then fills with the real per-app bundle directory.
  */
-export function valuesForSubmit(recipe: AppRecipe, values: AppValueMap): Record<string, unknown> {
+export function valuesForSubmit(
+	recipe: RecipeParameters,
+	values: AppValueMap
+): Record<string, unknown> {
 	const submitted: Record<string, unknown> = {};
 	for (const parameter of recipe.parameters) {
 		const value = values[parameter.key];

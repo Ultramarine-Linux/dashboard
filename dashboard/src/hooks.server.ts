@@ -2,6 +2,7 @@ import { error, redirect, type RequestEvent } from '@sveltejs/kit';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit/hooks';
 import { building, dev } from '$app/env';
 import { initDatabase } from '#lib/server/db/index.js';
+import { startRecipeCatalogs } from '#lib/server/recipes/index.js';
 import { instrument } from '#lib/server/observability.js';
 import { hostnameNotConfigured } from '#lib/server/env.js';
 import { hostnameNotConfiguredResponse } from '#lib/server/origin.js';
@@ -140,6 +141,9 @@ export const init: ServerInit = async () => {
 	// stack a listener on every reload.
 	if (!dev) closeTetraOnShutdown();
 	await initDatabase();
+	// Seeds the recipe cache from the image if needed (local files only) and
+	// starts background refreshes; never waits on the network.
+	await startRecipeCatalogs();
 };
 
 export const handle: Handle = withLocale(handleSession);

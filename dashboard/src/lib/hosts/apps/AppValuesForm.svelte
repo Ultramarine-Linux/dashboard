@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from '#lib/i18n/index.js';
-	import type { AppRecipe, AppRecipeParameter } from '#lib/apps/catalog.js';
+	import type { AppRecipeParameter } from '#lib/apps/catalog.js';
 	import type { AppValueMap } from '#lib/apps/params.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -13,7 +13,7 @@
 		idPrefix = 'param',
 		onparamedit
 	}: {
-		recipe: AppRecipe;
+		recipe: { parameters: AppRecipeParameter[] };
 		values: AppValueMap;
 		idPrefix?: string;
 		onparamedit?: (key: string) => void;
@@ -58,7 +58,7 @@
 						variant={values[parameter.key] === option ? 'default' : 'ghost'}
 						onclick={() => updateValue(parameter.key, option)}
 					>
-						{option}
+						{parameter.optionLabels[option] ?? option}
 					</Button>
 				{/each}
 			</div>

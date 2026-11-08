@@ -142,6 +142,20 @@ describe('0001_drop_removed_auth', () => {
 		db.close();
 	});
 
+	it('adds the recipe catalogs table with unique URLs', () => {
+		const path = join(directory, 'dashboard.db');
+		seedInitialDatabase(path);
+		const db = openSqlite(path);
+		run(db, MIGRATIONS);
+		expect(columns(db, 'recipe_catalogs')).toEqual(['id', 'name', 'url', 'created_at']);
+		const insert = db.prepare(
+			`insert into recipe_catalogs (id, name, url, created_at) values (?, 'Mine', 'https://example.com/v1', 0)`
+		);
+		insert.run('c1');
+		expect(() => insert.run('c2')).toThrow(/UNIQUE/);
+		db.close();
+	});
+
 	it('restores foreign key enforcement when a migration fails', () => {
 		const db = openSqlite(join(directory, 'failing.db'));
 		expect(() =>

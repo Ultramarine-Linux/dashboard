@@ -40,6 +40,37 @@ Applications are deployed as Quadlet resources, so the server must have the
 required Tetra, Podman, and systemd/Quadlet support available. Open **Apps** to
 create, inspect, update, or remove an application.
 
+Recipes come from
+[Ultramarine-Linux/recipes](https://github.com/Ultramarine-Linux/recipes)
+and never live in this repository. Dashboard fetches the published catalog at
+runtime and caches it in its state directory
+(`$UM_DASHBOARD_STATE_DIR/recipes/<catalog>/`). Recipe names, descriptions,
+parameter labels, and categories are translated in the recipes repo, not in
+`langs/`.
+
+- `RECIPES_URL` is the Fyra Labs catalog's base URL, the one `index.json` is
+  under (default `https://recipes.fyralabs.com/v1`).
+- `RECIPES_REFRESH_INTERVAL` is how often, in minutes, every catalog is
+  refreshed in the background (default 360; `0` only refreshes on startup).
+  Refreshes are conditional (ETag / Last-Modified), download only bundles
+  that aren't cached, and verify every bundle's digest before the new index
+  replaces the old one. A failed refresh keeps the previous catalog.
+- The production image mirrors the Fyra Labs catalog endpoint (`index.json`
+  and the bundles it lists) into `/app/recipes-seed/fyra` at build time
+  (build args `RECIPES_URL`, and `RECIPES_SEED`: `required`, `optional`
+  (default), or `off`). The Image workflow builds every published image with
+  `required`, so a release can't ship without the catalog. On first start, with no catalog cached yet, Dashboard
+  imports the seed (`UM_DASHBOARD_RECIPES_SEED_DIR`) through the same digest
+  checks as a download, then refreshes from `RECIPES_URL`. Without a seed or
+  network the catalog is empty until a refresh succeeds. To seed by hand,
+  mirror `<url>/index.json` and each `recipes[].bundle` path into
+  `<seed dir>/fyra/`.
+- Administrators can add more catalogs in the same format under
+  **Administration → Recipe catalogs** (https only; http works for
+  `localhost`), and refresh or remove them there. Recipes from an added
+  catalog are always installed as `custom`, whatever the catalog claims; only
+  the Fyra Labs catalog's recipes are `official` or `community`.
+
 ## Translations
 
 UI strings go through [i18nya](https://github.com/FyraLabs/i18nya). Catalogs are
@@ -99,7 +130,7 @@ UM_DASHBOARD_STATE_DIR=$(mktemp -d) PORT=3972 ORIGIN=http://localhost:3972 node 
 ```
 
 `GET /health` returns `OK` only if the database opens, every migration is
-applied and Tetra answers on its socket; otherwise it returns 503 with the
+applied, and Tetra answers on its socket; otherwise it returns 503 with the
 checks that failed, and logs why. Update checks use it.
 
 ### Container image
@@ -147,7 +178,7 @@ publish.
 
 GitHub creates the package private on its first publish. Make it public once
 (the package's settings on GitHub, linked to `Ultramarine-Linux/dashboard`):
-`update.rhai`, bootc on every host and `cosign verify` all pull it anonymously.
+`update.rhai`, bootc on every host, and `cosign verify` all pull it anonymously.
 
 #### Pinning in bootc images
 
@@ -192,7 +223,7 @@ without an OS update. `main` images are for testing only.
   dev server uses the request's origin for everything.
 
 The image sets `HOST=0.0.0.0`, `PORT=3972`, `PROTOCOL_HEADER=x-forwarded-proto`,
-`SHUTDOWN_TIMEOUT=5` and `UM_DASHBOARD_STATE_DIR=/var/lib/ultramarine-dashboard`,
+`SHUTDOWN_TIMEOUT=5`, and `UM_DASHBOARD_STATE_DIR=/var/lib/ultramarine-dashboard`,
 and starts through `dashboard/serve.js`, which drops a blank `ORIGIN`
 that adapter-node would refuse. On SIGTERM, Dashboard
 waits up to `SHUTDOWN_TIMEOUT` seconds for requests in flight, then closes its
