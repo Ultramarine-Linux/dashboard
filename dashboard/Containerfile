@@ -34,24 +34,35 @@ ARG RECIPES_URL
 ARG RECIPES_SEED=optional
 # Changes on every CI run, so a cached layer never stands in for a fresh seed.
 ARG RECIPES_SEED_REVISION
+# seed never runs as the condition of `||` or `if`, because the shell ignores
+# set -e there and a failed fetch would look like success. The bundle list goes
+# through a file rather than a pipe, so a jq failure (an index that isn't one)
+# fails the seed too.
 RUN set -eu; \
+	case "$RECIPES_SEED" in \
+		required|optional|off) ;; \
+		*) echo "RECIPES_SEED must be required, optional or off" >&2; exit 1 ;; \
+	esac; \
 	seed() ( \
 		set -eu; \
 		mkdir -p /recipes-seed/fyra && cd /recipes-seed/fyra; \
 		get() { curl -fsSL --proto '=https,http' --retry 3 --max-time 60 --create-dirs -o "$1" "${RECIPES_URL%/}/$1"; }; \
 		get index.json; \
-		jq -r '.recipes[].bundle' index.json | while IFS= read -r bundle; do \
+		jq -r '.recipes[].bundle' index.json > /tmp/bundles; \
+		while IFS= read -r bundle; do \
 			case "$bundle" in /*|*..*|'') echo "unsafe bundle path: $bundle" >&2; exit 1 ;; esac; \
 			get "$bundle"; \
-		done \
+		done < /tmp/bundles; \
+		rm -f /tmp/bundles \
 	); \
 	mkdir -p /recipes-seed; \
-	case "$RECIPES_SEED" in \
-		off) ;; \
-		required) seed ;; \
-		optional) seed || { echo "warning: building without a seeded recipe catalog" >&2; rm -rf /recipes-seed/fyra; } ;; \
-		*) echo "RECIPES_SEED must be required, optional or off" >&2; exit 1 ;; \
-	esac; \
+	status=0; \
+	if [ "$RECIPES_SEED" != off ]; then set +e; seed; status=$?; set -e; fi; \
+	if [ "$status" -ne 0 ]; then \
+		if [ "$RECIPES_SEED" = required ]; then exit "$status"; fi; \
+		echo "warning: building without a seeded recipe catalog" >&2; \
+		rm -rf /recipes-seed/fyra; \
+	fi; \
 	chmod -R a+rX /recipes-seed
 
 FROM ${BUILD_IMAGE} AS build

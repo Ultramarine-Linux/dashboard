@@ -28,6 +28,7 @@ export const FETCH_TIMEOUT_MS = 30_000;
 export const MAX_INDEX_BYTES = 2 * 1024 * 1024;
 export const MAX_BUNDLE_BYTES = 4 * 1024 * 1024;
 export const MAX_RECIPES = 1000;
+export const MAX_REDIRECTS = 5;
 
 /** How the catalog vouches for a recipe: vetted by Fyra, or a third-party contribution. */
 export type RecipeTier = 'official' | 'community';
@@ -409,6 +410,13 @@ type FetchOptions = {
 	timeoutMs?: number;
 };
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * GET with redirects followed by hand, so every hop stays on the origin of the
+ * first URL. `redirect: 'follow'` would let a catalog bounce the fetch to plain
+ * http or an internal address after the URL checks already passed.
+ */
 async function get(
 	url: string,
 	headers: Record<string, string>,
@@ -416,15 +424,29 @@ async function get(
 ): Promise<Response> {
 	const timeout = AbortSignal.timeout(options.timeoutMs ?? FETCH_TIMEOUT_MS);
 	const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
-	try {
-		return await (options.fetch ?? fetch)(url, {
-			headers: { accept: 'application/json', ...headers },
-			signal,
-			redirect: 'follow'
-		});
-	} catch (error) {
-		if (timeout.aborted) throw new CatalogError(`GET ${url}: timed out`);
-		throw new CatalogError(`GET ${url}: ${errorMessage(error)}`);
+	const origin = new URL(url).origin;
+	let current = url;
+	for (let hop = 0; ; hop++) {
+		let response: Response;
+		try {
+			response = await (options.fetch ?? fetch)(current, {
+				headers: { accept: 'application/json', ...headers },
+				signal,
+				redirect: 'manual'
+			});
+		} catch (error) {
+			if (timeout.aborted) throw new CatalogError(`GET ${url}: timed out`);
+			throw new CatalogError(`GET ${url}: ${errorMessage(error)}`);
+		}
+		const location = response.headers.get('location');
+		if (!REDIRECT_STATUSES.has(response.status) || !location) return response;
+		await response.body?.cancel().catch(() => {});
+		if (hop >= MAX_REDIRECTS) throw new CatalogError(`GET ${url}: too many redirects`);
+		const next = new URL(location, current);
+		if (next.origin !== origin) {
+			throw new CatalogError(`GET ${url}: redirected off ${origin}`);
+		}
+		current = next.href;
 	}
 }
 
@@ -513,6 +535,20 @@ async function readCachedBundle(
 	}
 }
 
+/** Whether the cached index exists and every bundle it lists is usable. */
+async function cachedBundlesComplete(dir: string): Promise<boolean> {
+	try {
+		const value = await readJsonFile(join(dir, 'index.json'));
+		if (value === undefined) return false;
+		for (const entry of parseCatalogIndex(value).recipes) {
+			if (!(await readCachedBundle(dir, entry))) return false;
+		}
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 /**
  * Read a cached catalog. Every bundle is verified again; entries whose bundle
  * is missing or fails verification are left out. Null when nothing is cached.
@@ -545,10 +581,9 @@ export async function refreshCatalog(
 	const { dir, url } = options;
 	const now = options.now ?? Date.now;
 	const previous = await readCatalogMeta(dir);
-	const haveIndex = await stat(join(dir, 'index.json')).then(
-		() => true,
-		() => false
-	);
+	// a 304 only means the index is unchanged. If a cached bundle went missing
+	// or bad since, refetch in full so it gets downloaded again
+	const cacheComplete = await cachedBundlesComplete(dir);
 	const meta: CatalogMeta = previous ?? {
 		url,
 		etag: null,
@@ -561,7 +596,7 @@ export async function refreshCatalog(
 	try {
 		await mkdir(join(dir, 'bundles'), { recursive: true, mode: 0o700 });
 		const conditional: Record<string, string> = {};
-		if (haveIndex && previous?.url === url) {
+		if (cacheComplete && previous?.url === url) {
 			if (previous.etag) conditional['if-none-match'] = previous.etag;
 			if (previous.lastModified) conditional['if-modified-since'] = previous.lastModified;
 		}

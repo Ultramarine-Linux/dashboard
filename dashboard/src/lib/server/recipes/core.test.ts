@@ -350,6 +350,60 @@ describe('refreshCatalog', () => {
 		expect(requests[0]['if-none-match']).toBeUndefined();
 		expect((await readCatalogMeta(dir))?.url).toBe(moved);
 	});
+
+	it('refetches in full when a cached bundle went missing', async () => {
+		const files = {
+			'index.json': makeIndex({ 'recipes/demo/a.json': demo }),
+			'recipes/demo/a.json': demo
+		};
+		await refreshCatalog({ dir, url: BASE, fetch: server(files).fetch });
+		for (const file of readdirSync(join(dir, 'bundles'))) rmSync(join(dir, 'bundles', file));
+
+		const again = server(files);
+		expect(await refreshCatalog({ dir, url: BASE, fetch: again.fetch })).toMatchObject({
+			status: 'updated'
+		});
+		expect(again.requests[0].headers['if-none-match']).toBeUndefined();
+		expect((await readCatalog(dir))?.bundles.has('demo')).toBe(true);
+	});
+
+	it('follows redirects on the same origin', async () => {
+		const files = {
+			'index.json': makeIndex({ 'recipes/demo/a.json': demo }),
+			'moved/a.json': demo
+		};
+		const inner = server(files);
+		const fetch: FetchLike = async (url, init) =>
+			url.endsWith('/recipes/demo/a.json')
+				? new Response(null, { status: 302, headers: { location: `${BASE}/moved/a.json` } })
+				: inner.fetch(url, init);
+		expect(await refreshCatalog({ dir, url: BASE, fetch })).toMatchObject({ status: 'updated' });
+	});
+
+	it('refuses redirects off the catalog origin', async () => {
+		const requests: string[] = [];
+		const fetch: FetchLike = async (url) => {
+			requests.push(url);
+			return new Response(null, {
+				status: 302,
+				headers: { location: 'http://169.254.169.254/latest/meta-data' }
+			});
+		};
+		expect(await refreshCatalog({ dir, url: BASE, fetch })).toMatchObject({
+			status: 'failed',
+			error: expect.stringMatching(/redirected off/)
+		});
+		expect(requests).toEqual([`${BASE}/index.json`]);
+	});
+
+	it('gives up after too many redirects', async () => {
+		const fetch: FetchLike = async (url) =>
+			new Response(null, { status: 301, headers: { location: `${url}?again` } });
+		expect(await refreshCatalog({ dir, url: BASE, fetch })).toMatchObject({
+			status: 'failed',
+			error: expect.stringMatching(/too many redirects/)
+		});
+	});
 });
 
 describe('seedCatalog', () => {

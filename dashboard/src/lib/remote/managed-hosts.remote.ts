@@ -1364,13 +1364,15 @@ export const createManagedHostApp = command(
 		if (!isValidAppName(name)) {
 			error(400, serverT('errors.apps.invalidName'));
 		}
+		// check before the lookup, or non-admins could probe which recipes exist
+		// through 400 vs 403
+		if (!accessibilityFixtureEnabled) requireAdmin();
 		// Recipes come from the server's cached catalogs: clients pick one by
 		// catalog and id, never ship recipe YAML.
 		const recipe = await recipeForInstall(params.catalogId, params.recipeId);
 		if (!recipe) error(400, serverT('errors.apps.unknownRecipe'));
 		const values = parseAppValuesJson(params.valuesJson);
 		if (accessibilityFixtureEnabled) return fixtureAppWriteResult(scope);
-		requireAdmin();
 
 		const response = await dispatchHostCommand({
 			module: 'apps',
