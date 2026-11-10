@@ -1,7 +1,7 @@
 # Database migrations
 
 Dashboard stores its state in SQLite and applies the Drizzle migrations in
-`drizzle/` on startup.
+[`dashboard/drizzle/`](../dashboard/drizzle) on startup.
 
 ## The rule
 
@@ -37,7 +37,7 @@ migrating and relies on the rule above.
 
 ## Adding a migration
 
-1. Change `src/lib/server/db/schema.ts`.
+1. Change `dashboard/src/lib/server/db/schema.ts`.
 2. Run `pnpm db:generate` and commit the generated SQL and `drizzle/meta`.
 3. Never edit or delete a migration that has landed. Databases that already
    applied it would keep the old schema and quietly differ from fresh installs.

@@ -1,15 +1,8 @@
 /**
- * uidotsh-patch.js
- *
- * Keeps the ui.sh picker visible above shadcn-svelte sheets/dialogs (built on
- * bits-ui). Stops pointer, click, and focus events that originate inside the
- * picker from bubbling up to the document, which prevents bits-ui's
- * DismissibleLayer from treating those events as "interact outside" and
- * closing the sheet/dialog.
- *
- * Without this patch, clicking the picker while a sheet is open would dismiss
- * the sheet AND cause the picker to vanish (because the content it previews
- * lives inside the sheet).
+ * Keeps the ui.sh picker usable above shadcn-svelte sheets and dialogs. Events
+ * from inside the picker stop before they reach the document, so bits-ui's
+ * DismissibleLayer doesn't take them as "interact outside" and close the sheet,
+ * which would also remove the content the picker previews.
  */
 
 (function () {

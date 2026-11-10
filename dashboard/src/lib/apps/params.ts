@@ -82,9 +82,9 @@ export function validateRecipeValues(recipe: RecipeParameters, values: AppValueM
 }
 
 /**
- * Typed values for `apps.create`/`apps.update`. Optional string-like
- * parameters left empty are omitted entirely — notably `bundle_dir`, which
- * the agent then fills with the real per-app bundle directory.
+ * Typed values for `apps.create`/`apps.update`. Empty optional string-like
+ * parameters are left out, so the agent fills in its own defaults (such as
+ * the per-app `bundle_dir`).
  */
 export function valuesForSubmit(
 	recipe: RecipeParameters,

@@ -1,6 +1,5 @@
-# Local dependencies and generated application output must not enter container
-# build contexts. They are architecture/host specific and cause pnpm to attempt
-# an interactive modules-directory replacement during image builds.
+# Local dependencies and build output. They are architecture specific, and a
+# copied node_modules makes pnpm prompt to replace it during image builds.
 node_modules
 .svelte-kit
 build
@@ -9,7 +8,7 @@ coverage
 playwright-report
 test-results
 
-# Local runtime secrets and generated development certificates.
+# Local runtime secrets and development certificates.
 .env
 .env.*
 dev/.env

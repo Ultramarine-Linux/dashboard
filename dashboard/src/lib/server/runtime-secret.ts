@@ -16,10 +16,9 @@ const DIRECTORY_MODE = 0o700;
 const FILE_MODE = 0o600;
 
 /**
- * Resolve the Dashboard authentication secret without requiring operators to
- * invent one on first boot. An environment value always wins for deployments
- * that already use a secret manager; otherwise a random value is generated
- * once and retained in mutable host state.
+ * Resolve the Dashboard authentication secret. An environment value always
+ * wins, for deployments with a secret manager. Otherwise a random secret is
+ * generated on first boot and kept in the state directory.
  */
 export function resolveBetterAuthSecret(options: {
 	explicitSecret?: string;

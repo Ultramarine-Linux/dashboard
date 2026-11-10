@@ -592,9 +592,8 @@ function mapManagedHostUsers(response: AgentResponse): ManagedHostUser[] {
 		}))
 		.filter((item) => {
 			if (!item.name) return false;
-			// Keep the host Users view focused on human accounts, not service users.
-			// UID 65534 is `nobody` and is intentionally hidden even though it is
-			// outside the normal system UID range.
+			// Only human accounts, not service users. UID 65534 (`nobody`) is above
+			// the system UID range but hidden too.
 			const uid = Number.parseInt(item.uid, 10);
 			return Number.isInteger(uid) && uid >= 1000 && uid !== 65534;
 		})
@@ -1262,8 +1261,8 @@ function mapAppWriteResult(payload: unknown): ManagedHostAppWriteResult {
 		units: parsed.units,
 		files: parsed.files,
 		services: parsed.services,
-		// Converge entries either report a `command` result or an `error` —
-		// only commands surface in the activity view.
+		// Converge entries report either a `command` result or an `error`. Only
+		// commands show in the activity view.
 		systemdCommands: parsed.systemd
 			.filter(isRecord)
 			.map((entry) => entry.command)
@@ -1524,10 +1523,9 @@ export const readManagedHostAppFile = command(
 			return { filename: params.filename, contents: '<h1>Hello from demo-web</h1>\n' };
 		}
 
-		// Resolve the app manifest first so callers can only read companion files
-		// recorded by that app. The agent protects traversal, but this additional
-		// ownership check prevents arbitrary bundle files (including app.json)
-		// from being exposed through the dashboard action.
+		// Only companion files the app's manifest lists. The agent already blocks
+		// traversal, but without this check any bundle file (app.json included)
+		// could be read through this action.
 		const detailResponse = await dispatchHostCommand({
 			module: 'apps',
 			action: 'get',

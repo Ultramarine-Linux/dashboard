@@ -17,7 +17,7 @@ services:
       - '127.0.0.1:3972:3972'
 
   # The production image (dashboard/Containerfile) against a Tetra on
-  # this machine. Start it with --profile tetra; see README.md.
+  # this machine. Start it with --profile tetra; see docs/development.md.
   dashboard-tetra:
     profiles: ['tetra']
     build:

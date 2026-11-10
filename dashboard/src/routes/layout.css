@@ -309,8 +309,8 @@
 /*
  * High contrast: many borders, dividers, rings and text use an opacity modifier
  * (e.g. `border-border/50`, `text-foreground/60`), which washes them out.
- * Force them opaque. Exact class tokens (`~=`) are used so variant classes such
- * as `aria-invalid:border-destructive/50` are NOT matched.
+ * Force them opaque. Exact class tokens (`~=`) keep variant classes such as
+ * `aria-invalid:border-destructive/50` from matching.
  */
 @layer utilities {
 	:where([data-contrast='more']) [class~='border-border/30'],

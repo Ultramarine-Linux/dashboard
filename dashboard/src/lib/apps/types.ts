@@ -6,13 +6,13 @@
 
 export type HostAppScope = 'user' | 'system';
 
-/** `AppRecipeSource` — exactly one recipe form must be present. */
+/** `AppRecipeSource`: exactly one recipe form. */
 export type HostAppRecipeSource =
 	| { source: 'inline'; recipe: string; templates: Record<string, string> }
 	| { source: 'file'; recipe_path: string; templates_dir?: string | null };
 
 /**
- * `RecipeSource` — the catalog claim and verified bundle digest Tetra keeps
+ * `RecipeSource`: the catalog claim and verified bundle digest Tetra keeps
  * for an app. Apps cooked before Tetra recorded it have none.
  */
 export type HostAppSource = {
@@ -21,7 +21,7 @@ export type HostAppSource = {
 	sha256: string;
 };
 
-/** `AppManifest` — stored by the agent at `<bundle>/app.json`. */
+/** `AppManifest`, stored by the agent at `<bundle>/app.json`. */
 export type HostAppManifest = {
 	source?: HostAppSource | null;
 	version: number;

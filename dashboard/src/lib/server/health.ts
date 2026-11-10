@@ -26,7 +26,7 @@ export type HealthDependencies = {
 /**
  * Every migration this release ships is recorded in the database. A database
  * migrated by a newer release also counts: migrations only add, so this
- * release's schema is all there (see MIGRATIONS.md).
+ * release's schema is all there (see docs/migrations.md).
  */
 export function migrationsApplied(connection: Sqlite.Database, migrationsFolder: string) {
 	return readDatabaseSchema(connection).version >= readAppSchema(migrationsFolder).version;

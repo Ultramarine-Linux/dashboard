@@ -787,7 +787,7 @@
 		"dashboard": "Dashboard",
 		"hostnameNotConfigured": "This server's hostname is not configured, so apps can't sign in with Dashboard SSO. Set the server's hostname to turn it on. Dashboard restarts once it is set.",
 		"mainNav": "Main",
-		"newerDatabase": "The dashboard database is from a newer version of Dashboard (schema {{dbVersion}}; this version knows {{appVersion}}), and no snapshot from this version was found to restore. Dashboard is running on it without migrating, so some features may not work. Upgrade Dashboard again, or restore a snapshot as described in MIGRATIONS.md.",
+		"newerDatabase": "The dashboard database is from a newer version of Dashboard (schema {{dbVersion}}; this version knows {{appVersion}}), and no snapshot from this version was found to restore. Dashboard is running on it without migrating, so some features may not work. Upgrade Dashboard again, or restore a snapshot as described in docs/migrations.md.",
 		"noResults": "No results found.",
 		"openAccountSettings": "Open account settings",
 		"openNavigation": "Open navigation",

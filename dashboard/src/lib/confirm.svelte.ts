@@ -27,9 +27,9 @@ class ConfirmController {
 		});
 	}
 
-	// Resolve the pending promise. Idempotent — the host also calls this when
-	// the dialog is dismissed (Esc/overlay), by which point it may already be
-	// resolved by a button click.
+	// Resolve the pending promise. Safe to call twice: the host also calls this
+	// when the dialog is dismissed (Esc/overlay), after a button may have
+	// resolved it already.
 	resolve(ok: boolean) {
 		const resolve = this.#resolve;
 		this.#resolve = null;

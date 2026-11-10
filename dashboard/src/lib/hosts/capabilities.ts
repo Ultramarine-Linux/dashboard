@@ -11,17 +11,15 @@ export type CapabilityModule = {
 export type ParsedCapabilities = {
 	modules: CapabilityModule[];
 	/**
-	 * True when the stored payload did not match the expected
-	 * `{ modules: [...] }` shape from `agent.capabilities`. The caller should
-	 * fall back to rendering the raw payload.
+	 * True when the payload isn't the `{ modules: [...] }` shape
+	 * `agent.capabilities` returns. Callers then render the raw payload.
 	 */
 	raw: boolean;
 };
 
 /**
- * Parse a stored `agent.capabilities` response payload into a typed module
- * list. Defends against older agents, error payloads, or partially-shaped
- * responses by returning `raw: true` when the shape is unexpected.
+ * Parse a stored `agent.capabilities` payload into a typed module list.
+ * Older agents, error payloads and partial responses come back as `raw: true`.
  */
 export function parseHostCapabilities(value: unknown): ParsedCapabilities {
 	if (!value || typeof value !== 'object') return { modules: [], raw: true };

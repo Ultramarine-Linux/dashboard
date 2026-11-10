@@ -37,7 +37,7 @@ Trace-*.json
 
 *.local.md
 
-# local Dashboard/Tetra integration CA, enrollment token, and test state
+# dev stack env, and certs left by the removed enrollment stack
 dashboard/dev/.env
 dashboard/dev/certs/
 
